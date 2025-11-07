@@ -146,9 +146,10 @@ export function ProductCard({
         <div className="flex flex-1 flex-col justify-end">
             <div className="mx-4 mb-2 mt-2 flex flex-col items-start gap-x-4 gap-y-3 px-1 @xs:mt-3 @2xl:flex-row">
               <div className="flex-1 text-sm @[16rem]:text-base">
-                <span
+                <Link
+                  href={href}
                   className={clsx(
-                    'mb-2 line-clamp-2 block break-words font-semibold',
+                    'mb-2 line-clamp-2 block break-words font-semibold hover:underline',
                     {
                       light: 'text-[var(--product-card-light-title,hsl(var(--foreground)))]',
                       dark: 'text-[var(--product-card-dark-title,hsl(var(--background)))]',
@@ -156,7 +157,7 @@ export function ProductCard({
                   )}
                 >
                   {title}
-                </span>
+                </Link>
                 {subtitle != null && subtitle !== '' && (
                   <span
                     className={clsx(
