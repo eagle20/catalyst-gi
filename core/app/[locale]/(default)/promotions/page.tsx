@@ -7,6 +7,7 @@ import { client } from '~/client';
 import { graphql } from '~/client/graphql';
 import { ProductCardFragment } from '~/components/product-card/fragment';
 import { pricesTransformer } from '~/data-transformers/prices-transformer';
+import { getPreferredCurrencyCode } from '~/lib/currency';
 
 interface ProductImage {
   src: string;
@@ -31,7 +32,7 @@ interface Product {
 
 const GetPromotionsProducts = graphql(
   `
-    query GetPromotionsProducts($first: Int) {
+    query GetPromotionsProducts($first: Int, $currencyCode: currencyCode) {
       site {
         products(first: $first, hideOutOfStock: false) {
           edges {
@@ -54,10 +55,11 @@ export const metadata: Metadata = {
 async function getPromotionsProducts(): Promise<Product[]> {
   const customerAccessToken = await getSessionCustomerAccessToken();
   const format = await getFormatter();
+  const currencyCode = await getPreferredCurrencyCode();
 
   const { data } = await client.fetch({
     document: GetPromotionsProducts,
-    variables: { first: 24 },
+    variables: { first: 24, currencyCode },
     customerAccessToken,
   });
 
