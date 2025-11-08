@@ -99,233 +99,226 @@ export default async function PromotionsPage() {
   const products = await getPromotionsProducts();
 
   // Categorize products by deal type (this is a placeholder - you'll need to add actual categorization logic)
-  const bigDiscounts = products.slice(0, 8);
-  const couponDeals = products.slice(8, 16);
-  const toolBundles = products.slice(16, 24);
+  const featuredDeals = products.slice(0, 6);
+  const trendingDeals = products.slice(6, 10);
+  const moreDeals = products.slice(10, 20);
 
   return (
     <div className="bg-background">
-      {/* Hero Banner - Large promotional banner */}
-      <div className="relative bg-red-600 text-white">
-        <div className="mx-auto max-w-screen-2xl px-4 py-12 md:py-20">
-          <div className="grid gap-8 md:grid-cols-2 md:items-center">
-            <div>
-              <div className="mb-3 inline-block rounded bg-white px-3 py-1 text-sm font-bold uppercase tracking-wide text-red-600">
-                Limited Time Offer
-              </div>
-              <h1 className="mb-4 text-4xl font-bold leading-tight md:text-5xl lg:text-6xl">
-                Save Big on Power Tools & More
-              </h1>
-              <p className="mb-6 text-lg text-red-50 md:text-xl">
-                Exclusive deals on top brands. Free batteries, huge discounts, and special bundles.
-              </p>
-              <a
-                href="#deals"
-                className="inline-block rounded bg-white px-8 py-4 font-bold text-red-600 transition hover:bg-red-50"
-              >
-                Shop All Deals
-              </a>
-            </div>
-            <div className="hidden md:block">
-              <div className="rounded-lg bg-white/10 p-6 backdrop-blur">
-                <div className="text-center">
-                  <div className="mb-2 text-5xl font-bold">UP TO</div>
-                  <div className="mb-2 text-7xl font-bold">50% OFF</div>
-                  <div className="text-xl">Select Power Tools</div>
-                </div>
-              </div>
-            </div>
+      {/* Top Featured Deal Cards - Horizontal Scroll */}
+      <div className="border-b border-contrast-200 bg-white">
+        <div className="mx-auto max-w-screen-2xl px-4 py-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-bold uppercase tracking-wide">Today's Top Deals</h2>
+            <a href="#all-deals" className="text-sm font-semibold text-primary hover:underline">
+              SHOP ALL DEALS →
+            </a>
+          </div>
+          <div className="scrollbar-hide -mx-4 flex gap-4 overflow-x-auto px-4 pb-2">
+            {featuredDeals.map((product, idx) => {
+              const colors = [
+                'bg-yellow-500',
+                'bg-green-700',
+                'bg-red-600',
+                'bg-red-700',
+                'bg-yellow-400',
+                'bg-blue-600',
+              ];
+              const dealTypes = [
+                '2 FREE TOOLS',
+                '4X THE POWER',
+                'FREE BATTERY',
+                'BUY ONE, GET ONE',
+                'SAVE 14%',
+                'FREE STARTER KIT',
+              ];
+
+              return (
+                <a
+                  key={product.id}
+                  href={product.href}
+                  className={`${colors[idx % colors.length]} group min-w-[180px] flex-shrink-0 overflow-hidden rounded-lg text-white transition hover:opacity-90 md:min-w-[200px]`}
+                >
+                  {product.image && (
+                    <div className="p-4 pb-2">
+                      <img
+                        alt={product.image.alt}
+                        className="aspect-square w-full rounded object-cover"
+                        src={product.image.src}
+                      />
+                    </div>
+                  )}
+                  <div className="p-4 pt-2">
+                    <div className="mb-1 text-sm font-bold uppercase">{dealTypes[idx % 6]}</div>
+                    <div className="line-clamp-2 text-xs">{product.title}</div>
+                  </div>
+                </a>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* Main Deals Content */}
-      <div id="deals" className="mx-auto max-w-screen-2xl px-4 py-12">
-        {/* Section 1: Big Discounts */}
-        <section className="mb-16">
-          <div className="mb-8 border-b-4 border-red-600 pb-4">
-            <h2 className="text-3xl font-bold">Big Discounts Off List Price</h2>
-            <p className="mt-2 text-foreground/70">
-              Save up to 50% on select tools and equipment. No codes needed - discount applied
-              automatically.
-            </p>
-          </div>
+      {/* Trending Product Deals - Mixed Grid Layout */}
+      <div id="all-deals" className="mx-auto max-w-screen-2xl px-4 py-8">
+        <div className="mb-6 flex items-center gap-2">
+          <div className="h-1 w-1 rounded-full bg-red-600" />
+          <h2 className="text-lg font-bold uppercase tracking-wide">Trending Product Deals</h2>
+        </div>
 
-          {bigDiscounts.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-              {bigDiscounts.map((product) => {
-                let discountPercent = 0;
-                if (product.price?.basePrice && product.price?.salePrice) {
-                  const base = parseFloat(product.price.basePrice.replace(/[^0-9.]/g, ''));
-                  const sale = parseFloat(product.price.salePrice.replace(/[^0-9.]/g, ''));
-                  if (base > sale) {
-                    discountPercent = Math.round(((base - sale) / base) * 100);
-                  }
-                }
+        {/* Mixed grid with varied sizes */}
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+          {trendingDeals.map((product, idx) => {
+            const badges = ['HOT DEAL', 'BEST SELLER', 'BEST SELLER', 'FLASH SALE'];
+            const badgeColors = ['bg-red-600', 'bg-blue-600', 'bg-orange-500', 'bg-yellow-500'];
 
-                return (
-                  <a
-                    key={product.id}
-                    href={product.href}
-                    className="group block rounded border border-contrast-200 bg-white transition hover:shadow-lg"
-                  >
-                    {product.image && (
-                      <div className="relative overflow-hidden bg-contrast-100">
-                        <img
-                          alt={product.image.alt}
-                          className="aspect-square w-full object-cover"
-                          src={product.image.src}
-                        />
-                        {discountPercent > 0 && (
-                          <div className="absolute left-0 top-0 bg-red-600 px-3 py-2 font-bold text-white">
-                            SAVE {discountPercent}%
-                          </div>
-                        )}
+            // First product takes 2 columns on desktop
+            const gridSpan = idx === 0 ? 'md:col-span-2 lg:col-span-2' : '';
+
+            let discountPercent = 0;
+            if (product.price?.basePrice && product.price?.salePrice) {
+              const base = parseFloat(product.price.basePrice.replace(/[^0-9.]/g, ''));
+              const sale = parseFloat(product.price.salePrice.replace(/[^0-9.]/g, ''));
+              if (base > sale) {
+                discountPercent = Math.round(((base - sale) / base) * 100);
+              }
+            }
+
+            return (
+              <a
+                key={product.id}
+                href={product.href}
+                className={`group relative block overflow-hidden rounded border border-contrast-200 bg-white transition hover:shadow-lg ${gridSpan}`}
+              >
+                {product.image && (
+                  <div className="relative bg-contrast-100">
+                    <img
+                      alt={product.image.alt}
+                      className="aspect-square w-full object-cover"
+                      src={product.image.src}
+                    />
+                    {idx < 4 && (
+                      <div
+                        className={`${badgeColors[idx]} absolute left-2 top-2 rounded px-2 py-1 text-xs font-bold text-white`}
+                      >
+                        {badges[idx]}
                       </div>
                     )}
-                    <div className="p-4">
-                      <h3 className="mb-2 line-clamp-2 text-sm font-medium">{product.title}</h3>
-                      {product.subtitle && (
-                        <p className="mb-2 text-xs text-foreground/60">{product.subtitle}</p>
+                    {discountPercent > 0 && (
+                      <div className="absolute bottom-2 right-2 rounded-full bg-red-600 px-3 py-1.5 text-sm font-bold text-white shadow-lg">
+                        -{discountPercent}%
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="p-3">
+                  <div className="mb-1 text-xs text-foreground/50">SKU: {product.id}</div>
+                  <h3 className="mb-2 line-clamp-2 text-sm font-medium leading-tight">
+                    {product.title}
+                  </h3>
+                  {product.price && (
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-lg font-bold text-red-600">
+                        {product.price.salePrice || product.price.basePrice}
+                      </span>
+                      {product.price.salePrice && product.price.basePrice && (
+                        <span className="text-xs text-foreground/40 line-through">
+                          {product.price.basePrice}
+                        </span>
                       )}
-                      {product.price && (
-                        <div>
-                          {product.price.salePrice && (
-                            <div className="mb-1 flex items-baseline gap-2">
-                              <span className="text-xl font-bold text-red-600">
-                                {product.price.salePrice}
-                              </span>
-                              {product.price.basePrice && (
-                                <span className="text-sm text-foreground/50 line-through">
-                                  {product.price.basePrice}
-                                </span>
-                              )}
-                            </div>
-                          )}
+                    </div>
+                  )}
+                  <button className="mt-2 w-full rounded border border-primary bg-white px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white">
+                    + Add
+                  </button>
+                </div>
+              </a>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* More Deals Section - Standard Grid */}
+      <div className="bg-contrast-100 py-8">
+        <div className="mx-auto max-w-screen-2xl px-4">
+          <div className="mb-6 flex items-center gap-2">
+            <div className="h-1 w-1 rounded-full bg-green-600" />
+            <h2 className="text-lg font-bold uppercase tracking-wide">More Great Deals</h2>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {moreDeals.map((product) => {
+              let discountPercent = 0;
+              if (product.price?.basePrice && product.price?.salePrice) {
+                const base = parseFloat(product.price.basePrice.replace(/[^0-9.]/g, ''));
+                const sale = parseFloat(product.price.salePrice.replace(/[^0-9.]/g, ''));
+                if (base > sale) {
+                  discountPercent = Math.round(((base - sale) / base) * 100);
+                }
+              }
+
+              return (
+                <a
+                  key={product.id}
+                  href={product.href}
+                  className="group block overflow-hidden rounded border border-contrast-200 bg-white transition hover:shadow-lg"
+                >
+                  {product.image && (
+                    <div className="relative bg-contrast-100">
+                      <img
+                        alt={product.image.alt}
+                        className="aspect-square w-full object-cover"
+                        src={product.image.src}
+                      />
+                      {discountPercent > 0 && (
+                        <div className="absolute right-2 top-2 rounded bg-red-600 px-2 py-1 text-xs font-bold text-white">
+                          {discountPercent}% OFF
                         </div>
                       )}
                     </div>
-                  </a>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="py-8 text-center text-foreground/60">No discounted items at this time.</p>
-          )}
-        </section>
-
-        {/* Section 2: Coupon Deals */}
-        <section className="mb-16">
-          <div className="mb-8 border-b-4 border-blue-600 pb-4">
-            <h2 className="text-3xl font-bold">Apply Coupon in Cart</h2>
-            <p className="mt-2 text-foreground/70">
-              Use promo codes at checkout for additional savings. Codes automatically applied when
-              available.
-            </p>
-          </div>
-
-          {couponDeals.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-              {couponDeals.map((product) => (
-                <a
-                  key={product.id}
-                  href={product.href}
-                  className="group block rounded border border-contrast-200 bg-white transition hover:shadow-lg"
-                >
-                  {product.image && (
-                    <div className="relative overflow-hidden bg-contrast-100">
-                      <img
-                        alt={product.image.alt}
-                        className="aspect-square w-full object-cover"
-                        src={product.image.src}
-                      />
-                      <div className="absolute left-0 top-0 bg-blue-600 px-3 py-2 text-xs font-bold text-white">
-                        COUPON AVAILABLE
-                      </div>
-                    </div>
                   )}
-                  <div className="p-4">
-                    <h3 className="mb-2 line-clamp-2 text-sm font-medium">{product.title}</h3>
-                    {product.subtitle && (
-                      <p className="mb-2 text-xs text-foreground/60">{product.subtitle}</p>
-                    )}
-                    {product.price?.basePrice && (
-                      <div className="text-lg font-bold">{product.price.basePrice}</div>
+                  <div className="p-3">
+                    <h3 className="mb-2 line-clamp-2 text-xs font-medium leading-tight">
+                      {product.title}
+                    </h3>
+                    {product.price && (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-base font-bold">
+                          {product.price.salePrice || product.price.basePrice}
+                        </span>
+                        {product.price.salePrice && product.price.basePrice && (
+                          <span className="text-xs text-foreground/40 line-through">
+                            {product.price.basePrice}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </a>
-              ))}
-            </div>
-          ) : (
-            <p className="py-8 text-center text-foreground/60">No coupon deals at this time.</p>
-          )}
-        </section>
-
-        {/* Section 3: Free Battery with Tool */}
-        <section className="mb-16">
-          <div className="mb-8 border-b-4 border-green-600 pb-4">
-            <h2 className="text-3xl font-bold">Free Battery with Tool Purchase</h2>
-            <p className="mt-2 text-foreground/70">
-              Buy select power tools and get a free battery. Maximize your value and keep working
-              longer.
-            </p>
+              );
+            })}
           </div>
+        </div>
+      </div>
 
-          {toolBundles.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-              {toolBundles.map((product) => (
-                <a
-                  key={product.id}
-                  href={product.href}
-                  className="group block rounded border border-contrast-200 bg-white transition hover:shadow-lg"
-                >
-                  {product.image && (
-                    <div className="relative overflow-hidden bg-contrast-100">
-                      <img
-                        alt={product.image.alt}
-                        className="aspect-square w-full object-cover"
-                        src={product.image.src}
-                      />
-                      <div className="absolute left-0 top-0 bg-green-600 px-3 py-2 text-xs font-bold text-white">
-                        FREE BATTERY
-                      </div>
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <h3 className="mb-2 line-clamp-2 text-sm font-medium">{product.title}</h3>
-                    {product.subtitle && (
-                      <p className="mb-2 text-xs text-foreground/60">{product.subtitle}</p>
-                    )}
-                    {product.price?.basePrice && (
-                      <div className="text-lg font-bold">{product.price.basePrice}</div>
-                    )}
-                    <div className="mt-1 text-xs font-semibold text-green-600">
-                      + Free Battery Included
-                    </div>
-                  </div>
-                </a>
-              ))}
+      {/* Brand Banner Section */}
+      <div className="mx-auto max-w-screen-2xl px-4 py-8">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="group relative overflow-hidden rounded-lg bg-yellow-500">
+            <div className="p-8 md:p-12">
+              <div className="mb-4 text-4xl font-bold text-black">DEWALT</div>
+              <div className="mb-2 text-2xl font-bold text-black">COMBO KITS</div>
+              <div className="text-lg text-black/80">Save on complete tool sets</div>
             </div>
-          ) : (
-            <p className="py-8 text-center text-foreground/60">
-              No battery bundle deals at this time.
-            </p>
-          )}
-        </section>
-
-        {/* Section 4: Free Tool with Battery */}
-        <section className="mb-16">
-          <div className="mb-8 border-b-4 border-orange-600 pb-4">
-            <h2 className="text-3xl font-bold">Free Tool with Battery Purchase</h2>
-            <p className="mt-2 text-foreground/70">
-              Expand your collection. Buy select batteries and get a free tool to go with it.
-            </p>
           </div>
-
-          <p className="py-8 text-center text-foreground/60">
-            Check back soon for battery + free tool offers!
-          </p>
-        </section>
+          <div className="group relative overflow-hidden rounded-lg bg-teal-600">
+            <div className="p-8 md:p-12">
+              <div className="mb-4 text-4xl font-bold text-white">Makita</div>
+              <div className="mb-2 text-2xl font-bold text-white">CORDLESS SERIES</div>
+              <div className="text-lg text-white/90">Professional grade power</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
