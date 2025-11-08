@@ -105,16 +105,16 @@ export default async function PromotionsPage() {
 
   return (
     <div className="bg-background">
-      {/* Top Featured Deal Cards - Horizontal Scroll */}
+      {/* Top Featured Deal Cards - Horizontal Scroll - COMPACT */}
       <div className="border-b border-contrast-200 bg-white">
-        <div className="mx-auto max-w-screen-2xl px-4 py-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold uppercase tracking-wide">Today's Top Deals</h2>
-            <a href="#all-deals" className="text-sm font-semibold text-primary hover:underline">
+        <div className="mx-auto max-w-screen-2xl px-4 py-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wide md:text-base">Today's Top Deals</h2>
+            <a href="#all-deals" className="text-xs font-semibold text-primary hover:underline md:text-sm">
               SHOP ALL DEALS →
             </a>
           </div>
-          <div className="scrollbar-hide -mx-4 flex gap-4 overflow-x-auto px-4 pb-2">
+          <div className="scrollbar-hide -mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
             {featuredDeals.map((product, idx) => {
               const colors = [
                 'bg-yellow-500',
@@ -137,10 +137,10 @@ export default async function PromotionsPage() {
                 <a
                   key={product.id}
                   href={product.href}
-                  className={`${colors[idx % colors.length]} group min-w-[180px] flex-shrink-0 overflow-hidden rounded-lg text-white transition hover:opacity-90 md:min-w-[200px]`}
+                  className={`${colors[idx % colors.length]} group w-[140px] flex-shrink-0 overflow-hidden rounded-lg text-white transition hover:opacity-90 md:w-[160px]`}
                 >
                   {product.image && (
-                    <div className="p-4 pb-2">
+                    <div className="p-3 pb-1">
                       <img
                         alt={product.image.alt}
                         className="aspect-square w-full rounded object-cover"
@@ -148,9 +148,11 @@ export default async function PromotionsPage() {
                       />
                     </div>
                   )}
-                  <div className="p-4 pt-2">
-                    <div className="mb-1 text-sm font-bold uppercase">{dealTypes[idx % 6]}</div>
-                    <div className="line-clamp-2 text-xs">{product.title}</div>
+                  <div className="p-3 pt-1">
+                    <div className="mb-0.5 text-[10px] font-bold uppercase leading-tight md:text-xs">
+                      {dealTypes[idx % 6]}
+                    </div>
+                    <div className="line-clamp-2 text-[10px] leading-tight md:text-xs">{product.title}</div>
                   </div>
                 </a>
               );
@@ -159,21 +161,39 @@ export default async function PromotionsPage() {
         </div>
       </div>
 
-      {/* Trending Product Deals - Mixed Grid Layout */}
+      {/* Trending Product Deals - Dynamic Mixed Grid Layout */}
       <div id="all-deals" className="mx-auto max-w-screen-2xl px-4 py-8">
         <div className="mb-6 flex items-center gap-2">
           <div className="h-1 w-1 rounded-full bg-red-600" />
-          <h2 className="text-lg font-bold uppercase tracking-wide">Trending Product Deals</h2>
+          <h2 className="text-base font-bold uppercase tracking-wide md:text-lg">Trending Product Deals</h2>
         </div>
 
-        {/* Mixed grid with varied sizes */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+        {/* Dynamic grid with varied sizes: 1x1, 2x1, 1x2, 2x2 patterns */}
+        <div className="grid auto-rows-fr grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 lg:grid-cols-6">
           {trendingDeals.map((product, idx) => {
-            const badges = ['HOT DEAL', 'BEST SELLER', 'BEST SELLER', 'FLASH SALE'];
-            const badgeColors = ['bg-red-600', 'bg-blue-600', 'bg-orange-500', 'bg-yellow-500'];
+            const badges = ['HOT DEAL', 'BEST SELLER', 'PRICE DROP', 'FLASH SALE'];
+            const badgeColors = ['bg-red-600', 'bg-blue-600', 'bg-orange-500', 'bg-green-600'];
 
-            // First product takes 2 columns on desktop
-            const gridSpan = idx === 0 ? 'md:col-span-2 lg:col-span-2' : '';
+            // Dynamic grid spanning - creates visual variety
+            // Pattern: Large, normal, wide, tall, normal, normal, large, wide...
+            let gridSpan = '';
+            if (idx === 0) {
+              // First item: 2x2 featured
+              gridSpan = 'md:col-span-2 md:row-span-2';
+            } else if (idx === 2) {
+              // Third item: 2x1 wide
+              gridSpan = 'md:col-span-2';
+            } else if (idx === 3) {
+              // Fourth item: 1x2 tall
+              gridSpan = 'md:row-span-2';
+            } else if (idx === 6) {
+              // Seventh item: 2x2 large
+              gridSpan = 'md:col-span-2 md:row-span-2';
+            } else if (idx === 8) {
+              // Ninth item: 2x1 wide
+              gridSpan = 'md:col-span-2';
+            }
+            // Rest are normal 1x1
 
             let discountPercent = 0;
             if (product.price?.basePrice && product.price?.salePrice) {
@@ -183,6 +203,10 @@ export default async function PromotionsPage() {
                 discountPercent = Math.round(((base - sale) / base) * 100);
               }
             }
+
+            // Larger cards get more content
+            const isLarge = gridSpan.includes('col-span-2') && gridSpan.includes('row-span-2');
+            const isWide = gridSpan.includes('col-span-2') && !gridSpan.includes('row-span-2');
 
             return (
               <a
@@ -197,28 +221,31 @@ export default async function PromotionsPage() {
                       className="aspect-square w-full object-cover"
                       src={product.image.src}
                     />
-                    {idx < 4 && (
+                    {idx < badges.length && (
                       <div
-                        className={`${badgeColors[idx]} absolute left-2 top-2 rounded px-2 py-1 text-xs font-bold text-white`}
+                        className={`${badgeColors[idx % badgeColors.length]} absolute left-2 top-2 rounded px-2 py-1 text-[10px] font-bold uppercase text-white md:text-xs`}
                       >
-                        {badges[idx]}
+                        {badges[idx % badges.length]}
                       </div>
                     )}
                     {discountPercent > 0 && (
-                      <div className="absolute bottom-2 right-2 rounded-full bg-red-600 px-3 py-1.5 text-sm font-bold text-white shadow-lg">
+                      <div className="absolute bottom-2 right-2 rounded-full bg-red-600 px-2 py-1 text-xs font-bold text-white shadow-lg md:px-3 md:py-1.5 md:text-sm">
                         -{discountPercent}%
                       </div>
                     )}
                   </div>
                 )}
-                <div className="p-3">
-                  <div className="mb-1 text-xs text-foreground/50">SKU: {product.id}</div>
-                  <h3 className="mb-2 line-clamp-2 text-sm font-medium leading-tight">
+                <div className={`p-2 md:p-3 ${isLarge ? 'md:p-4' : ''}`}>
+                  {!isLarge && <div className="mb-1 text-[10px] text-foreground/50">SKU: {product.id}</div>}
+                  <h3 className={`mb-2 line-clamp-2 font-medium leading-tight ${isLarge ? 'text-base md:text-lg' : 'text-xs md:text-sm'}`}>
                     {product.title}
                   </h3>
+                  {product.subtitle && isLarge && (
+                    <p className="mb-2 text-xs text-foreground/60">{product.subtitle}</p>
+                  )}
                   {product.price && (
                     <div className="flex items-baseline gap-2">
-                      <span className="text-lg font-bold text-red-600">
+                      <span className={`font-bold text-red-600 ${isLarge ? 'text-xl md:text-2xl' : 'text-base md:text-lg'}`}>
                         {product.price.salePrice || product.price.basePrice}
                       </span>
                       {product.price.salePrice && product.price.basePrice && (
@@ -228,7 +255,7 @@ export default async function PromotionsPage() {
                       )}
                     </div>
                   )}
-                  <button className="mt-2 w-full rounded border border-primary bg-white px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary hover:text-white">
+                  <button className={`mt-2 w-full rounded border border-primary bg-white font-semibold text-primary transition hover:bg-primary hover:text-white ${isLarge ? 'px-4 py-2 text-sm' : 'px-3 py-1.5 text-xs'}`}>
                     + Add
                   </button>
                 </div>
