@@ -59,6 +59,7 @@ interface Props<F extends Field> {
   prefetch?: boolean;
   thumbnailLabel?: string;
   additionaInformationTitle?: string;
+  inventoryTracking?: Streamable<string | null>;
   inventoryLevel?: Streamable<{ value: number } | null>;
   sku: Streamable<string>;
 }
@@ -76,6 +77,7 @@ export function ProductDetail<F extends Field>({
   prefetch,
   thumbnailLabel,
   additionaInformationTitle = 'Additional information',
+  inventoryTracking,
   inventoryLevel,
   sku,
 }: Props<F>) {
@@ -117,13 +119,19 @@ export function ProductDetail<F extends Field>({
                       <PriceLabel className="my-3 text-xl @xl:text-2xl" price={price ?? ''} />
                     )}
                   </Stream>
-                  <Stream fallback={null} value={inventoryLevel}>
-                    {(invLevel) => {
-                      // Type guard: ensure invLevel is a valid object with value
-                      const hasStock =
+                  <Stream
+                    fallback={null}
+                    value={Streamable.all([inventoryTracking, inventoryLevel])}
+                  >
+                    {([tracking, invLevel]) => {
+                      // In Stock: tracking is ON and inventory > 0
+                      // Backorder: tracking is OFF OR (tracking is ON and inventory <= 0)
+                      const isTrackingEnabled = tracking === 'product' || tracking === 'variant';
+                      const hasInventory =
                         invLevel && typeof invLevel.value === 'number' && invLevel.value > 0;
+                      const isInStock = isTrackingEnabled && hasInventory;
 
-                      if (!hasStock) {
+                      if (!isInStock) {
                         // Calculate delivery date using business days (Mon-Fri only)
                         const deliveryDate = addBusinessDays(new Date(), 10);
                         const formattedDate = deliveryDate.toLocaleDateString(undefined, {
