@@ -567,5 +567,18 @@
         "decrease": "Decrease count"
       }
     }
+  },
+  "Promotions": {
+    "title": "Promotions & Deals",
+    "description": "Discover amazing deals and limited-time offers on our best products",
+    "heroTitle": "Exclusive Deals & Promotions",
+    "heroDescription": "Save big on our best products with limited-time offers and special promotions",
+    "shopNow": "Shop Now",
+    "flashSaleTitle": "Flash Sale",
+    "flashSaleDescription": "Limited time deals on our best products - don't miss out!",
+    "viewAllDeals": "View All Deals",
+    "secondaryTitle": "More Deals Coming Soon",
+    "secondaryDescription": "Check back regularly for new promotions and exclusive offers",
+    "exploreCatalog": "Explore Catalog"
   }
 }
