@@ -21,6 +21,11 @@ import './components/featured-products-git/featured-products-git.makesiwft';
 import './components/featured-category-git/featured-category-git.makeswift';
 import './components/contact-form-git/contact-form-git.makeswift';
 
+// Promotions components
+import '~/vibes/soul/primitives/countdown-timer/countdown-timer.makeswift';
+import '~/vibes/soul/sections/flash-sale/flash-sale.makeswift';
+import '~/vibes/soul/sections/promo-banner/promo-banner.makeswift';
+
 import './components/site-theme/register';
 
 import { MakeswiftComponentType } from '@makeswift/runtime';
