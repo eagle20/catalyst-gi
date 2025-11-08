@@ -1,4 +1,6 @@
-export const metadata = {
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
   title: 'Promotions & Deals',
   description: 'Discover amazing deals and limited-time offers on our best products',
 };
@@ -25,5 +27,3 @@ export default function PromotionsPage() {
     </div>
   );
 }
-
-export const runtime = 'edge';
