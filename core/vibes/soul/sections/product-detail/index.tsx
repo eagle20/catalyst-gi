@@ -59,7 +59,6 @@ interface Props<F extends Field> {
   prefetch?: boolean;
   thumbnailLabel?: string;
   additionaInformationTitle?: string;
-  inventoryTracking: Streamable<string | null>;
   inventoryLevel?: Streamable<{ value: number } | null>;
   sku: Streamable<string>;
 }

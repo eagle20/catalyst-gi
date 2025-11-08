@@ -311,9 +311,6 @@ export default async function Product(props: Props) {
           productId={productId}
           quantityLabel={t('ProductDetails.quantity')}
           thumbnailLabel={t('ProductDetails.thumbnail')}
-          inventoryTracking={Streamable.from(() =>
-            getProduct(props).then((p) => p.inventory_tracking),
-          )}
           inventoryLevel={Streamable.from(() =>
             getProductData(variables).then((p) => p.inventory_level),
           )}
