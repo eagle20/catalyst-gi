@@ -4,9 +4,8 @@ import { getTranslations } from 'next-intl/server';
 import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
+import { ProductCard } from '~/components/product-card';
 import { ProductCardFragment } from '~/components/product-card/fragment';
-import { FlashSale } from '~/vibes/soul/sections/flash-sale';
-import { PromoBanner } from '~/vibes/soul/sections/promo-banner';
 
 const GetPromotionsProducts = graphql(
   `
@@ -57,46 +56,36 @@ export default async function PromotionsPage() {
     return basePrice && salePrice && salePrice < basePrice;
   });
 
-  // Calculate flash sale end date (7 days from now for demo)
-  const flashSaleEndDate = new Date();
-  flashSaleEndDate.setDate(flashSaleEndDate.getDate() + 7);
-
   return (
-    <div className="flex flex-col gap-12">
-      {/* Hero Promo Banner */}
-      <PromoBanner
-        backgroundColor="bg-primary"
-        ctaHref="/promotions"
-        ctaLabel={t('shopNow')}
-        description={t('heroDescription')}
-        size="large"
-        textColor="light"
-        title={t('heroTitle')}
-      />
+    <div className="mx-auto max-w-screen-2xl px-4 py-10">
+      {/* Hero Section */}
+      <div className="mb-12 text-center">
+        <h1 className="mb-4 text-4xl font-bold md:text-5xl">{t('heroTitle')}</h1>
+        <p className="mx-auto mb-6 max-w-2xl text-lg text-gray-600">{t('heroDescription')}</p>
+      </div>
 
-      {/* Flash Sale Section */}
-      {saleProducts.length > 0 && (
-        <FlashSale
-          ctaHref="/search"
-          ctaLabel={t('viewAllDeals')}
-          description={t('flashSaleDescription')}
-          endDate={flashSaleEndDate}
-          products={saleProducts}
-          timerSize="large"
-          title={t('flashSaleTitle')}
-        />
+      {/* Products Grid */}
+      {saleProducts.length > 0 ? (
+        <div>
+          <h2 className="mb-6 text-2xl font-bold">{t('flashSaleTitle')}</h2>
+          <p className="mb-8 text-gray-600">{t('flashSaleDescription')}</p>
+
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+            {saleProducts.map((product, index) => (
+              <ProductCard
+                imagePriority={index <= 3}
+                imageSize="wide"
+                key={product.entityId}
+                product={product}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="py-12 text-center">
+          <p className="text-lg text-gray-600">No sale products available at this time.</p>
+        </div>
       )}
-
-      {/* Secondary Promo Banner */}
-      <PromoBanner
-        backgroundColor="bg-contrast-100"
-        ctaHref="/search"
-        ctaLabel={t('exploreCatalog')}
-        description={t('secondaryDescription')}
-        size="medium"
-        textColor="dark"
-        title={t('secondaryTitle')}
-      />
     </div>
   );
 }
