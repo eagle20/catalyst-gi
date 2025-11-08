@@ -2,13 +2,32 @@ import { removeEdgesAndNodes } from '@bigcommerce/catalyst-client';
 import { Metadata } from 'next';
 import { getFormatter, getTranslations } from 'next-intl/server';
 
-import { Streamable } from '@/vibes/soul/lib/streamable';
-import { Product } from '@/vibes/soul/primitives/product-card';
 import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
 import { ProductCardFragment } from '~/components/product-card/fragment';
 import { pricesTransformer } from '~/data-transformers/prices-transformer';
+
+interface ProductImage {
+  src: string;
+  alt: string;
+}
+
+interface ProductPrice {
+  basePrice?: string;
+  salePrice?: string;
+}
+
+interface Product {
+  id: string;
+  title: string;
+  href: string;
+  image?: ProductImage;
+  price?: ProductPrice;
+  subtitle?: string;
+  description?: string;
+  categories?: string[];
+}
 
 const GetPromotionsProducts = graphql(
   `
