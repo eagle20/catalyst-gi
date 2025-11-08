@@ -34,7 +34,6 @@ export interface ProductCardProps {
   onClick?: () => void;
 }
 
-// eslint-disable-next-line valid-jsdoc
 /**
  * This component supports various CSS variables for theming. Here's a comprehensive list, along
  * with their default values:
@@ -92,42 +91,42 @@ export function ProductCard({
             }[colorScheme],
           )}
         >
-            {image != null ? (
-              <Image
-                alt={image.alt || `${title} image`}
-                className={clsx(
-                  'w-full scale-100 select-none object-fill transition-transform duration-500 ease-out group-hover:scale-110',
-                  {
-                    light: 'bg-[var(--product-card-light-background,hsl(var(--contrast-100))]',
-                    dark: 'bg-[var(--product-card-dark-background,hsl(var(--contrast-500))]',
-                  }[colorScheme],
-                )}
-                fill
-                priority={imagePriority}
-                sizes={imageSizes}
-                src={image.src}
-              />
-            ) : (
-              <Image
-                alt={`${title} image`}
-                className={clsx(
-                  'w-full scale-100 select-none object-cover transition-transform duration-500 ease-out group-hover:scale-110',
-                  {
-                    light: 'bg-[var(--product-card-light-background,hsl(var(--contrast-100))]',
-                    dark: 'bg-[var(--product-card-dark-background,hsl(var(--contrast-500))]',
-                  }[colorScheme],
-                )}
-                fill
-                priority={imagePriority}
-                sizes={imageSizes}
-                src={DEFAULT_PRODUCT_IMAGE_URL}
-              />
-            )}
-            {badge != null && badge !== '' && (
-              <Badge className="absolute left-3 top-3" shape="rounded">
-                {badge}
-              </Badge>
-            )}
+          {image != null ? (
+            <Image
+              alt={image.alt || `${title} image`}
+              className={clsx(
+                'w-full scale-100 select-none object-fill transition-transform duration-500 ease-out group-hover:scale-110',
+                {
+                  light: 'bg-[var(--product-card-light-background,hsl(var(--contrast-100))]',
+                  dark: 'bg-[var(--product-card-dark-background,hsl(var(--contrast-500))]',
+                }[colorScheme],
+              )}
+              fill
+              priority={imagePriority}
+              sizes={imageSizes}
+              src={image.src}
+            />
+          ) : (
+            <Image
+              alt={`${title} image`}
+              className={clsx(
+                'w-full scale-100 select-none object-cover transition-transform duration-500 ease-out group-hover:scale-110',
+                {
+                  light: 'bg-[var(--product-card-light-background,hsl(var(--contrast-100))]',
+                  dark: 'bg-[var(--product-card-dark-background,hsl(var(--contrast-500))]',
+                }[colorScheme],
+              )}
+              fill
+              priority={imagePriority}
+              sizes={imageSizes}
+              src={DEFAULT_PRODUCT_IMAGE_URL}
+            />
+          )}
+          {badge != null && badge !== '' && (
+            <Badge className="absolute left-3 top-3" shape="rounded">
+              {badge}
+            </Badge>
+          )}
           <Link
             aria-label={title}
             className={clsx(
@@ -144,54 +143,53 @@ export function ProductCard({
           </Link>
         </div>
         <div className="flex flex-1 flex-col justify-end">
-            <div className="mx-4 mb-2 mt-2 flex flex-col items-start gap-x-4 gap-y-3 px-1 @xs:mt-3 @2xl:flex-row">
-              <div className="flex-1 text-sm @[16rem]:text-base">
-                <Link
-                  href={href}
+          <div className="mx-4 mb-2 mt-2 flex flex-col items-start gap-x-4 gap-y-3 px-1 @xs:mt-3 @2xl:flex-row">
+            <div className="flex-1 text-sm @[16rem]:text-base">
+              <Link
+                className={clsx(
+                  'mb-2 line-clamp-2 block break-words font-semibold hover:underline',
+                  {
+                    light: 'text-[var(--product-card-light-title,hsl(var(--foreground)))]',
+                    dark: 'text-[var(--product-card-dark-title,hsl(var(--background)))]',
+                  }[colorScheme],
+                )}
+                href={href}
+              >
+                {title}
+              </Link>
+              {subtitle != null && subtitle !== '' && (
+                <span
                   className={clsx(
-                    'mb-2 line-clamp-2 block break-words font-semibold hover:underline',
+                    'mb-1 block text-sm font-normal',
                     {
-                      light: 'text-[var(--product-card-light-title,hsl(var(--foreground)))]',
-                      dark: 'text-[var(--product-card-dark-title,hsl(var(--background)))]',
+                      light: 'text-[var(--product-card-light-subtitle,hsl(var(--foreground)/75%))]',
+                      dark: 'text-[var(--product-card-dark-subtitle,hsl(var(--background)/75%))]',
                     }[colorScheme],
                   )}
                 >
-                  {title}
-                </Link>
-                {subtitle != null && subtitle !== '' && (
-                  <span
-                    className={clsx(
-                      'mb-1 block text-sm font-normal',
-                      {
-                        light:
-                          'text-[var(--product-card-light-subtitle,hsl(var(--foreground)/75%))]',
-                        dark: 'text-[var(--product-card-dark-subtitle,hsl(var(--background)/75%))]',
-                      }[colorScheme],
-                    )}
-                  >
-                    {subtitle}
-                  </span>
-                )}
-                {price != null && (
-                  <PriceLabel className="mb-4" colorScheme={colorScheme} price={price} />
-                )}
-              </div>
+                  {subtitle}
+                </span>
+              )}
+              {price != null && (
+                <PriceLabel className="mb-4" colorScheme={colorScheme} price={price} />
+              )}
             </div>
-            {showButton && (
-              <div className="mt-auto p-4 pt-0">
-                <button
-                  className={clsx(
-                    'relative w-full rounded bg-gray-900 py-2 text-center text-white transition hover:bg-gray-800',
-                  )}
-                  type="button"
-                  tabIndex={-1}
-                  aria-disabled="true"
-                >
-                  Shop Now →
-                </button>
-              </div>
-            )}
           </div>
+          {showButton && (
+            <div className="mt-auto p-4 pt-0">
+              <button
+                aria-disabled="true"
+                className={clsx(
+                  'relative w-full rounded bg-gray-900 py-2 text-center text-white transition hover:bg-gray-800',
+                )}
+                tabIndex={-1}
+                type="button"
+              >
+                Shop Now →
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       {showCompare && (
         <div className="mt-0.5 shrink-0">

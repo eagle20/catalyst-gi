@@ -4,10 +4,10 @@ import { Price, PriceLabel } from '@/vibes/soul/primitives/price-label';
 import { Rating } from '@/vibes/soul/primitives/rating';
 import { Breadcrumb, Breadcrumbs } from '@/vibes/soul/sections/breadcrumbs';
 import { ProductGallery } from '@/vibes/soul/sections/product-detail/product-gallery';
+import { Link } from '~/components/link';
 
 import { ProductDetailForm, ProductDetailFormAction } from './product-detail-form';
 import { Field } from './schema';
-import { Link } from '~/components/link';
 
 // Calculate delivery date accounting for business days (Mon-Fri only)
 function addBusinessDays(date: Date, days: number): Date {
@@ -16,9 +16,10 @@ function addBusinessDays(date: Date, days: number): Date {
 
   while (addedDays < days) {
     result.setDate(result.getDate() + 1);
+
     // Skip weekends (0 = Sunday, 6 = Saturday)
     if (result.getDay() !== 0 && result.getDay() !== 6) {
-      addedDays++;
+      addedDays += 1;
     }
   }
 
@@ -59,7 +60,7 @@ interface Props<F extends Field> {
   thumbnailLabel?: string;
   additionaInformationTitle?: string;
   inventoryTracking: Streamable<string | null>;
-  inventoryLevel?: Streamable<number | null>;
+  inventoryLevel?: Streamable<{ value: number } | null>;
   sku: Streamable<string>;
 }
 
@@ -76,7 +77,6 @@ export function ProductDetail<F extends Field>({
   prefetch,
   thumbnailLabel,
   additionaInformationTitle = 'Additional information',
-  inventoryTracking,
   inventoryLevel,
   sku,
 }: Props<F>) {
@@ -99,8 +99,8 @@ export function ProductDetail<F extends Field>({
                 <div className="text-foreground">
                   {product.subtitle != null &&
                     product.subtitle !== '' &&
-                    product.subtitleHref !== null && (
-                      <Link href={product.subtitleHref as string}>
+                    product.subtitleHref != null && (
+                      <Link href={product.subtitleHref}>
                         <p className="font-mono text-sm uppercase">{product.subtitle}</p>
                       </Link>
                     )}
@@ -120,8 +120,9 @@ export function ProductDetail<F extends Field>({
                   </Stream>
                   <Stream fallback={null} value={inventoryLevel}>
                     {(invLevel) => {
-                      // Type guard: ensure invLevel is a valid number
-                      const hasStock = typeof invLevel === 'number' && invLevel > 0;
+                      // Type guard: ensure invLevel is a valid object with value
+                      const hasStock =
+                        invLevel && typeof invLevel.value === 'number' && invLevel.value > 0;
 
                       if (!hasStock) {
                         // Calculate delivery date using business days (Mon-Fri only)
@@ -135,23 +136,28 @@ export function ProductDetail<F extends Field>({
                         return (
                           <div className="my-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                             <p className="flex items-center gap-2 text-sm font-medium text-amber-900">
-                              <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                              <svg
+                                className="h-5 w-5 flex-shrink-0"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  clipRule="evenodd"
+                                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                  fillRule="evenodd"
+                                />
                               </svg>
                               <span className="font-semibold">Backorder Item</span>
                             </p>
                             <p className="ml-7 mt-1 text-sm text-amber-800">
-                              Expected delivery by <span className="font-semibold">{formattedDate}</span>
+                              Expected delivery by{' '}
+                              <span className="font-semibold">{formattedDate}</span>
                             </p>
                           </div>
                         );
                       }
 
-                      return (
-                        <p className="text-base font-semibold text-green-700">
-                          ✓ In Stock
-                        </p>
-                      );
+                      return <p className="text-base font-semibold text-green-700">✓ In Stock</p>;
                     }}
                   </Stream>
                   <div className="mb-8 @2xl:hidden">
@@ -159,8 +165,8 @@ export function ProductDetail<F extends Field>({
                       {(images) => (
                         <ProductGallery
                           images={images}
-                          thumbnailLabel={thumbnailLabel}
                           productName={product.title}
+                          thumbnailLabel={thumbnailLabel}
                         />
                       )}
                     </Stream>
@@ -187,10 +193,10 @@ export function ProductDetail<F extends Field>({
                         decrementLabel={decrementLabel}
                         fields={fields}
                         incrementLabel={incrementLabel}
+                        inventoryLevel={inventoryLevel}
                         prefetch={prefetch}
                         productId={product.id}
                         quantityLabel={quantityLabel}
-                        inventoryLevel={inventoryLevel}
                       />
                     )}
                   </Stream>
@@ -266,10 +272,6 @@ function ProductGallerySkeleton() {
 }
 
 function PriceLabelSkeleton() {
-  return <div className="my-4 h-4 w-20 animate-pulse rounded-md bg-contrast-100" />;
-}
-
-function InventoryTrackingSkeleton() {
   return <div className="my-4 h-4 w-20 animate-pulse rounded-md bg-contrast-100" />;
 }
 

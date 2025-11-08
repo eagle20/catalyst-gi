@@ -50,7 +50,7 @@ interface Props<F extends Field> {
   decrementLabel?: string;
   ctaDisabled?: boolean;
   prefetch?: boolean;
-  inventoryLevel?: any;
+  inventoryLevel?: { value: number } | null;
 }
 
 export function ProductDetailForm<F extends Field>({
@@ -133,7 +133,7 @@ export function ProductDetailForm<F extends Field>({
       <FormStateInput />
       <form {...getFormProps(form)} action={formAction} className="py-8">
         <input name="id" type="hidden" value={productId} />
-        <input type="hidden" name="action" value="add" />
+        <input name="action" type="hidden" value="add" />
 
         <div className="space-y-6">
           {fields.map((field) => {
@@ -159,10 +159,12 @@ export function ProductDetailForm<F extends Field>({
               <div className="col-span-1 w-full sm:col-span-2">
                 <NumberInput
                   aria-label={quantityLabel}
+                  buttonClassName="w-full"
+                  className="w-full"
                   decrementLabel={decrementLabel}
                   incrementLabel={incrementLabel}
-                  min={1}
                   max={9999}
+                  min={1}
                   name={formFields.quantity.name}
                   onBlur={quantityControl.blur}
                   onChange={(e) => {
@@ -178,22 +180,17 @@ export function ProductDetailForm<F extends Field>({
                     }
 
                     // Always allow the change (backorders are allowed)
-                    return quantityControl.change(valueToChangeTo);
+                    quantityControl.change(valueToChangeTo);
                   }}
                   onFocus={quantityControl.focus}
                   required
                   value={quantityControl.value}
-                  className="w-full"
-                  buttonClassName="w-full"
                 />
               </div>
               {/* Buttons: stacked and full width on mobile, side by side on desktop */}
               <div className="col-span-1 flex w-full flex-col gap-3 sm:col-span-6 sm:flex-row">
                 <SubmitButton disabled={ctaDisabled}>{ctaLabel}</SubmitButton>
-                <B2BNinjaAddToQuoteButton
-                  productId={productId}
-                  quantity={quantityControl.value}
-                />
+                <B2BNinjaAddToQuoteButton productId={productId} quantity={quantityControl.value} />
               </div>
             </div>
           </div>
@@ -229,16 +226,14 @@ function B2BNinjaAddToQuoteButton({
 }) {
   return (
     <Button
-      id="qn-cart-to-quote"
-      type="submit"
-      size="medium"
       className="top-0 mt-0 w-auto @xl:w-56"
-      style={{ marginTop: '0' }}
-      variant="secondary"
+      id="qn-cart-to-quote"
       onClick={(event) => {
         event.preventDefault();
 
-        if (window.BN && window.BN.add_products_to_quote) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (window.BN?.add_products_to_quote) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           window.BN.add_products_to_quote(
             [
               {
@@ -250,20 +245,29 @@ function B2BNinjaAddToQuoteButton({
             true,
             true,
           )
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             .then((result: boolean) => {
               if (!result) {
                 // Optionally handle failed add to quote (e.g., show error, log)
+                // eslint-disable-next-line no-console
                 console.warn('B2BNinja add to quote failed: invalid product data');
               } else {
+                // eslint-disable-next-line no-console
                 console.log('B2BNinja add to quote successful');
               }
             })
-            .catch((err: any) => {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            .catch((err: unknown) => {
               // Optionally handle error
+              // eslint-disable-next-line no-console
               console.error('B2BNinja add to quote error:', err);
             });
         }
       }}
+      size="medium"
+      style={{ marginTop: '0' }}
+      type="submit"
+      variant="secondary"
     >
       Add To Quote
     </Button>

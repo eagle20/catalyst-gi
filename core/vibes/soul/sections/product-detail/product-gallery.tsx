@@ -2,7 +2,7 @@
 
 import { clsx } from 'clsx';
 import useEmblaCarousel from 'embla-carousel-react';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Image } from '~/components/image';
 
@@ -62,20 +62,20 @@ export function ProductGallery({
         <div className="flex">
           {images.map((image, idx) => (
             <div
+              aria-label={`${image.alt || `${productName} image ${idx + 1}`} - Hover to zoom`}
               className="relative aspect-square w-full shrink-0 grow-0 basis-full cursor-zoom-in"
               key={idx}
-              ref={idx === previewImage ? imageContainerRef : null}
               onMouseEnter={() => setIsZoomed(true)}
               onMouseLeave={() => setIsZoomed(false)}
               onMouseMove={handleMouseMove}
+              ref={idx === previewImage ? imageContainerRef : null}
               role="img"
-              aria-label={`${image.alt || `${productName} image ${idx + 1}`} - Hover to zoom`}
             >
               <Image
                 alt={image.alt || `${productName} image ${idx + 1}`}
                 className={clsx(
                   'object-contain transition-transform duration-200',
-                  isZoomed && idx === previewImage ? 'scale-150' : 'scale-100'
+                  isZoomed && idx === previewImage ? 'scale-150' : 'scale-100',
                 )}
                 fill
                 priority={idx === 0}
