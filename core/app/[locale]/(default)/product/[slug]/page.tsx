@@ -157,10 +157,7 @@ const getCtaLabel = async (props: Props) => {
     return t('preorder');
   }
 
-  if (!product.inventory.isInStock) {
-    return t('outOfStock');
-  }
-
+  // Allow adding out-of-stock items to cart (backorder)
   return t('addToCart');
 };
 
@@ -169,15 +166,9 @@ const getCtaDisabled = async (props: Props) => {
   const variables = await cachedProductDataVariables(slug, props.searchParams);
   const product = await getProductData(variables);
 
+  // Only disable if product is truly unavailable
+  // Allow adding out-of-stock items (backorder) and preorders
   if (product.availabilityV2.status === 'Unavailable') {
-    return true;
-  }
-
-  if (product.availabilityV2.status === 'Preorder') {
-    return false;
-  }
-
-  if (!product.inventory.isInStock) {
     return true;
   }
 
