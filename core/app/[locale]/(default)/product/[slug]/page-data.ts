@@ -296,6 +296,12 @@ export const getProductData = cache(async (variables: Variables) => {
 
   const productRest = await getProductDataRest(product.sku);
 
+  // Log for debugging
+  console.log('Product SKU:', product.sku);
+  console.log('REST API Response:', productRest);
+  console.log('Inventory Tracking:', productRest?.inventory_tracking);
+  console.log('Inventory Level:', productRest?.inventory_level);
+
   return {
     ...product,
     inventory_tracking: productRest ? (productRest.inventory_tracking as string) : null,
@@ -305,6 +311,10 @@ export const getProductData = cache(async (variables: Variables) => {
 
 export const getProductDataRest = async (sku: string) => {
   try {
+    console.log('Fetching REST data for SKU:', sku);
+    console.log('Store Hash:', process.env.BIGCOMMERCE_STORE_HASH);
+    console.log('Has Access Token:', !!process.env.BIGCOMMERCE_API_ACCESS_TOKEN);
+
     const response = await axios.get(
       `https://api.bigcommerce.com/stores/${process.env.BIGCOMMERCE_STORE_HASH}/v3/catalog/products?sku=${encodeURIComponent(sku)}`,
       {
@@ -314,15 +324,27 @@ export const getProductDataRest = async (sku: string) => {
       },
     );
 
+    console.log('REST API response status:', response.status);
+    console.log('REST API response data count:', response.data.data?.length);
+
     const product = response.data.data[0];
 
     if (!product) {
+      console.log('No product found in REST API response');
       return null;
     }
 
+    console.log('Found product in REST API:', product.id, product.name);
     return product;
   } catch (error) {
     console.error('Error fetching product data from BigCommerce API:', error);
+    if (axios.isAxiosError(error)) {
+      console.error('Axios error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+      });
+    }
     return null;
   }
 };
