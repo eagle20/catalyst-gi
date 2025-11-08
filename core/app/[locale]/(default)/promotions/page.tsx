@@ -65,18 +65,19 @@ async function getPromotionsProducts(): Promise<Product[]> {
 
   const allProducts = removeEdgesAndNodes(data.site.products);
 
-  // Filter to only products with sale prices
-  const saleProducts = allProducts.filter((product) => {
-    const prices = product.prices;
-    if (!prices) return false;
+  // Temporarily show all products to debug price structure
+  // TODO: Re-enable sale price filtering once we understand the data
+  // const saleProducts = allProducts.filter((product) => {
+  //   const prices = product.prices;
+  //   if (!prices) return false;
+  //
+  //   const basePrice = prices.basePrice?.value;
+  //   const salePrice = prices.salePrice?.value ?? prices.price.value;
+  //
+  //   return basePrice && salePrice && salePrice < basePrice;
+  // });
 
-    const basePrice = prices.basePrice?.value;
-    const salePrice = prices.salePrice?.value ?? prices.price.value;
-
-    return basePrice && salePrice && salePrice < basePrice;
-  });
-
-  return saleProducts.map((product) => ({
+  return allProducts.map((product) => ({
     id: product.entityId.toString(),
     title: product.name,
     href: product.path,
