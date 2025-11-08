@@ -162,22 +162,23 @@ export function ProductDetailForm<F extends Field>({
                   decrementLabel={decrementLabel}
                   incrementLabel={incrementLabel}
                   min={1}
-                  max={parseInt(inventoryLevel?.value, 10) ?? 9999}
+                  max={9999}
                   name={formFields.quantity.name}
                   onBlur={quantityControl.blur}
                   onChange={(e) => {
                     const valueToChangeTo = e.currentTarget.value;
+                    const currentInventory = parseInt(inventoryLevel?.value, 10);
+                    const requestedQty = Number(valueToChangeTo);
 
-                    if (
-                      !ctaDisabled &&
-                      parseInt(inventoryLevel?.value, 10) >= Number(valueToChangeTo)
-                    ) {
-                      return quantityControl.change(valueToChangeTo);
-                    } else {
+                    // Check if we have enough inventory (for in-stock items only)
+                    if (currentInventory > 0 && currentInventory < requestedQty) {
                       toast.error(
-                        'Sorry, we do not have enough inventory to fulfill your request.',
+                        `Only ${currentInventory} units available in stock. You can order more for backorder.`,
                       );
                     }
+
+                    // Always allow the change (backorders are allowed)
+                    return quantityControl.change(valueToChangeTo);
                   }}
                   onFocus={quantityControl.focus}
                   required
