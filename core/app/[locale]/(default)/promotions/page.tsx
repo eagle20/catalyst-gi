@@ -99,68 +99,144 @@ export default async function PromotionsPage() {
   const products = await getPromotionsProducts();
 
   return (
-    <div className="mx-auto max-w-screen-2xl px-4 py-10">
-      {/* Hero Section */}
-      <div className="mb-12 text-center">
-        <h1 className="mb-4 text-4xl font-bold md:text-5xl">{t('heroTitle')}</h1>
-        <p className="mx-auto mb-6 max-w-2xl text-lg text-foreground/70">
-          {t('heroDescription')}
-        </p>
+    <div className="min-h-screen">
+      {/* Hero Section with gradient background */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-background">
+        <div className="mx-auto max-w-screen-2xl px-4 py-16 text-center md:py-24">
+          <div className="inline-block rounded-full bg-primary/10 px-4 py-2 mb-6">
+            <span className="text-sm font-semibold text-primary uppercase tracking-wide">
+              {t('heroTitle')}
+            </span>
+          </div>
+          <h1 className="mb-6 text-5xl font-bold md:text-6xl lg:text-7xl">
+            Exclusive Deals & Promotions
+          </h1>
+          <p className="mx-auto mb-8 max-w-2xl text-lg text-foreground/70 md:text-xl">
+            {t('heroDescription')}
+          </p>
+          <a
+            href="#products"
+            className="inline-block rounded-full bg-primary px-8 py-4 font-semibold text-primary-foreground transition-transform hover:scale-105"
+          >
+            {t('shopNow')}
+          </a>
+        </div>
+        {/* Decorative elements */}
+        <div className="absolute -bottom-1 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent" />
       </div>
 
       {/* Products Section */}
-      {products.length > 0 ? (
-        <div>
-          <h2 className="mb-6 text-2xl font-bold">{t('flashSaleTitle')}</h2>
-          <p className="mb-8 text-foreground/70">{t('flashSaleDescription')}</p>
-
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-            {products.map((product) => (
-              <div key={product.id} className="group">
-                <a className="block" href={product.href}>
-                  {product.image && (
-                    <div className="relative mb-3 aspect-square overflow-hidden rounded-lg bg-contrast-100">
-                      <img
-                        alt={product.image.alt}
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                        src={product.image.src}
-                      />
-                    </div>
-                  )}
-                  <h3 className="mb-1 font-medium">{product.title}</h3>
-                  {product.subtitle && (
-                    <p className="mb-2 text-sm text-foreground/60">{product.subtitle}</p>
-                  )}
-                  {product.price && (
-                    <div className="flex items-baseline gap-2">
-                      {product.price.salePrice && (
-                        <>
-                          <span className="font-semibold text-primary">
-                            {product.price.salePrice}
-                          </span>
-                          {product.price.basePrice && (
-                            <span className="text-sm text-foreground/60 line-through">
-                              {product.price.basePrice}
-                            </span>
-                          )}
-                        </>
-                      )}
-                      {!product.price.salePrice && product.price.basePrice && (
-                        <span className="font-semibold">{product.price.basePrice}</span>
-                      )}
-                    </div>
-                  )}
-                </a>
+      <div id="products" className="mx-auto max-w-screen-2xl px-4 py-16">
+        {products.length > 0 ? (
+          <>
+            <div className="mb-12 flex items-center justify-between">
+              <div>
+                <h2 className="mb-2 text-3xl font-bold md:text-4xl">
+                  {t('flashSaleTitle')}
+                </h2>
+                <p className="text-foreground/70">{t('flashSaleDescription')}</p>
               </div>
-            ))}
+              <div className="hidden md:block">
+                <div className="rounded-lg bg-primary/10 px-6 py-3">
+                  <span className="text-sm font-semibold text-primary">
+                    {products.length} {products.length === 1 ? 'Product' : 'Products'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:gap-6">
+              {products.map((product) => {
+                // Calculate discount percentage if both prices exist
+                let discountPercent = 0;
+                if (product.price?.basePrice && product.price?.salePrice) {
+                  const base = parseFloat(product.price.basePrice.replace(/[^0-9.]/g, ''));
+                  const sale = parseFloat(product.price.salePrice.replace(/[^0-9.]/g, ''));
+                  if (base > sale) {
+                    discountPercent = Math.round(((base - sale) / base) * 100);
+                  }
+                }
+
+                return (
+                  <div
+                    key={product.id}
+                    className="group relative overflow-hidden rounded-xl border border-contrast-200 bg-background transition-shadow hover:shadow-lg"
+                  >
+                    <a className="block" href={product.href}>
+                      {product.image && (
+                        <div className="relative aspect-square overflow-hidden bg-contrast-100">
+                          <img
+                            alt={product.image.alt}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                            src={product.image.src}
+                          />
+                          {/* Discount badge */}
+                          {discountPercent > 0 && (
+                            <div className="absolute right-2 top-2 rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white shadow-lg">
+                              -{discountPercent}%
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <div className="p-4">
+                        <h3 className="mb-2 line-clamp-2 font-semibold text-foreground group-hover:text-primary">
+                          {product.title}
+                        </h3>
+                        {product.subtitle && (
+                          <p className="mb-3 text-sm text-foreground/60">{product.subtitle}</p>
+                        )}
+                        {product.price && (
+                          <div className="flex flex-col gap-1">
+                            {product.price.salePrice ? (
+                              <>
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-xl font-bold text-primary">
+                                    {product.price.salePrice}
+                                  </span>
+                                  {product.price.basePrice && (
+                                    <span className="text-sm text-foreground/50 line-through">
+                                      {product.price.basePrice}
+                                    </span>
+                                  )}
+                                </div>
+                                {discountPercent > 0 && (
+                                  <span className="text-xs font-semibold text-green-600">
+                                    Save {discountPercent}%
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              product.price.basePrice && (
+                                <span className="text-xl font-bold">{product.price.basePrice}</span>
+                              )
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="rounded-2xl border-2 border-dashed border-contrast-200 py-20 text-center">
+            <div className="mx-auto max-w-md">
+              <div className="mb-4 text-6xl">🎉</div>
+              <h3 className="mb-2 text-2xl font-bold">Check Back Soon!</h3>
+              <p className="mb-6 text-foreground/60">
+                No sale products available at this time. New promotions are coming soon!
+              </p>
+              <a
+                href="/"
+                className="inline-block rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform hover:scale-105"
+              >
+                {t('exploreCatalog')}
+              </a>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="py-12 text-center">
-          <p className="text-lg text-foreground/60">No sale products available at this time.</p>
-          <p className="mt-2 text-foreground/50">Check back soon for amazing deals!</p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
