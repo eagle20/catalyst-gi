@@ -24,12 +24,19 @@ export async function GET(request: NextRequest) {
     // The JWT is usually in axiosResponse.data.token
     return NextResponse.json({ jwt: axiosResponse.data.token });
   } catch (err: any) {
+    // Log the error but don't expose details to client
+    console.error('JWT fetch error:', err.message);
+
     if (err.response) {
-      return NextResponse.json({ error: err.response.data }, { status: err.response.status });
+      // Return a more graceful error
+      return NextResponse.json(
+        { error: 'JWT service temporarily unavailable' },
+        { status: err.response.status },
+      );
     }
     return NextResponse.json(
-      { error: 'Failed to fetch JWT', details: String(err) },
-      { status: 500 },
+      { error: 'JWT service temporarily unavailable' },
+      { status: 503 },
     );
   }
 }
