@@ -82,7 +82,10 @@ async function getPromotionsProducts(): Promise<Product[]> {
     title: product.name,
     href: product.path,
     image: product.defaultImage
-      ? { src: product.defaultImage.url, alt: product.defaultImage.altText }
+      ? {
+          src: product.defaultImage.url.replace('{:size}', '500x500'),
+          alt: product.defaultImage.altText,
+        }
       : undefined,
     price: pricesTransformer(product.prices, format),
     subtitle: product.brand?.name ?? undefined,
