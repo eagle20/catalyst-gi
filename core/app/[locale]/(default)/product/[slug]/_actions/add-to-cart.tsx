@@ -191,7 +191,7 @@ export const addToCart = async (
       const giftAlreadyInCart = allItems.some((item) => item.productEntityId === freeToolProductId);
 
       if (!giftAlreadyInCart) {
-        console.log('🔵 Gift not found, adding it');
+        console.log('🔵 Gift not found, adding it to cart ID:', cartId);
         await addToOrCreateCart({
           lineItems: [
             {
@@ -200,7 +200,7 @@ export const addToCart = async (
               quantity: 1,
             },
           ],
-        });
+        }, cartId); // Pass the cart ID to ensure we add to the same cart
       } else {
         console.log('⚠️ Gift already added by BigCommerce promotion');
       }

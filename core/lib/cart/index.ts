@@ -26,11 +26,16 @@ export async function clearCartId(): Promise<void> {
 
 export async function addToOrCreateCart(
   data: CreateCartInput | AddCartLineItemsInput['data'],
+  existingCartId?: string,
 ): Promise<string> {
-  const cartId = await getCartId();
+  // Use provided cart ID or fetch from session
+  const cartId = existingCartId || (await getCartId());
+  console.log('🛒 [addToOrCreateCart] Cart ID:', cartId, existingCartId ? '(provided)' : '(from session)');
+
   const cart = await getCart(cartId);
 
   if (cart) {
+    console.log('🛒 [addToOrCreateCart] Adding to existing cart:', cart.entityId);
     const response = await addCartLineItem(cart.entityId, data);
 
     console.log('cart response: ', response.data.cart.addCartLineItems?.cart?.entityId);
@@ -46,6 +51,7 @@ export async function addToOrCreateCart(
     return updatedCartId;
   }
 
+  console.log('🛒 [addToOrCreateCart] No existing cart found, creating new cart');
   const createResponse = await createCart(data);
 
   console.log('Create response cart: ', createResponse);

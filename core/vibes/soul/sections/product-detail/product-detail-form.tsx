@@ -105,6 +105,26 @@ export function ProductDetailForm<F extends Field>({
     successMessage: 'Product added to cart successfully!',
   });
 
+  // Log form submission for debugging
+  const wrappedFormAction = async (formData: FormData) => {
+    console.log('🚀 [form] Submitting to cart:', {
+      productId: formData.get('id'),
+      quantity: formData.get('quantity'),
+      freeToolProductId: formData.get('freeToolProductId'),
+      freeToolVariantId: formData.get('freeToolVariantId'),
+    });
+
+    const result = await formAction(formData);
+
+    console.log('✅ [form] Action completed:', {
+      status: result.lastResult?.status,
+      hasErrors: !!result.lastResult?.error,
+      successMessage: result.successMessage
+    });
+
+    return result;
+  };
+
   useEffect(() => {
     if (lastResult?.status === 'success') {
       toast.success(successMessage);
