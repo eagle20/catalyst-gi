@@ -318,6 +318,10 @@ export default async function Product(props: Props) {
             getProductData(variables).then((p) => p.inventory_level),
           )}
           sku={Streamable.from(() => getProduct(props).then((p) => p.sku))}
+          promotions={Streamable.from(() => getProductData(variables).then((p) => p.promotions))}
+          giftProducts={Streamable.from(() =>
+            getProductData(variables).then((p) => p.giftProducts),
+          )}
         />
 
         <div className="mb-20">

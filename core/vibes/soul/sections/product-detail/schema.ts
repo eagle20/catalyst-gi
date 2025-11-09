@@ -116,12 +116,16 @@ export interface SchemaRawShape {
     | z.ZodOptional<z.ZodNumber>;
   id: z.ZodString;
   quantity: z.ZodNumber;
+  freeToolProductId?: z.ZodOptional<z.ZodNumber>;
+  freeToolVariantId?: z.ZodOptional<z.ZodNumber>;
 }
 
 export function schema(fields: Field[]): z.ZodObject<SchemaRawShape> {
   const shape: SchemaRawShape = {
     id: z.string(),
     quantity: z.number().min(1),
+    freeToolProductId: z.number().optional(),
+    freeToolVariantId: z.number().optional(),
   };
 
   fields.forEach((field) => {

@@ -12,6 +12,8 @@ import { getPreferredCurrencyCode } from '~/lib/currency';
 import { ProductSchemaFragment } from './_components/product-schema/fragment';
 import { ProductViewedFragment } from './_components/product-viewed/fragment';
 import axios from 'axios';
+import { getProductPromotions } from '~/client/management/get-product-promotions';
+import { getGiftProducts } from '~/client/queries/get-gift-products';
 
 const MultipleChoiceFieldFragment = graphql(`
   fragment MultipleChoiceFieldFragment on MultipleChoiceOption {
@@ -296,12 +298,36 @@ export const getProductData = cache(async (variables: Variables) => {
 
   const productRest = await getProductDataRest(product.sku);
 
+  // Fetch promotions for this product
+  let promotions = null;
+  let giftProducts = null;
+
+  if (product?.entityId) {
+    promotions = await getProductPromotions(product.entityId);
+
+    // If there are gift promotions, fetch the gift product details
+    if (promotions && promotions.length > 0) {
+      const giftProductIds = promotions.flatMap((promo) =>
+        promo.giftItems
+          .filter((item) => item.productId)
+          .map((item) => item.productId as number),
+      );
+
+      if (giftProductIds.length > 0) {
+        giftProducts = await getGiftProducts(giftProductIds);
+      }
+    }
+  }
+
   return {
     ...product,
     inventory_tracking: productRest ? (productRest.inventory_tracking as string) : null,
-    inventory_level: productRest && typeof productRest.inventory_level === 'number'
-      ? { value: productRest.inventory_level }
-      : null,
+    inventory_level:
+      productRest && typeof productRest.inventory_level === 'number'
+        ? { value: productRest.inventory_level }
+        : null,
+    promotions,
+    giftProducts,
   };
 });
 
@@ -311,7 +337,7 @@ export const getProductDataRest = async (sku: string) => {
       `https://api.bigcommerce.com/stores/${process.env.BIGCOMMERCE_STORE_HASH}/v3/catalog/products?sku=${encodeURIComponent(sku)}`,
       {
         headers: {
-          'X-Auth-Token': process.env.BIGCOMMERCE_API_ACCESS_TOKEN,
+          'X-Auth-Token': process.env.BIGCOMMERCE_ACCESS_TOKEN,
         },
       },
     );

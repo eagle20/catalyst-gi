@@ -11,7 +11,7 @@ import {
 } from '@conform-to/react';
 import { getZodConstraint, parseWithZod } from '@conform-to/zod';
 import { createSerializer, parseAsString, useQueryStates } from 'nuqs';
-import { ReactNode, useActionState, useCallback, useEffect } from 'react';
+import { ReactNode, useActionState, useCallback, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { z } from 'zod';
 
@@ -29,6 +29,7 @@ import { toast } from '@/vibes/soul/primitives/toaster';
 import { usePathname, useRouter } from '~/i18n/routing';
 
 import { Field, schema, SchemaRawShape } from './schema';
+import { FreeToolSelector } from './free-tool-selector';
 
 type Action<S, P> = (state: Awaited<S>, payload: P) => S | Promise<S>;
 
@@ -51,6 +52,8 @@ interface Props<F extends Field> {
   ctaDisabled?: boolean;
   prefetch?: boolean;
   inventoryLevel?: { value: number } | null;
+  promotions?: any;
+  giftProducts?: any;
 }
 
 export function ProductDetailForm<F extends Field>({
@@ -64,6 +67,8 @@ export function ProductDetailForm<F extends Field>({
   ctaDisabled = false,
   prefetch = false,
   inventoryLevel,
+  promotions,
+  giftProducts,
 }: Props<F>) {
   const router = useRouter();
   const pathname = usePathname();
@@ -128,14 +133,72 @@ export function ProductDetailForm<F extends Field>({
 
   const quantityControl = useInputControl(formFields.quantity);
 
+  // Free tool selection state
+  const [selectedFreeToolId, setSelectedFreeToolId] = useState<number | undefined>();
+  const [selectedFreeToolVariantId, setSelectedFreeToolVariantId] = useState<number | undefined>();
+  const [freeToolError, setFreeToolError] = useState<string | undefined>();
+
+  // Prepare free tool options from promotions and gift products
+  const freeToolOptions =
+    promotions && giftProducts && promotions.length > 0
+      ? promotions.flatMap((promo: any) =>
+          promo.giftItems.map((giftItem: any) => {
+            const giftProduct = giftProducts.find((p: any) => p.entityId === giftItem.productId);
+
+            if (!giftProduct) return null;
+
+            // If variant-specific gift
+            if (giftItem.variantId && giftProduct.variants) {
+              const variant = giftProduct.variants.find((v: any) => v.entityId === giftItem.variantId);
+
+              return {
+                productId: giftProduct.entityId,
+                variantId: giftItem.variantId,
+                name: `${giftProduct.name}${variant?.optionLabel ? ` - ${variant.optionLabel}` : ''}`,
+                imageUrl: variant?.imageUrl || giftProduct.imageUrl,
+              };
+            }
+
+            // Product-level gift
+            return {
+              productId: giftProduct.entityId,
+              name: giftProduct.name,
+              imageUrl: giftProduct.imageUrl,
+            };
+          }).filter(Boolean),
+        )
+      : [];
+
+  const handleFreeToolSelect = (productId: number, variantId?: number) => {
+    setSelectedFreeToolId(productId);
+    setSelectedFreeToolVariantId(variantId);
+    setFreeToolError(undefined);
+  };
+
+  const hasFreeToolPromotion = freeToolOptions.length > 0;
+
   return (
     <FormProvider context={form.context}>
       <FormStateInput />
       <form {...getFormProps(form)} action={formAction} className="py-8">
         <input name="id" type="hidden" value={productId} />
         <input name="action" type="hidden" value="add" />
+        {selectedFreeToolId && (
+          <input name="freeToolProductId" type="hidden" value={selectedFreeToolId} />
+        )}
+        {selectedFreeToolVariantId && (
+          <input name="freeToolVariantId" type="hidden" value={selectedFreeToolVariantId} />
+        )}
 
         <div className="space-y-6">
+          {hasFreeToolPromotion && (
+            <FreeToolSelector
+              tools={freeToolOptions}
+              onSelect={handleFreeToolSelect}
+              selectedToolId={selectedFreeToolId}
+              error={freeToolError}
+            />
+          )}
           {fields.map((field) => {
             return (
               <FormField

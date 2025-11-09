@@ -38,6 +38,12 @@ export const addToCart = async (
 
   const productEntityId = Number(submission.value.id);
   const quantity = Number(submission.value.quantity);
+  const freeToolProductId = submission.value.freeToolProductId
+    ? Number(submission.value.freeToolProductId)
+    : undefined;
+  const freeToolVariantId = submission.value.freeToolVariantId
+    ? Number(submission.value.freeToolVariantId)
+    : undefined;
 
   const selectedOptions = prevState.fields.reduce<CartSelectedOptionsInput>((accum, field) => {
     const optionValueEntityId = submission.value[field.name];
@@ -152,27 +158,39 @@ export const addToCart = async (
   }, {});
 
   try {
-    await addToOrCreateCart({
-      lineItems: [
-        {
-          productEntityId,
-          selectedOptions,
-          quantity,
-        },
-      ],
-    });
+    // Prepare line items - battery product first
+    const lineItems = [
+      {
+        productEntityId,
+        selectedOptions,
+        quantity,
+      },
+    ];
+
+    // Add free tool if selected
+    if (freeToolProductId) {
+      lineItems.push({
+        productEntityId: freeToolProductId,
+        ...(freeToolVariantId ? { variantEntityId: freeToolVariantId } : {}),
+        quantity: 1,
+      });
+    }
+
+    await addToOrCreateCart({ lineItems });
 
     return {
       lastResult: submission.reply(),
       fields: prevState.fields,
-      successMessage: t.rich('successMessage', {
-        cartItems: quantity,
-        cartLink: (chunks) => (
-          <Link className="underline" href="/cart" prefetch="viewport" prefetchKind="full">
-            {chunks}
-          </Link>
-        ),
-      }),
+      successMessage: freeToolProductId
+        ? 'Battery and free tool added to cart!'
+        : t.rich('successMessage', {
+            cartItems: quantity,
+            cartLink: (chunks) => (
+              <Link className="underline" href="/cart" prefetch="viewport" prefetchKind="full">
+                {chunks}
+              </Link>
+            ),
+          }),
     };
   } catch (error) {
     // eslint-disable-next-line no-console

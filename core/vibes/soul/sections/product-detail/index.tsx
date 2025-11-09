@@ -62,6 +62,8 @@ interface Props<F extends Field> {
   inventoryTracking?: Streamable<string | null>;
   inventoryLevel?: Streamable<{ value: number } | null>;
   sku: Streamable<string>;
+  promotions?: Streamable<any>;
+  giftProducts?: Streamable<any>;
 }
 
 export function ProductDetail<F extends Field>({
@@ -80,6 +82,8 @@ export function ProductDetail<F extends Field>({
   inventoryTracking,
   inventoryLevel,
   sku,
+  promotions,
+  giftProducts,
 }: Props<F>) {
   return (
     <section className="@container">
@@ -190,9 +194,11 @@ export function ProductDetail<F extends Field>({
                       streamableFields,
                       streamableCtaLabel,
                       streamableCtaDisabled,
+                      promotions ?? Streamable.from(() => Promise.resolve(null)),
+                      giftProducts ?? Streamable.from(() => Promise.resolve(null)),
                     ])}
                   >
-                    {([fields, ctaLabel, ctaDisabled]) => (
+                    {([fields, ctaLabel, ctaDisabled, promos, gifts]) => (
                       <ProductDetailForm
                         action={action}
                         ctaDisabled={ctaDisabled ?? undefined}
@@ -204,6 +210,8 @@ export function ProductDetail<F extends Field>({
                         prefetch={prefetch}
                         productId={product.id}
                         quantityLabel={quantityLabel}
+                        promotions={promos}
+                        giftProducts={gifts}
                       />
                     )}
                   </Stream>
