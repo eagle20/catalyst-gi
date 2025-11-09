@@ -9,8 +9,9 @@ import { ReactNode } from 'react';
 import { Field, schema } from '@/vibes/soul/sections/product-detail/schema';
 import { graphql } from '~/client/graphql';
 import { Link } from '~/components/link';
-import { addToOrCreateCart } from '~/lib/cart';
+import { addToOrCreateCart, getCartId } from '~/lib/cart';
 import { MissingCartError } from '~/lib/cart/error';
+import { getCart } from '~/client/queries/get-cart';
 
 type CartSelectedOptionsInput = ReturnType<typeof graphql.scalar<'CartSelectedOptionsInput'>>;
 
@@ -158,25 +159,54 @@ export const addToCart = async (
   }, {});
 
   try {
-    // Prepare line items - battery product first
-    const lineItems = [
-      {
-        productEntityId,
-        selectedOptions,
-        quantity,
-      },
-    ];
+    // Step 1: Add the main product first
+    await addToOrCreateCart({
+      lineItems: [
+        {
+          productEntityId,
+          selectedOptions,
+          quantity,
+        },
+      ],
+    });
 
-    // Add free tool if selected
+    // Step 2: If there's a free tool selected, check if BigCommerce already added it
     if (freeToolProductId) {
-      lineItems.push({
-        productEntityId: freeToolProductId,
-        ...(freeToolVariantId ? { variantEntityId: freeToolVariantId } : {}),
-        quantity: 1,
-      });
-    }
+      const cartId = await getCartId();
+      const cart = await getCart(cartId);
 
-    await addToOrCreateCart({ lineItems });
+      // Check if the gift item is already in the cart (added by BigCommerce promotion)
+      const allItems = [
+        ...(cart?.lineItems.physicalItems || []),
+        ...(cart?.lineItems.digitalItems || []),
+      ];
+
+      const giftAlreadyInCart = allItems.some((item) => {
+        // Check if product ID matches
+        if (item.productEntityId !== freeToolProductId) return false;
+
+        // If we have a specific variant selected, check variant too
+        if (freeToolVariantId) {
+          return item.variantEntityId === freeToolVariantId;
+        }
+
+        // Otherwise just matching product ID is enough
+        return true;
+      });
+
+      // Step 3: Only add the gift if it's not already there
+      if (!giftAlreadyInCart) {
+        await addToOrCreateCart({
+          lineItems: [
+            {
+              productEntityId: freeToolProductId,
+              ...(freeToolVariantId ? { variantEntityId: freeToolVariantId } : {}),
+              quantity: 1,
+            },
+          ],
+        });
+      }
+    }
 
     return {
       lastResult: submission.reply(),
