@@ -138,10 +138,31 @@ export function ProductDetailForm<F extends Field>({
   const [selectedFreeToolVariantId, setSelectedFreeToolVariantId] = useState<number | undefined>();
   const [freeToolError, setFreeToolError] = useState<string | undefined>();
 
-  // Prepare free tool options from promotions and gift products
+  // Get current quantity from form
+  const currentQuantity = Number(quantityControl.value) || 1;
+
+  // Filter promotions based on quantity and rules
+  const eligiblePromotions = promotions?.filter((promo: any) => {
+    // Check if user is buying enough to qualify
+    return currentQuantity >= promo.minimumQuantity;
+  }) || [];
+
+  // Calculate how many free gifts user can select
+  const maxFreeGiftsAllowed = eligiblePromotions.reduce((total: number, promo: any) => {
+    if (promo.applyOnce) {
+      // Can only get 1 gift regardless of quantity
+      return total + 1;
+    } else {
+      // Can get multiple gifts based on how many times they meet minimum
+      const timesQualified = Math.floor(currentQuantity / promo.minimumQuantity);
+      return total + timesQualified;
+    }
+  }, 0);
+
+  // Prepare free tool options from eligible promotions only
   const freeToolOptions =
-    promotions && giftProducts && promotions.length > 0
-      ? promotions.flatMap((promo: any) =>
+    eligiblePromotions && giftProducts && eligiblePromotions.length > 0
+      ? eligiblePromotions.flatMap((promo: any) =>
           promo.giftItems.map((giftItem: any) => {
             const giftProduct = giftProducts.find((p: any) => p.entityId === giftItem.productId);
 
@@ -174,6 +195,15 @@ export function ProductDetailForm<F extends Field>({
     setSelectedFreeToolVariantId(variantId);
     setFreeToolError(undefined);
   };
+
+  // Reset free tool selection if quantity changes and user no longer qualifies
+  useEffect(() => {
+    if (selectedFreeToolId && freeToolOptions.length === 0) {
+      setSelectedFreeToolId(undefined);
+      setSelectedFreeToolVariantId(undefined);
+      toast.info('Free gift removed - increase quantity to qualify');
+    }
+  }, [freeToolOptions.length, selectedFreeToolId]);
 
   const hasFreeToolPromotion = freeToolOptions.length > 0;
 

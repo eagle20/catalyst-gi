@@ -14,6 +14,7 @@ const PromotionRuleSchema = z.object({
       gift_item: GiftItemSchema.optional(),
     })
     .optional(),
+  apply_once: z.boolean().optional(),
   condition: z
     .object({
       cart: z
@@ -23,6 +24,7 @@ const PromotionRuleSchema = z.object({
               products: z.array(z.number()).optional(),
             })
             .optional(),
+          minimum_quantity: z.number().optional(),
         })
         .optional(),
     })
@@ -44,6 +46,8 @@ const PromotionsResponseSchema = z.object({
 export interface FreeGiftPromotion {
   id: number;
   name: string;
+  minimumQuantity: number;
+  applyOnce: boolean;
   giftItems: Array<{
     productId?: number;
     variantId?: number;
@@ -92,17 +96,24 @@ export const getProductPromotions = async (
           return rule.action?.gift_item !== undefined;
         });
       })
-      .map((promo) => ({
-        id: promo.id,
-        name: promo.name,
-        giftItems: promo.rules
-          .filter((rule) => rule.action?.gift_item)
-          .map((rule) => ({
-            productId: rule.action!.gift_item!.product_id,
-            variantId: rule.action!.gift_item!.variant_id,
-            quantity: rule.action!.gift_item!.quantity,
-          })),
-      }));
+      .map((promo) => {
+        // Get the first rule with gift item to extract condition details
+        const giftRule = promo.rules.find((rule) => rule.action?.gift_item);
+
+        return {
+          id: promo.id,
+          name: promo.name,
+          minimumQuantity: giftRule?.condition?.cart?.minimum_quantity || 1,
+          applyOnce: giftRule?.apply_once ?? false,
+          giftItems: promo.rules
+            .filter((rule) => rule.action?.gift_item)
+            .map((rule) => ({
+              productId: rule.action!.gift_item!.product_id,
+              variantId: rule.action!.gift_item!.variant_id,
+              quantity: rule.action!.gift_item!.quantity,
+            })),
+        };
+      });
 
     return activeGiftPromotions.length > 0 ? activeGiftPromotions : null;
   } catch (error) {
