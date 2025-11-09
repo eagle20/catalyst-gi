@@ -26,7 +26,7 @@ export async function clearCartId(): Promise<void> {
 
 export async function addToOrCreateCart(
   data: CreateCartInput | AddCartLineItemsInput['data'],
-): Promise<void> {
+): Promise<string> {
   const cartId = await getCartId();
   const cart = await getCart(cartId);
 
@@ -35,24 +35,30 @@ export async function addToOrCreateCart(
 
     console.log('cart response: ', response.data.cart.addCartLineItems?.cart?.entityId);
 
-    if (!response.data.cart.addCartLineItems?.cart?.entityId) {
+    const updatedCartId = response.data.cart.addCartLineItems?.cart?.entityId;
+
+    if (!updatedCartId) {
       throw new MissingCartError();
     }
 
     unstable_expireTag(TAGS.cart);
 
-    return;
+    return updatedCartId;
   }
 
   const createResponse = await createCart(data);
 
   console.log('Create response cart: ', createResponse);
 
-  if (!createResponse.data.cart.createCart?.cart?.entityId) {
+  const newCartId = createResponse.data.cart.createCart?.cart?.entityId;
+
+  if (!newCartId) {
     throw new MissingCartError();
   }
 
-  await setCartId(createResponse.data.cart.createCart.cart.entityId);
+  await setCartId(newCartId);
 
   unstable_expireTag(TAGS.cart);
+
+  return newCartId;
 }

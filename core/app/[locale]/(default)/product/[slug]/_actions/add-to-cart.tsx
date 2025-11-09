@@ -159,10 +159,10 @@ export const addToCart = async (
   }, {});
 
   try {
-    console.log('🔵 Step 1: Adding main product:', productEntityId);
+    console.log('🔵 Adding to cart - Main product:', productEntityId, 'Free tool:', freeToolProductId);
 
-    // Step 1: Add the main product first
-    await addToOrCreateCart({
+    // Add only the main product first - this returns the cart ID
+    const cartId = await addToOrCreateCart({
       lineItems: [
         {
           productEntityId,
@@ -172,48 +172,26 @@ export const addToCart = async (
       ],
     });
 
-    console.log('✅ Main product added successfully');
+    console.log('✅ Main product added, cart ID:', cartId);
 
-    // Step 2: If there's a free tool selected, check if BigCommerce already added it
-    if (freeToolProductId) {
-      console.log('🔵 Step 2: Free tool selected:', freeToolProductId, 'variant:', freeToolVariantId);
-
-      const cartId = await getCartId();
-      console.log('🔵 Cart ID:', cartId);
-
+    // Now check if we need to add the gift
+    if (freeToolProductId && cartId) {
       const cart = await getCart(cartId);
-
-      // Check if the gift item is already in the cart (added by BigCommerce promotion)
       const allItems = [
         ...(cart?.lineItems.physicalItems || []),
         ...(cart?.lineItems.digitalItems || []),
       ];
 
-      console.log('🔵 Current cart items:', allItems.map(item => ({
+      console.log('🔵 Cart contents after adding main product:', allItems.map(item => ({
         productId: item.productEntityId,
-        variantId: item.variantEntityId,
         name: item.name,
         quantity: item.quantity
       })));
 
-      const giftAlreadyInCart = allItems.some((item) => {
-        // Check if product ID matches
-        if (item.productEntityId !== freeToolProductId) return false;
+      const giftAlreadyInCart = allItems.some((item) => item.productEntityId === freeToolProductId);
 
-        // If we have a specific variant selected, check variant too
-        if (freeToolVariantId) {
-          return item.variantEntityId === freeToolVariantId;
-        }
-
-        // Otherwise just matching product ID is enough
-        return true;
-      });
-
-      console.log('🔵 Gift already in cart?', giftAlreadyInCart);
-
-      // Step 3: Only add the gift if it's not already there
       if (!giftAlreadyInCart) {
-        console.log('🔵 Step 3: Adding gift to cart');
+        console.log('🔵 Gift not found, adding it');
         await addToOrCreateCart({
           lineItems: [
             {
@@ -223,9 +201,8 @@ export const addToCart = async (
             },
           ],
         });
-        console.log('✅ Gift added successfully');
       } else {
-        console.log('⚠️ Gift already in cart, skipping manual add');
+        console.log('⚠️ Gift already added by BigCommerce promotion');
       }
     }
 
