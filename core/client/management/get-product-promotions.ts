@@ -55,6 +55,13 @@ export const getProductPromotions = async (
   productId: number,
 ): Promise<FreeGiftPromotion[] | null> => {
   try {
+    // Check if fetchPromotions method exists
+    if (typeof client.fetchPromotions !== 'function') {
+      console.error('client.fetchPromotions is not available');
+
+      return null;
+    }
+
     const response = await client.fetchPromotions();
     const parsedResponse = PromotionsResponseSchema.safeParse(response);
 

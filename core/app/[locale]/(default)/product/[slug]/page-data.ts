@@ -303,19 +303,26 @@ export const getProductData = cache(async (variables: Variables) => {
   let giftProducts = null;
 
   if (product?.entityId) {
-    promotions = await getProductPromotions(product.entityId);
+    try {
+      promotions = await getProductPromotions(product.entityId);
 
-    // If there are gift promotions, fetch the gift product details
-    if (promotions && promotions.length > 0) {
-      const giftProductIds = promotions.flatMap((promo) =>
-        promo.giftItems
-          .filter((item) => item.productId)
-          .map((item) => item.productId as number),
-      );
+      // If there are gift promotions, fetch the gift product details
+      if (promotions && promotions.length > 0) {
+        const giftProductIds = promotions.flatMap((promo) =>
+          promo.giftItems
+            .filter((item) => item.productId)
+            .map((item) => item.productId as number),
+        );
 
-      if (giftProductIds.length > 0) {
-        giftProducts = await getGiftProducts(giftProductIds);
+        if (giftProductIds.length > 0) {
+          giftProducts = await getGiftProducts(giftProductIds);
+        }
       }
+    } catch (error) {
+      console.error('Error loading promotions:', error);
+      // Continue without promotions if there's an error
+      promotions = null;
+      giftProducts = null;
     }
   }
 
