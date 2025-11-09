@@ -11,6 +11,7 @@ import { productCardTransformer } from '~/data-transformers/product-card-transfo
 import { productOptionsTransformer } from '~/data-transformers/product-options-transformer';
 import { getPreferredCurrencyCode } from '~/lib/currency';
 import { ProductDetail } from '~/lib/makeswift/components/product-detail';
+import { client } from '~/client';
 
 import { addToCart } from './_actions/add-to-cart';
 import { ProductSchema } from './_components/product-schema';
@@ -175,6 +176,44 @@ const getCtaDisabled = async (props: Props) => {
   return false;
 };
 
+async function getProductIdsWithPromotions(): Promise<Set<number>> {
+  try {
+    // Check if fetchPromotions method exists
+    if (typeof client.fetchPromotions !== 'function') {
+      return new Set();
+    }
+
+    const response = await client.fetchPromotions();
+
+    if (!response?.data) {
+      return new Set();
+    }
+
+    const productIds = new Set<number>();
+
+    // Extract all product IDs that have gift promotions
+    response.data.forEach((promo: any) => {
+      if (promo.status === 'ENABLED' && promo.rules) {
+        promo.rules.forEach((rule: any) => {
+          // Check if this rule has a gift item
+          if (rule.action?.gift_item) {
+            // Get the products this rule applies to
+            const products = rule.condition?.cart?.items?.products;
+            if (products && Array.isArray(products)) {
+              products.forEach((productId: number) => productIds.add(productId));
+            }
+          }
+        });
+      }
+    });
+
+    return productIds;
+  } catch (error) {
+    console.error('Error fetching product promotions for badges:', error);
+    return new Set();
+  }
+}
+
 const getRelatedProducts = async (props: Props) => {
   const format = await getFormatter();
 
@@ -186,9 +225,12 @@ const getRelatedProducts = async (props: Props) => {
   const categories = removeEdgesAndNodes(product.categories);
   const categoryRelatedProducts = categories[0] ? removeEdgesAndNodes(categories[0].products) : [];
 
+  const productIdsWithPromotions = await getProductIdsWithPromotions();
+
   return productCardTransformer(
     relatedProducts.length > 0 ? relatedProducts : categoryRelatedProducts,
     format,
+    productIdsWithPromotions,
   );
 };
 

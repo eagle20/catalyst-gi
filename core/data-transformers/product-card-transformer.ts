@@ -10,6 +10,7 @@ import { pricesTransformer } from './prices-transformer';
 export const singleProductCardTransformer = (
   product: ResultOf<typeof ProductCardFragment>,
   format: ExistingResultType<typeof getFormatter>,
+  productIdsWithPromotions?: Set<number>,
 ): Product => {
   return {
     id: product.entityId.toString(),
@@ -21,12 +22,16 @@ export const singleProductCardTransformer = (
     price: pricesTransformer(product.prices, format),
     subtitle: product.brand?.name ?? undefined,
     rating: product.reviewSummary.averageRating,
+    badge: productIdsWithPromotions?.has(product.entityId) ? 'FREE TOOL' : undefined,
   };
 };
 
 export const productCardTransformer = (
   products: Array<ResultOf<typeof ProductCardFragment>>,
   format: ExistingResultType<typeof getFormatter>,
+  productIdsWithPromotions?: Set<number>,
 ): Product[] => {
-  return products.map((product) => singleProductCardTransformer(product, format));
+  return products.map((product) =>
+    singleProductCardTransformer(product, format, productIdsWithPromotions),
+  );
 };

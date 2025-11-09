@@ -14,6 +14,7 @@ import { Filter } from '@/vibes/soul/sections/products-list-section/filters-pane
 import { Option as SortOption } from '@/vibes/soul/sections/products-list-section/sorting';
 import { facetsTransformer } from '~/data-transformers/facets-transformer';
 import { pricesTransformer } from '~/data-transformers/prices-transformer';
+import { client } from '~/client';
 
 import { MAX_COMPARE_LIMIT } from '../../compare/page-data';
 import { getCompareProducts as getCompareProductsData } from '../fetch-compare-products';
@@ -119,9 +120,48 @@ async function getFilters(props: Props): Promise<Filter[]> {
   return transformedFacets.filter((facet) => facet != null);
 }
 
+async function getProductIdsWithPromotions(): Promise<Set<number>> {
+  try {
+    // Check if fetchPromotions method exists
+    if (typeof client.fetchPromotions !== 'function') {
+      return new Set();
+    }
+
+    const response = await client.fetchPromotions();
+
+    if (!response?.data) {
+      return new Set();
+    }
+
+    const productIds = new Set<number>();
+
+    // Extract all product IDs that have gift promotions
+    response.data.forEach((promo: any) => {
+      if (promo.status === 'ENABLED' && promo.rules) {
+        promo.rules.forEach((rule: any) => {
+          // Check if this rule has a gift item
+          if (rule.action?.gift_item) {
+            // Get the products this rule applies to
+            const products = rule.condition?.cart?.items?.products;
+            if (products && Array.isArray(products)) {
+              products.forEach((productId: number) => productIds.add(productId));
+            }
+          }
+        });
+      }
+    });
+
+    return productIds;
+  } catch (error) {
+    console.error('Error fetching product promotions for badges:', error);
+    return new Set();
+  }
+}
+
 async function getListProducts(props: Props): Promise<Product[]> {
   const products = await getProducts(props);
   const format = await getFormatter();
+  const productIdsWithPromotions = await getProductIdsWithPromotions();
 
   return products.map((product) => ({
     id: product.entityId.toString(),
@@ -134,6 +174,7 @@ async function getListProducts(props: Props): Promise<Product[]> {
     subtitle: product.brand?.name ?? undefined,
     description: product.description ?? '',
     categories: product.categories?.edges?.map((edge) => edge.node.name) ?? [],
+    badge: productIdsWithPromotions.has(product.entityId) ? 'FREE TOOL' : '',
   }));
 }
 
