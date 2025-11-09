@@ -59,42 +59,70 @@ export const getProductPromotions = async (
   productId: number,
 ): Promise<FreeGiftPromotion[] | null> => {
   try {
+    console.log('🔍 [get-product-promotions] Fetching promotions for product ID:', productId);
+
     // Check if fetchPromotions method exists
     if (typeof client.fetchPromotions !== 'function') {
-      console.error('client.fetchPromotions is not available');
+      console.error('❌ [get-product-promotions] client.fetchPromotions is not available');
 
       return null;
     }
 
     const response = await client.fetchPromotions();
+    console.log('🔍 [get-product-promotions] Raw response:', {
+      hasData: !!response?.data,
+      promotionCount: response?.data?.length || 0
+    });
+
     const parsedResponse = PromotionsResponseSchema.safeParse(response);
 
     if (!parsedResponse.success) {
-      console.error('Failed to parse promotions response:', parsedResponse.error);
+      console.error('❌ [get-product-promotions] Failed to parse promotions response:', parsedResponse.error);
 
       return null;
     }
 
+    console.log('🔍 [get-product-promotions] Total promotions from API:', parsedResponse.data.data.length);
+
     // Filter for active promotions with gift items that apply to this product
     const activeGiftPromotions = parsedResponse.data.data
       .filter((promo) => {
+        console.log('🔍 [get-product-promotions] Checking promotion:', {
+          id: promo.id,
+          name: promo.name,
+          status: promo.status,
+          hasGiftItems: promo.rules.some((rule) => rule.action?.gift_item)
+        });
+
         // Must be enabled and have gift items
-        if (promo.status !== 'ENABLED') return false;
-        if (!promo.rules.some((rule) => rule.action?.gift_item)) return false;
+        if (promo.status !== 'ENABLED') {
+          console.log('  ⚠️ Skipped - not ENABLED');
+          return false;
+        }
+        if (!promo.rules.some((rule) => rule.action?.gift_item)) {
+          console.log('  ⚠️ Skipped - no gift items');
+          return false;
+        }
 
         // Check if any rule applies to this product
-        return promo.rules.some((rule) => {
+        const appliesToProduct = promo.rules.some((rule) => {
           // If rule has condition with products, check if our productId is in the list
           const products = rule.condition?.cart?.items?.products;
 
           if (products && products.length > 0) {
-            return products.includes(productId);
+            const applies = products.includes(productId);
+            console.log('  🔍 Rule products:', products, 'applies to', productId, '?', applies);
+            return applies;
           }
 
           // If no condition specified, promotion might apply to all products
           // For safety, we'll only include if it has a gift_item action
+          console.log('  🔍 No product condition, has gift_item?', rule.action?.gift_item !== undefined);
           return rule.action?.gift_item !== undefined;
         });
+
+        console.log('  ✅ Applies to product?', appliesToProduct);
+        return appliesToProduct;
       })
       .map((promo) => {
         // Get the first rule with gift item to extract condition details
@@ -115,9 +143,14 @@ export const getProductPromotions = async (
         };
       });
 
+    console.log('🔍 [get-product-promotions] Returning promotions:', {
+      count: activeGiftPromotions.length,
+      promotions: activeGiftPromotions
+    });
+
     return activeGiftPromotions.length > 0 ? activeGiftPromotions : null;
   } catch (error) {
-    console.error('Error fetching product promotions:', error);
+    console.error('❌ [get-product-promotions] Error fetching product promotions:', error);
 
     return null;
   }

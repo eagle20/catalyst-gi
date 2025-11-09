@@ -304,7 +304,9 @@ export const getProductData = cache(async (variables: Variables) => {
 
   if (product?.entityId) {
     try {
+      console.log('📦 [page-data] Fetching promotions for product:', product.entityId, product.sku);
       promotions = await getProductPromotions(product.entityId);
+      console.log('📦 [page-data] Promotions fetched:', promotions ? promotions.length : 0, promotions);
 
       // If there are gift promotions, fetch the gift product details
       if (promotions && promotions.length > 0) {
@@ -314,17 +316,29 @@ export const getProductData = cache(async (variables: Variables) => {
             .map((item) => item.productId as number),
         );
 
+        console.log('📦 [page-data] Fetching gift products:', giftProductIds);
+
         if (giftProductIds.length > 0) {
           giftProducts = await getGiftProducts(giftProductIds);
+          console.log('📦 [page-data] Gift products fetched:', giftProducts?.length);
         }
       }
     } catch (error) {
-      console.error('Error loading promotions:', error);
+      console.error('❌ [page-data] Error loading promotions:', error);
       // Continue without promotions if there's an error
       promotions = null;
       giftProducts = null;
     }
   }
+
+  console.log('📦 [page-data] Final data:', {
+    productId: product.entityId,
+    sku: product.sku,
+    hasPromotions: promotions !== null,
+    promotionCount: promotions?.length || 0,
+    hasGiftProducts: giftProducts !== null,
+    giftProductCount: giftProducts?.length || 0
+  });
 
   return {
     ...product,

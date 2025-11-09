@@ -141,11 +141,27 @@ export function ProductDetailForm<F extends Field>({
   // Get current quantity from form
   const currentQuantity = Number(quantityControl.value) || 1;
 
+  console.log('🎁 [form] Promotions received:', {
+    hasPromotions: !!promotions,
+    promotionCount: promotions?.length || 0,
+    promotions: promotions,
+    currentQuantity
+  });
+
   // Filter promotions based on quantity and rules
   const eligiblePromotions = promotions?.filter((promo: any) => {
-    // Check if user is buying enough to qualify
-    return currentQuantity >= promo.minimumQuantity;
+    const isEligible = currentQuantity >= promo.minimumQuantity;
+    console.log('🎁 [form] Checking promo eligibility:', {
+      promoId: promo.id,
+      promoName: promo.name,
+      minimumQuantity: promo.minimumQuantity,
+      currentQuantity,
+      isEligible
+    });
+    return isEligible;
   }) || [];
+
+  console.log('🎁 [form] Eligible promotions:', eligiblePromotions.length, eligiblePromotions);
 
   // Calculate how many free gifts user can select
   const maxFreeGiftsAllowed = eligiblePromotions.reduce((total: number, promo: any) => {
@@ -158,6 +174,8 @@ export function ProductDetailForm<F extends Field>({
       return total + timesQualified;
     }
   }, 0);
+
+  console.log('🎁 [form] Max free gifts allowed:', maxFreeGiftsAllowed);
 
   // Prepare free tool options from eligible promotions only
   const freeToolOptions =
