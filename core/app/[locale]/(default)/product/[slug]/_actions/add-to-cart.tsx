@@ -159,6 +159,8 @@ export const addToCart = async (
   }, {});
 
   try {
+    console.log('🔵 Step 1: Adding main product:', productEntityId);
+
     // Step 1: Add the main product first
     await addToOrCreateCart({
       lineItems: [
@@ -170,9 +172,15 @@ export const addToCart = async (
       ],
     });
 
+    console.log('✅ Main product added successfully');
+
     // Step 2: If there's a free tool selected, check if BigCommerce already added it
     if (freeToolProductId) {
+      console.log('🔵 Step 2: Free tool selected:', freeToolProductId, 'variant:', freeToolVariantId);
+
       const cartId = await getCartId();
+      console.log('🔵 Cart ID:', cartId);
+
       const cart = await getCart(cartId);
 
       // Check if the gift item is already in the cart (added by BigCommerce promotion)
@@ -180,6 +188,13 @@ export const addToCart = async (
         ...(cart?.lineItems.physicalItems || []),
         ...(cart?.lineItems.digitalItems || []),
       ];
+
+      console.log('🔵 Current cart items:', allItems.map(item => ({
+        productId: item.productEntityId,
+        variantId: item.variantEntityId,
+        name: item.name,
+        quantity: item.quantity
+      })));
 
       const giftAlreadyInCart = allItems.some((item) => {
         // Check if product ID matches
@@ -194,8 +209,11 @@ export const addToCart = async (
         return true;
       });
 
+      console.log('🔵 Gift already in cart?', giftAlreadyInCart);
+
       // Step 3: Only add the gift if it's not already there
       if (!giftAlreadyInCart) {
+        console.log('🔵 Step 3: Adding gift to cart');
         await addToOrCreateCart({
           lineItems: [
             {
@@ -205,6 +223,9 @@ export const addToCart = async (
             },
           ],
         });
+        console.log('✅ Gift added successfully');
+      } else {
+        console.log('⚠️ Gift already in cart, skipping manual add');
       }
     }
 
