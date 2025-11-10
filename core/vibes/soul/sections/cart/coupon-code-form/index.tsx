@@ -73,9 +73,28 @@ export function CouponCodeForm({
     shouldValidate: 'onBlur',
     shouldRevalidate: 'onInput',
     onValidate({ formData }) {
-      return parseWithZod(formData, {
+      const submission = parseWithZod(formData, {
         schema: couponCodeActionFormDataSchema({ required_error: requiredErrorMessage }),
       });
+
+      // Check if coupon is already applied
+      if (submission.status === 'success' && submission.value.intent === 'apply') {
+        const couponCode = submission.value.couponCode.trim().toUpperCase();
+        const isAlreadyApplied = optimisticCouponCodes.some(
+          (code) => code.trim().toUpperCase() === couponCode
+        );
+
+        if (isAlreadyApplied) {
+          return {
+            ...submission,
+            error: {
+              couponCode: ['This coupon code has already been applied'],
+            },
+          };
+        }
+      }
+
+      return submission;
     },
     onSubmit(event, { formData }) {
       event.preventDefault();
