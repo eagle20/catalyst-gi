@@ -322,22 +322,7 @@ export default async function Product(props: Props) {
 
   return (
     <>
-      {/* Schema.org WebPage structured data for SEO */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'WebPage',
-            name: t('title') || '',
-            description: t('description') || '',
-            url: process.env.NEXT_PUBLIC_SITE_URL
-              ? `${process.env.NEXT_PUBLIC_SITE_URL}/product/${slug}`
-              : `https://example.com/product/${slug}`,
-          }),
-        }}
-      />
-      {/* ...existing code... */}
+      {/* ProductSchema component below handles schema.org structured data with actual product data */}
       <SectionLayout hideOverflow={true}>
         <ProductDetail
           action={addToCart}
