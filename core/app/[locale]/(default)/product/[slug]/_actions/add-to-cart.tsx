@@ -13,7 +13,6 @@ import { addToOrCreateCart, getCartId } from '~/lib/cart';
 import { MissingCartError } from '~/lib/cart/error';
 import { getCart } from '~/client/queries/get-cart';
 import { applyCouponCode } from '../../../cart/_actions/apply-coupon-code';
-import { removeItem } from '../../../cart/_actions/remove-item';
 
 type CartSelectedOptionsInput = ReturnType<typeof graphql.scalar<'CartSelectedOptionsInput'>>;
 
@@ -177,7 +176,7 @@ export const addToCart = async (
 
     console.log('✅ Main product added, cart ID:', cartId);
 
-    // Apply promo code if present (this will auto-add ALL gift items)
+    // Apply promo code if present (with separate promotions, this will auto-add only the selected gift)
     if (promoCode && cartId) {
       try {
         console.log('🎟️ Applying promo code to cart:', promoCode, 'Cart ID:', cartId);
@@ -185,56 +184,7 @@ export const addToCart = async (
           checkoutEntityId: cartId,
           couponCode: promoCode,
         });
-        console.log('✅ Promo code applied successfully');
-
-        // After applying coupon, BigCommerce auto-adds ALL gift items
-        // We need to remove the ones the customer didn't select
-        if (freeToolProductId) {
-          console.log('🔵 Checking for unwanted gift items to remove...');
-          const cart = await getCart(cartId);
-          const allItems = [
-            ...(cart?.lineItems.physicalItems || []),
-            ...(cart?.lineItems.digitalItems || []),
-          ];
-
-          console.log('🔵 Cart contents after applying coupon:', allItems.map(item => ({
-            entityId: item.entityId,
-            productId: item.productEntityId,
-            variantId: item.variantEntityId,
-            name: item.name,
-            quantity: item.quantity
-          })));
-
-          // Find items to remove: gift items that don't match the selected gift
-          const itemsToRemove = allItems.filter((item) => {
-            // Skip if this is the main product
-            if (item.productEntityId === productEntityId) return false;
-
-            // This is a gift item - check if it matches the selected gift
-            const isSelectedGift = item.productEntityId === freeToolProductId &&
-              (!freeToolVariantId || item.variantEntityId === freeToolVariantId);
-
-            // Remove if it's NOT the selected gift
-            return !isSelectedGift;
-          });
-
-          console.log('🔵 Items to remove:', itemsToRemove.map(item => ({
-            entityId: item.entityId,
-            productId: item.productEntityId,
-            name: item.name
-          })));
-
-          // Remove unwanted gift items
-          for (const item of itemsToRemove) {
-            try {
-              console.log(`🗑️ Removing unwanted gift: ${item.name} (entityId: ${item.entityId})`);
-              await removeItem({ lineItemEntityId: item.entityId });
-              console.log(`✅ Removed unwanted gift: ${item.name}`);
-            } catch (error) {
-              console.error(`❌ Failed to remove item ${item.entityId}:`, error);
-            }
-          }
-        }
+        console.log('✅ Promo code applied successfully - gift item auto-added by BigCommerce');
       } catch (error) {
         console.error('❌ Failed to apply promo code:', error);
         // Don't fail the entire operation if coupon application fails
