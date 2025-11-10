@@ -36,6 +36,7 @@ const PromotionSchema = z.object({
   name: z.string(),
   status: z.enum(['ENABLED', 'DISABLED', 'EXPIRED']),
   redemption_type: z.string().optional(),
+  coupon_type: z.string().optional(),
   display_name: z.string().optional(),
   rules: z.array(PromotionRuleSchema),
 });
@@ -43,6 +44,35 @@ const PromotionSchema = z.object({
 const PromotionsResponseSchema = z.object({
   data: z.array(PromotionSchema),
 });
+
+const CouponCodeSchema = z.object({
+  id: z.number(),
+  code: z.string(),
+  current_uses: z.number(),
+  max_uses: z.number(),
+});
+
+const CouponCodesResponseSchema = z.object({
+  data: z.array(CouponCodeSchema),
+});
+
+// Helper function to fetch coupon codes for a promotion
+async function fetchCouponCode(promotionId: number): Promise<string | undefined> {
+  try {
+    const response = await client.fetchPromotionCodes(promotionId);
+    const parsedResponse = CouponCodesResponseSchema.safeParse(response);
+
+    if (parsedResponse.success && parsedResponse.data.data.length > 0) {
+      // Return the first coupon code
+      return parsedResponse.data.data[0].code;
+    }
+
+    return undefined;
+  } catch (error) {
+    console.error(`❌ [get-product-promotions] Error fetching coupon codes for promotion ${promotionId}:`, error);
+    return undefined;
+  }
+}
 
 export interface FreeGiftPromotion {
   id: number;
@@ -87,7 +117,7 @@ export const getProductPromotions = async (
     console.log('🔍 [get-product-promotions] Total promotions from API:', parsedResponse.data.data.length);
 
     // Filter for active promotions with gift items that apply to this product
-    const activeGiftPromotions = parsedResponse.data.data
+    const filteredPromotions = parsedResponse.data.data
       .filter((promo) => {
         console.log('🔍 [get-product-promotions] Checking promotion:', {
           id: promo.id,
@@ -125,15 +155,29 @@ export const getProductPromotions = async (
 
         console.log('  ✅ Applies to product?', appliesToProduct);
         return appliesToProduct;
-      })
-      .map((promo) => {
+      });
+
+    // Fetch coupon codes for COUPON type promotions
+    const activeGiftPromotions = await Promise.all(
+      filteredPromotions.map(async (promo) => {
         // Get the first rule with gift item to extract condition details
         const giftRule = promo.rules.find((rule) => rule.action?.gift_item);
+
+        // For COUPON redemption type, fetch the actual coupon code
+        let promoCode = promo.display_name;
+        if (promo.redemption_type === 'COUPON' && typeof client.fetchPromotionCodes === 'function') {
+          console.log(`🔍 [get-product-promotions] Fetching coupon code for promotion ${promo.id}`);
+          const fetchedCode = await fetchCouponCode(promo.id);
+          if (fetchedCode) {
+            promoCode = fetchedCode;
+            console.log(`✅ [get-product-promotions] Got coupon code: ${fetchedCode}`);
+          }
+        }
 
         return {
           id: promo.id,
           name: promo.name,
-          promoCode: promo.display_name,
+          promoCode,
           minimumQuantity: giftRule?.condition?.cart?.minimum_quantity || 1,
           applyOnce: giftRule?.apply_once ?? false,
           giftItems: promo.rules
@@ -144,7 +188,8 @@ export const getProductPromotions = async (
               quantity: rule.action!.gift_item!.quantity,
             })),
         };
-      });
+      })
+    );
 
     console.log('🔍 [get-product-promotions] Returning promotions:', {
       count: activeGiftPromotions.length,

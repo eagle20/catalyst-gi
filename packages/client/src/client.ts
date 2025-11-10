@@ -193,6 +193,26 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
     return response.json();
   }
 
+  async fetchPromotionCodes(promotionId: number) {
+    const url = `https://${adminApiHostname}/stores/${this.config.storeHash}/v3/promotions/${promotionId}/codes`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-Auth-Token': this.config.xAuthToken,
+        'User-Agent': this.backendUserAgent,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Unable to get Promotion Codes: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
   async fetchSitemapIndex(channelId?: string): Promise<string> {
     const sitemapIndexUrl = `${await this.getCanonicalUrl(channelId)}/xmlsitemap.php`;
 
