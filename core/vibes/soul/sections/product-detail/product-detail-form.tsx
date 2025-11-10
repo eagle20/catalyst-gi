@@ -112,6 +112,7 @@ export function ProductDetailForm<F extends Field>({
       quantity: formData.get('quantity'),
       freeToolProductId: formData.get('freeToolProductId'),
       freeToolVariantId: formData.get('freeToolVariantId'),
+      promoCode: formData.get('promoCode'),
     });
 
     const result = await formAction(formData);
@@ -156,6 +157,7 @@ export function ProductDetailForm<F extends Field>({
   // Free tool selection state
   const [selectedFreeToolId, setSelectedFreeToolId] = useState<number | undefined>();
   const [selectedFreeToolVariantId, setSelectedFreeToolVariantId] = useState<number | undefined>();
+  const [selectedPromoCode, setSelectedPromoCode] = useState<string | undefined>();
   const [freeToolError, setFreeToolError] = useState<string | undefined>();
 
   // Get current quantity from form
@@ -215,6 +217,7 @@ export function ProductDetailForm<F extends Field>({
                 variantId: giftItem.variantId,
                 name: `${giftProduct.name}${variant?.optionLabel ? ` - ${variant.optionLabel}` : ''}`,
                 imageUrl: variant?.imageUrl || giftProduct.imageUrl,
+                promoCode: promo.promoCode, // Include promo code
               };
             }
 
@@ -223,6 +226,7 @@ export function ProductDetailForm<F extends Field>({
               productId: giftProduct.entityId,
               name: giftProduct.name,
               imageUrl: giftProduct.imageUrl,
+              promoCode: promo.promoCode, // Include promo code
             };
           }).filter(Boolean),
         )
@@ -231,6 +235,18 @@ export function ProductDetailForm<F extends Field>({
   const handleFreeToolSelect = (productId: number, variantId?: number) => {
     setSelectedFreeToolId(productId);
     setSelectedFreeToolVariantId(variantId);
+
+    // Find the selected tool to get its promo code
+    const selectedTool = freeToolOptions.find((tool: any) =>
+      tool.productId === productId &&
+      (variantId === undefined || tool.variantId === variantId)
+    );
+
+    if (selectedTool?.promoCode) {
+      setSelectedPromoCode(selectedTool.promoCode);
+      console.log('🎟️ [form] Promo code selected:', selectedTool.promoCode);
+    }
+
     setFreeToolError(undefined);
   };
 
@@ -239,6 +255,7 @@ export function ProductDetailForm<F extends Field>({
     if (selectedFreeToolId && freeToolOptions.length === 0) {
       setSelectedFreeToolId(undefined);
       setSelectedFreeToolVariantId(undefined);
+      setSelectedPromoCode(undefined);
       toast.info('Free gift removed - increase quantity to qualify');
     }
   }, [freeToolOptions.length, selectedFreeToolId]);
@@ -256,6 +273,9 @@ export function ProductDetailForm<F extends Field>({
         )}
         {selectedFreeToolVariantId && (
           <input name="freeToolVariantId" type="hidden" value={selectedFreeToolVariantId} />
+        )}
+        {selectedPromoCode && (
+          <input name="promoCode" type="hidden" value={selectedPromoCode} />
         )}
 
         <div className="space-y-6">

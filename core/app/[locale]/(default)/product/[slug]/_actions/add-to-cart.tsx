@@ -12,6 +12,7 @@ import { Link } from '~/components/link';
 import { addToOrCreateCart, getCartId } from '~/lib/cart';
 import { MissingCartError } from '~/lib/cart/error';
 import { getCart } from '~/client/queries/get-cart';
+import { applyCouponCode } from '../../cart/_actions/apply-coupon-code';
 
 type CartSelectedOptionsInput = ReturnType<typeof graphql.scalar<'CartSelectedOptionsInput'>>;
 
@@ -45,6 +46,7 @@ export const addToCart = async (
   const freeToolVariantId = submission.value.freeToolVariantId
     ? Number(submission.value.freeToolVariantId)
     : undefined;
+  const promoCode = submission.value.promoCode;
 
   const selectedOptions = prevState.fields.reduce<CartSelectedOptionsInput>((accum, field) => {
     const optionValueEntityId = submission.value[field.name];
@@ -159,7 +161,7 @@ export const addToCart = async (
   }, {});
 
   try {
-    console.log('🔵 Adding to cart - Main product:', productEntityId, 'Free tool:', freeToolProductId);
+    console.log('🔵 Adding to cart - Main product:', productEntityId, 'Free tool:', freeToolProductId, 'Promo code:', promoCode);
 
     // Add only the main product first - this returns the cart ID
     const cartId = await addToOrCreateCart({
@@ -203,6 +205,22 @@ export const addToCart = async (
         }, cartId); // Pass the cart ID to ensure we add to the same cart
       } else {
         console.log('⚠️ Gift already added by BigCommerce promotion');
+      }
+    }
+
+    // Apply promo code if present
+    if (promoCode && cartId) {
+      try {
+        console.log('🎟️ Applying promo code to cart:', promoCode, 'Cart ID:', cartId);
+        await applyCouponCode({
+          checkoutEntityId: cartId,
+          couponCode: promoCode,
+        });
+        console.log('✅ Promo code applied successfully');
+      } catch (error) {
+        console.error('❌ Failed to apply promo code:', error);
+        // Don't fail the entire operation if coupon application fails
+        // The items are already in cart, coupon can be applied manually
       }
     }
 

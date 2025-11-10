@@ -36,6 +36,7 @@ const PromotionSchema = z.object({
   name: z.string(),
   status: z.enum(['ENABLED', 'DISABLED', 'EXPIRED']),
   redemption_type: z.string().optional(),
+  display_name: z.string().optional(),
   rules: z.array(PromotionRuleSchema),
 });
 
@@ -46,6 +47,7 @@ const PromotionsResponseSchema = z.object({
 export interface FreeGiftPromotion {
   id: number;
   name: string;
+  promoCode?: string;
   minimumQuantity: number;
   applyOnce: boolean;
   giftItems: Array<{
@@ -131,6 +133,7 @@ export const getProductPromotions = async (
         return {
           id: promo.id,
           name: promo.name,
+          promoCode: promo.display_name,
           minimumQuantity: giftRule?.condition?.cart?.minimum_quantity || 1,
           applyOnce: giftRule?.apply_once ?? false,
           giftItems: promo.rules
