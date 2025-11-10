@@ -12,7 +12,7 @@ import { Link } from '~/components/link';
 import { addToOrCreateCart, getCartId } from '~/lib/cart';
 import { MissingCartError } from '~/lib/cart/error';
 import { getCart } from '~/client/queries/get-cart';
-import { applyCouponCode } from '../../cart/_actions/apply-coupon-code';
+import { applyCouponCode } from '../../../cart/_actions/apply-coupon-code';
 
 type CartSelectedOptionsInput = ReturnType<typeof graphql.scalar<'CartSelectedOptionsInput'>>;
 
