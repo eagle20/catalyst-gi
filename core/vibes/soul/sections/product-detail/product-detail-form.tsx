@@ -285,7 +285,7 @@ export function ProductDetailForm<F extends Field>({
               onSelect={handleFreeToolSelect}
               selectedToolId={selectedFreeToolId}
               error={freeToolError}
-              promotionName={eligiblePromotions[0]?.name}
+              promotionName={eligiblePromotions[0]?.displayName}
             />
           )}
           {fields.map((field) => {

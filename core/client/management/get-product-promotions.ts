@@ -77,6 +77,7 @@ async function fetchCouponCode(promotionId: number): Promise<string | undefined>
 export interface FreeGiftPromotion {
   id: number;
   name: string;
+  displayName?: string;
   promoCode?: string;
   minimumQuantity: number;
   applyOnce: boolean;
@@ -177,6 +178,7 @@ export const getProductPromotions = async (
         return {
           id: promo.id,
           name: promo.name,
+          displayName: promo.display_name,
           promoCode,
           minimumQuantity: giftRule?.condition?.cart?.minimum_quantity || 1,
           applyOnce: giftRule?.apply_once ?? false,
