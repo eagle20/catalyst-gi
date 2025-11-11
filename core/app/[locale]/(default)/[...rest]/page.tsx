@@ -1,3 +1,5 @@
+import { notFound } from 'next/navigation';
+
 import { defaultLocale, locales } from '~/i18n/routing';
 import { client, Page } from '~/lib/makeswift';
 
@@ -25,6 +27,12 @@ export async function generateStaticParams(): Promise<PageParams[]> {
 
 export default async function CatchAllPage({ params }: { params: Promise<PageParams> }) {
   const { rest, locale } = await params;
+
+  // Validate locale before calling Page to prevent errors with invalid locales like '_vercel'
+  if (!locales.includes(locale as any)) {
+    notFound();
+  }
+
   const path = `/${rest.join('/')}`;
 
   return <Page locale={locale} path={path} />;
