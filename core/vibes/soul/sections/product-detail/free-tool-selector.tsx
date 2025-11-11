@@ -15,6 +15,7 @@ interface FreeToolSelectorProps {
   onSelect: (productId: number, variantId?: number) => void;
   selectedToolId?: number;
   error?: string;
+  promotionName?: string;
 }
 
 export function FreeToolSelector({
@@ -22,10 +23,15 @@ export function FreeToolSelector({
   onSelect,
   selectedToolId,
   error,
+  promotionName,
 }: FreeToolSelectorProps) {
   if (!tools || tools.length === 0) {
     return null;
   }
+
+  // Use promotion name if provided, otherwise fall back to generic text
+  const title = promotionName || 'SPECIAL OFFER INCLUDED!';
+  const subtitle = 'Select your free gift below to add it to your cart';
 
   return (
     <div className="space-y-4 rounded-lg border border-success/20 bg-success-highlight/30 p-4">
@@ -34,16 +40,16 @@ export function FreeToolSelector({
           <Gift className="h-5 w-5 text-success" />
         </div>
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-foreground">FREE TOOL INCLUDED!</h3>
+          <h3 className="text-lg font-semibold text-foreground">{title}</h3>
           <p className="text-sm text-contrast-400">
-            Choose your free tool below when you purchase this battery
+            {subtitle}
           </p>
         </div>
       </div>
 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-foreground">
-          Select Your Free Tool<span className="text-error">*</span>
+          Select Your Free Gift<span className="text-error">*</span>
         </label>
 
         <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @lg:grid-cols-3">
