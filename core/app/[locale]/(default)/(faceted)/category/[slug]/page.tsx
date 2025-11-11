@@ -155,48 +155,51 @@ async function getProducts(props: Props) {
   return search.products.items;
 }
 
-async function getProductIdsWithPromotions(): Promise<Set<number>> {
+async function getProductPromotionBadges(): Promise<Map<number, string>> {
   try {
     // Check if fetchPromotions method exists
     if (typeof client.fetchPromotions !== 'function') {
-      return new Set();
+      return new Map();
     }
 
     const response = await client.fetchPromotions();
 
     if (!response?.data) {
-      return new Set();
+      return new Map();
     }
 
-    const productIds = new Set<number>();
+    const productBadges = new Map<number, string>();
 
-    // Extract all product IDs that have gift promotions
+    // Extract all product IDs that have gift promotions with their display names
     response.data.forEach((promo: any) => {
-      if (promo.status === 'ENABLED' && promo.rules) {
+      if (promo.status === 'ENABLED' && promo.rules && promo.display_name) {
         promo.rules.forEach((rule: any) => {
           // Check if this rule has a gift item
           if (rule.action?.gift_item) {
             // Get the products this rule applies to
             const products = rule.condition?.cart?.items?.products;
             if (products && Array.isArray(products)) {
-              products.forEach((productId: number) => productIds.add(productId));
+              products.forEach((productId: number) => {
+                // Use promotion display_name as badge text
+                productBadges.set(productId, promo.display_name);
+              });
             }
           }
         });
       }
     });
 
-    return productIds;
+    return productBadges;
   } catch (error) {
     console.error('Error fetching product promotions for badges:', error);
-    return new Set();
+    return new Map();
   }
 }
 
 async function getListProducts(props: Props): Promise<Product[]> {
   const products = await getProducts(props);
   const format = await getFormatter();
-  const productIdsWithPromotions = await getProductIdsWithPromotions();
+  const productPromotionBadges = await getProductPromotionBadges();
 
   return products.map((product) => ({
     id: product.entityId.toString(),
@@ -204,7 +207,7 @@ async function getListProducts(props: Props): Promise<Product[]> {
     href: product.path,
     categories: [],
     description: product.description,
-    badge: productIdsWithPromotions.has(product.entityId) ? 'FREE TOOL' : '',
+    badge: productPromotionBadges.get(product.entityId) ?? '',
     image: product.defaultImage
       ? { src: product.defaultImage.url, alt: product.defaultImage.altText }
       : undefined,

@@ -140,20 +140,20 @@ async function getSortOptions(): Promise<SortOption[]> {
   ];
 }
 
-async function getProductIdsWithPromotions(): Promise<Set<number>> {
+async function getProductPromotionBadges(): Promise<Map<number, string>> {
   try {
     // Check if fetchPromotions method exists
     if (typeof client.fetchPromotions !== 'function') {
-      return new Set();
+      return new Map();
     }
 
     const response = await client.fetchPromotions();
 
     if (!response?.data) {
-      return new Set();
+      return new Map();
     }
 
-    const productIds = new Set<number>();
+    const productBadges = new Map<number, string>();
 
     // Extract all product IDs that have gift promotions
     response.data.forEach((promo: any) => {
@@ -164,24 +164,24 @@ async function getProductIdsWithPromotions(): Promise<Set<number>> {
             // Get the products this rule applies to
             const products = rule.condition?.cart?.items?.products;
             if (products && Array.isArray(products)) {
-              products.forEach((productId: number) => productIds.add(productId));
+              products.forEach((productId: number) => productBadges.set(productId, promo.display_name));
             }
           }
         });
       }
     });
 
-    return productIds;
+    return productBadges;
   } catch (error) {
     console.error('Error fetching product promotions for badges:', error);
-    return new Set();
+    return new Map();
   }
 }
 
 async function getListProducts(props: Props): Promise<Product[]> {
   const refinedSearch = await getRefinedSearch(props);
   const format = await getFormatter();
-  const productIdsWithPromotions = await getProductIdsWithPromotions();
+  const productBadges = await getProductPromotionBadges();
 
   // @ts-ignore
   return refinedSearch.products.items.map((product) => ({
@@ -193,7 +193,7 @@ async function getListProducts(props: Props): Promise<Product[]> {
       : undefined,
     price: pricesTransformer(product.prices, format),
     subtitle: product.brand?.name ?? undefined,
-    badge: productIdsWithPromotions.has(product.entityId) ? 'FREE TOOL' : '',
+    badge: productBadges.get(product.entityId) ?? '',
   }));
 }
 
