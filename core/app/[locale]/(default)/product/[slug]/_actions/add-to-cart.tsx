@@ -179,40 +179,20 @@ export const addToCart = async (
 
     console.log('✅ Main product added, cart ID:', cartId);
 
-    // Manually add free gift line items if quantity specified
-    if (freeToolProductId && freeToolQuantity && freeToolQuantity > 0 && cartId) {
-      try {
-        console.log('🎁 Manually adding free gift:', freeToolProductId, 'Quantity:', freeToolQuantity, 'Variant:', freeToolVariantId);
-
-        await addToOrCreateCart(
-          {
-            lineItems: [
-              {
-                productEntityId: freeToolProductId,
-                variantEntityId: freeToolVariantId,
-                quantity: freeToolQuantity,
-              },
-            ],
-          },
-          cartId
-        );
-
-        console.log('✅ Free gift(s) added successfully');
-      } catch (error) {
-        console.error('❌ Failed to add free gift line items:', error);
-        // Don't fail the entire operation if gift add fails
-      }
-    }
-
-    // Apply promo code if present (for validation/discount purposes)
+    // Apply promo code and let BigCommerce auto-add the free gifts
+    // Note: We don't manually add gifts anymore to avoid duplicates
+    // BigCommerce will automatically add the correct quantity based on promotion rules
     if (promoCode && cartId) {
       try {
         console.log('🎟️ Applying promo code to cart:', promoCode, 'Cart ID:', cartId);
+        console.log('🎁 BigCommerce will auto-add', freeToolQuantity, 'free gift(s) based on promotion rules');
+
         await applyCouponCode({
           checkoutEntityId: cartId,
           couponCode: promoCode,
         });
-        console.log('✅ Promo code applied successfully');
+
+        console.log('✅ Promo code applied - BigCommerce auto-added free gifts');
       } catch (error) {
         console.error('❌ Failed to apply promo code:', error);
         // Don't fail the entire operation if coupon application fails
