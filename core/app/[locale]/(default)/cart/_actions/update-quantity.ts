@@ -9,6 +9,7 @@ import { graphql, VariablesOf } from '~/client/graphql';
 import { getCartId } from '~/lib/cart';
 
 import { removeItem } from './remove-item';
+import { validatePromotionGifts } from './validate-promotion-gifts';
 
 const UpdateCartLineItemMutation = graphql(`
   mutation UpdateCartLineItem($input: UpdateCartLineItemInput!) {
@@ -88,6 +89,14 @@ export const updateQuantity = async ({
   }
 
   unstable_expirePath('/cart');
+
+  // Validate and adjust free gifts after quantity update
+  console.log('🔍 [update-quantity] Validating promotion gifts after quantity update');
+  const validation = await validatePromotionGifts();
+
+  if (validation.removedGifts.length > 0) {
+    console.log('⚠️ [update-quantity] Removed gifts:', validation.removedGifts);
+  }
 
   return cart;
 };

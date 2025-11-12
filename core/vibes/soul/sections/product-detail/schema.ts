@@ -118,6 +118,7 @@ export interface SchemaRawShape {
   quantity: z.ZodNumber;
   freeToolProductId?: z.ZodOptional<z.ZodNumber>;
   freeToolVariantId?: z.ZodOptional<z.ZodNumber>;
+  freeToolQuantity?: z.ZodOptional<z.ZodNumber>;
   promoCode?: z.ZodOptional<z.ZodString>;
 }
 
@@ -127,6 +128,7 @@ export function schema(fields: Field[]): z.ZodObject<SchemaRawShape> {
     quantity: z.number().min(1),
     freeToolProductId: z.number().optional(),
     freeToolVariantId: z.number().optional(),
+    freeToolQuantity: z.number().optional(),
     promoCode: z.string().optional(),
   };
 

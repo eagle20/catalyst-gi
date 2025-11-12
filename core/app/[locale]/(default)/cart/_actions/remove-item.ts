@@ -9,6 +9,9 @@ import { graphql, VariablesOf } from '~/client/graphql';
 import { TAGS } from '~/client/tags';
 import { clearCartId, getCartId } from '~/lib/cart';
 
+// Import validation with a dynamic import to avoid circular dependency
+let validatePromotionGifts: any = null;
+
 const DeleteCartLineItemMutation = graphql(`
   mutation DeleteCartLineItemMutation($input: DeleteCartLineItemInput!) {
     cart {
@@ -26,7 +29,8 @@ type DeleteCartLineItemInput = Variables['input'];
 
 export async function removeItem({
   lineItemEntityId,
-}: Omit<DeleteCartLineItemInput, 'cartEntityId'>) {
+  skipValidation = false,
+}: Omit<DeleteCartLineItemInput, 'cartEntityId'> & { skipValidation?: boolean }) {
   const t = await getTranslations('Cart.Errors');
 
   const customerAccessToken = await getSessionCustomerAccessToken();
@@ -63,6 +67,20 @@ export async function removeItem({
   }
 
   unstable_expireTag(TAGS.cart);
+
+  // Validate and adjust free gifts after item removal (unless skipped to avoid circular calls)
+  if (!skipValidation && cart) {
+    if (!validatePromotionGifts) {
+      validatePromotionGifts = (await import('./validate-promotion-gifts')).validatePromotionGifts;
+    }
+
+    console.log('🔍 [remove-item] Validating promotion gifts after item removal');
+    const validation = await validatePromotionGifts();
+
+    if (validation.removedGifts.length > 0) {
+      console.log('⚠️ [remove-item] Removed gifts:', validation.removedGifts);
+    }
+  }
 
   return cart;
 }

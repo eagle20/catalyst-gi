@@ -263,6 +263,8 @@ async function getCompareProducts(props: Props) {
       ? { src: product.defaultImage.url, alt: product.defaultImage.altText }
       : undefined,
     href: product.path,
+    description: product.plainTextDescription || '',
+    categories: product.categories?.edges?.map((edge) => edge.node.name) || [],
   }));
 }
 

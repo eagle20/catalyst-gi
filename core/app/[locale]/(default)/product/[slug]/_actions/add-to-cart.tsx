@@ -46,6 +46,9 @@ export const addToCart = async (
   const freeToolVariantId = submission.value.freeToolVariantId
     ? Number(submission.value.freeToolVariantId)
     : undefined;
+  const freeToolQuantity = submission.value.freeToolQuantity
+    ? Number(submission.value.freeToolQuantity)
+    : undefined;
   const promoCode = submission.value.promoCode;
 
   const selectedOptions = prevState.fields.reduce<CartSelectedOptionsInput>((accum, field) => {
@@ -161,9 +164,9 @@ export const addToCart = async (
   }, {});
 
   try {
-    console.log('🔵 Adding to cart - Main product:', productEntityId, 'Free tool:', freeToolProductId, 'Promo code:', promoCode);
+    console.log('🔵 Adding to cart - Main product:', productEntityId, 'Free tool:', freeToolProductId, 'Quantity:', freeToolQuantity, 'Promo code:', promoCode);
 
-    // Add only the main product first - this returns the cart ID
+    // Add the main product first - this returns the cart ID
     const cartId = await addToOrCreateCart({
       lineItems: [
         {
@@ -176,7 +179,32 @@ export const addToCart = async (
 
     console.log('✅ Main product added, cart ID:', cartId);
 
-    // Apply promo code if present (with separate promotions, this will auto-add only the selected gift)
+    // Manually add free gift line items if quantity specified
+    if (freeToolProductId && freeToolQuantity && freeToolQuantity > 0 && cartId) {
+      try {
+        console.log('🎁 Manually adding free gift:', freeToolProductId, 'Quantity:', freeToolQuantity, 'Variant:', freeToolVariantId);
+
+        await addToOrCreateCart(
+          {
+            lineItems: [
+              {
+                productEntityId: freeToolProductId,
+                variantEntityId: freeToolVariantId,
+                quantity: freeToolQuantity,
+              },
+            ],
+          },
+          cartId
+        );
+
+        console.log('✅ Free gift(s) added successfully');
+      } catch (error) {
+        console.error('❌ Failed to add free gift line items:', error);
+        // Don't fail the entire operation if gift add fails
+      }
+    }
+
+    // Apply promo code if present (for validation/discount purposes)
     if (promoCode && cartId) {
       try {
         console.log('🎟️ Applying promo code to cart:', promoCode, 'Cart ID:', cartId);
@@ -184,7 +212,7 @@ export const addToCart = async (
           checkoutEntityId: cartId,
           couponCode: promoCode,
         });
-        console.log('✅ Promo code applied successfully - gift item auto-added by BigCommerce');
+        console.log('✅ Promo code applied successfully');
       } catch (error) {
         console.error('❌ Failed to apply promo code:', error);
         // Don't fail the entire operation if coupon application fails
@@ -195,8 +223,8 @@ export const addToCart = async (
     return {
       lastResult: submission.reply(),
       fields: prevState.fields,
-      successMessage: freeToolProductId
-        ? 'Battery and free tool added to cart!'
+      successMessage: freeToolProductId && freeToolQuantity
+        ? `Product and ${freeToolQuantity} free gift${freeToolQuantity > 1 ? 's' : ''} added to cart!`
         : t.rich('successMessage', {
             cartItems: quantity,
             cartLink: (chunks) => (

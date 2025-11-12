@@ -158,6 +158,7 @@ export function ProductDetailForm<F extends Field>({
   const [selectedFreeToolId, setSelectedFreeToolId] = useState<number | undefined>();
   const [selectedFreeToolVariantId, setSelectedFreeToolVariantId] = useState<number | undefined>();
   const [selectedPromoCode, setSelectedPromoCode] = useState<string | undefined>();
+  const [selectedPromotion, setSelectedPromotion] = useState<any | undefined>();
   const [freeToolError, setFreeToolError] = useState<string | undefined>();
 
   // Get current quantity from form
@@ -236,7 +237,7 @@ export function ProductDetailForm<F extends Field>({
     setSelectedFreeToolId(productId);
     setSelectedFreeToolVariantId(variantId);
 
-    // Find the selected tool to get its promo code
+    // Find the selected tool to get its promo code and promotion details
     const selectedTool = freeToolOptions.find((tool: any) =>
       tool.productId === productId &&
       (variantId === undefined || tool.variantId === variantId)
@@ -247,8 +248,33 @@ export function ProductDetailForm<F extends Field>({
       console.log('🎟️ [form] Promo code selected:', selectedTool.promoCode);
     }
 
+    // Find the promotion associated with this tool
+    const promo = eligiblePromotions.find((p: any) =>
+      p.giftItems.some((item: any) =>
+        item.productId === productId &&
+        (!item.variantId || item.variantId === variantId)
+      )
+    );
+    setSelectedPromotion(promo);
+    console.log('🎁 [form] Promotion selected:', promo);
+
     setFreeToolError(undefined);
   };
+
+  // Calculate free tool quantity based on promotion rules and current quantity
+  const freeToolQuantity = selectedPromotion
+    ? selectedPromotion.applyOnce
+      ? 1  // Only 1 gift regardless of quantity
+      : Math.floor(currentQuantity / selectedPromotion.minimumQuantity)  // Multiple gifts
+    : 0;
+
+  console.log('🎁 [form] Free tool quantity calculated:', {
+    selectedPromotion: selectedPromotion?.name,
+    applyOnce: selectedPromotion?.applyOnce,
+    currentQuantity,
+    minimumQuantity: selectedPromotion?.minimumQuantity,
+    freeToolQuantity
+  });
 
   // Reset free tool selection if quantity changes and user no longer qualifies
   useEffect(() => {
@@ -256,6 +282,7 @@ export function ProductDetailForm<F extends Field>({
       setSelectedFreeToolId(undefined);
       setSelectedFreeToolVariantId(undefined);
       setSelectedPromoCode(undefined);
+      setSelectedPromotion(undefined);
       toast.info('Free gift removed - increase quantity to qualify');
     }
   }, [freeToolOptions.length, selectedFreeToolId]);
@@ -273,6 +300,9 @@ export function ProductDetailForm<F extends Field>({
         )}
         {selectedFreeToolVariantId && (
           <input name="freeToolVariantId" type="hidden" value={selectedFreeToolVariantId} />
+        )}
+        {freeToolQuantity > 0 && (
+          <input name="freeToolQuantity" type="hidden" value={freeToolQuantity} />
         )}
         {selectedPromoCode && (
           <input name="promoCode" type="hidden" value={selectedPromoCode} />
