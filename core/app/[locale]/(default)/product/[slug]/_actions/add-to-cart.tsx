@@ -166,6 +166,36 @@ export const addToCart = async (
   try {
     console.log('🔵 Adding to cart - Main product:', productEntityId, 'Free tool:', freeToolProductId, 'Quantity:', freeToolQuantity, 'Promo code:', promoCode);
 
+    // Check if there's already a different promotion in the cart
+    if (promoCode) {
+      const existingCartId = await getCartId();
+      if (existingCartId) {
+        const existingCart = await getCart(existingCartId);
+
+        // Check if cart has any free items (gifts from previous promotions)
+        const hasFreeItems = existingCart?.lineItems.physicalItems.some(item =>
+          item.extendedSalePrice.value === 0
+        ) || existingCart?.lineItems.digitalItems.some(item =>
+          item.extendedSalePrice.value === 0
+        );
+
+        if (hasFreeItems) {
+          // We can't determine the exact promo code from the cart easily,
+          // but we know there are free gifts, which means a promotion is active
+          console.log('⚠️ Cart already has free gifts from a promotion');
+
+          return {
+            lastResult: submission.reply({
+              formErrors: [
+                'You already have a free tool promotion in your cart. Please clear your cart or complete your purchase before selecting a different free tool.'
+              ],
+            }),
+            fields: prevState.fields,
+          };
+        }
+      }
+    }
+
     // Add the main product first - this returns the cart ID
     const cartId = await addToOrCreateCart({
       lineItems: [
