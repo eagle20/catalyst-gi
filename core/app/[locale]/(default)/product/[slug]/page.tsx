@@ -251,6 +251,57 @@ async function getBreadcrumbs(props: Props): Promise<Breadcrumb[]> {
   }));
 }
 
+async function getORSAvailability(props: Props): Promise<{ available: boolean; quantity: number; price?: number } | null> {
+  const { slug } = await props.params;
+  const variables = await cachedProductDataVariables(slug, props.searchParams);
+  const product = await getProductData(variables);
+
+  const customFields = removeEdgesAndNodes(product.customFields);
+
+  // Look for a custom field named "ORS Product ID" or similar
+  const orsField = customFields.find(
+    (field) =>
+      field.name.toLowerCase().includes('ors') &&
+      (field.name.toLowerCase().includes('product') || field.name.toLowerCase().includes('id')),
+  );
+
+  if (!orsField?.value) {
+    return null;
+  }
+
+  // Fetch ORS availability from API
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/ors-availability?orsProductIds=${encodeURIComponent(orsField.value)}`,
+      { cache: 'no-store' }
+    );
+
+    if (!response.ok) {
+      console.error('Failed to fetch ORS availability:', response.statusText);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data.products && data.products.length > 0) {
+      const orsProduct = data.products[0];
+      const orsPrice = orsProduct.price || 0;
+      const priceWithMargin = orsPrice * 1.20; // Add 20% margin
+
+      return {
+        available: (orsProduct.totalAvailability || 0) > 0,
+        quantity: orsProduct.totalAvailability || 0,
+        price: priceWithMargin,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching ORS availability:', error);
+    return null;
+  }
+}
+
 interface Props {
   params: Promise<{ slug: string; locale: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -344,6 +395,7 @@ export default async function Product(props: Props) {
           inventoryLevel={Streamable.from(() =>
             getProductData(variables).then((p) => p.inventory_level),
           )}
+          orsAvailability={Streamable.from(() => getORSAvailability(props))}
           sku={Streamable.from(() => getProduct(props).then((p) => p.sku))}
           promotions={Streamable.from(() => getProductData(variables).then((p) => p.promotions))}
           giftProducts={Streamable.from(() =>
@@ -363,6 +415,7 @@ export default async function Product(props: Props) {
             title={t('RelatedProducts.title')}
           />
         </div>
+
         <Reviews productId={productId} searchParams={parsedSearchParams} />
 
         <Stream fallback={null} value={Streamable.from(() => getProductData(variables))}>

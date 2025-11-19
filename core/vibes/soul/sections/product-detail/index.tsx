@@ -64,6 +64,7 @@ interface Props<F extends Field> {
   sku: Streamable<string>;
   promotions?: Streamable<any>;
   giftProducts?: Streamable<any>;
+  orsAvailability?: Streamable<{ available: boolean; quantity: number; price?: number } | null>;
 }
 
 export function ProductDetail<F extends Field>({
@@ -84,6 +85,7 @@ export function ProductDetail<F extends Field>({
   sku,
   promotions,
   giftProducts,
+  orsAvailability,
 }: Props<F>) {
   return (
     <section className="@container">
@@ -118,22 +120,44 @@ export function ProductDetail<F extends Field>({
                   <Stream fallback={<RatingSkeleton />} value={product.rating}>
                     {(rating) => <Rating rating={rating ?? 0} />}
                   </Stream>
-                  <Stream fallback={<PriceLabelSkeleton />} value={product.price}>
-                    {(price) => (
-                      <PriceLabel className="my-3 text-xl @xl:text-2xl" price={price ?? ''} />
-                    )}
+                  <Stream
+                    fallback={<PriceLabelSkeleton />}
+                    value={Streamable.all([product.price, inventoryTracking, inventoryLevel, orsAvailability])}
+                  >
+                    {([basePrice, tracking, invLevel, orsData]) => {
+                      // Determine which price to show
+                      const isTrackingEnabled = tracking === 'product' || tracking === 'variant';
+                      const hasBigCommerceInventory =
+                        invLevel && typeof invLevel.value === 'number' && invLevel.value > 0;
+
+                      // Use ORS price if: (tracking disabled OR no BC inventory) AND ORS has price
+                      const shouldUseOrsPrice =
+                        (!isTrackingEnabled || !hasBigCommerceInventory) &&
+                        orsData &&
+                        orsData.price;
+
+                      const displayPrice = shouldUseOrsPrice
+                        ? `$${orsData.price!.toFixed(2)}`
+                        : basePrice ?? '';
+
+                      return (
+                        <PriceLabel className="my-3 text-xl @xl:text-2xl" price={displayPrice} />
+                      );
+                    }}
                   </Stream>
                   <Stream
                     fallback={null}
-                    value={Streamable.all([inventoryTracking, inventoryLevel])}
+                    value={Streamable.all([inventoryTracking, inventoryLevel, orsAvailability])}
                   >
-                    {([tracking, invLevel]) => {
-                      // In Stock: tracking is ON and inventory > 0
-                      // Backorder: tracking is OFF OR (tracking is ON and inventory <= 0)
+                    {([tracking, invLevel, orsData]) => {
+                      // Check BigCommerce inventory
                       const isTrackingEnabled = tracking === 'product' || tracking === 'variant';
-                      const hasInventory =
+                      const hasBigCommerceInventory =
                         invLevel && typeof invLevel.value === 'number' && invLevel.value > 0;
-                      const isInStock = isTrackingEnabled && hasInventory;
+                      const hasOrsInventory = orsData && orsData.available && orsData.quantity > 0;
+
+                      // In Stock: BigCommerce has inventory OR ORS Fresno warehouse has inventory
+                      const isInStock = (isTrackingEnabled && hasBigCommerceInventory) || hasOrsInventory;
 
                       if (!isInStock) {
                         // Calculate delivery date using business days (Mon-Fri only)
