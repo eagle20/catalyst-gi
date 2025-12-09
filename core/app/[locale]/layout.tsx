@@ -160,6 +160,8 @@ export default async function RootLayout({ params, children }: Props) {
               }),
             }}
           />
+          {/* Lucky Orange tracking */}
+          <script async defer src="https://tools.luckyorange.com/core/lo.js?site-id=a83f895c" />
         </head>
         <body>
           <NextIntlClientProvider locale={locale} messages={messages}>
