@@ -112,7 +112,7 @@ export async function getORSPriceAndAvailability(
 
   // Use warehouse endpoint to check Fresno (FRES) warehouse only
   const apiUrl =
-    process.env.ORS_NASCO_WAREHOUSE_API_URL || 'https://apim.workato.com/orsnascotest/priceavailability/warehouse';
+    process.env.ORS_NASCO_WAREHOUSE_API_URL || 'https://apim.workato.com/orsnasco/priceavailability/warehouse';
 
   try {
     console.log('🔍 [ORS Nasco] Fetching data for products:', orsProductIds);
@@ -226,7 +226,7 @@ export async function getORSWarehouseAvailability(
 
   const apiUrl =
     process.env.ORS_NASCO_WAREHOUSE_API_URL ||
-    'https://apim.workato.com/orsnascotest/priceavailability/warehouse';
+    'https://apim.workato.com/orsnasco/priceavailability/warehouse';
 
   try {
     const accessToken = await getAccessToken();

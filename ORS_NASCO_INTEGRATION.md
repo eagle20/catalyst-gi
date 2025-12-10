@@ -40,12 +40,12 @@ Optional overrides:
 # Token URL (default: https://apim.workato.com/oauth2/token)
 ORS_NASCO_TOKEN_URL=https://apim.workato.com/oauth2/token
 
-# Switch to production endpoints (default uses TEST endpoints)
-ORS_NASCO_API_URL=https://apim.workato.com/orsnasco/priceavailability/summary
-ORS_NASCO_WAREHOUSE_API_URL=https://apim.workato.com/orsnasco/priceavailability/warehouse
+# Switch to test endpoints (default uses PRODUCTION endpoints)
+ORS_NASCO_API_URL=https://apim.workato.com/orsnascotest/priceavailability/summary
+ORS_NASCO_WAREHOUSE_API_URL=https://apim.workato.com/orsnascotest/priceavailability/warehouse
 ```
 
-**Note:** The integration uses **TEST** endpoints by default (`orsnascotest`). When ready for production, uncomment and set the production URLs above.
+**Note:** The integration uses **PRODUCTION** endpoints by default (`orsnasco`). For testing/development, uncomment and set the test URLs above.
 
 ### 3. Configure BigCommerce Products
 
