@@ -115,8 +115,8 @@ export function ProductDetail<F extends Field>({
                   <p className="mb-3 mt-2 font-heading text-base font-medium leading-none">
                     SKU: {sku}
                   </p>
-                  <Stream fallback={<RatingSkeleton />} value={product.rating}>
-                    {(rating) => <Rating rating={rating ?? 0} />}
+                  <Stream fallback={null} value={product.rating}>
+                    {(rating) => (rating ? <Rating rating={rating} /> : null)}
                   </Stream>
                   <Stream fallback={<PriceLabelSkeleton />} value={product.price}>
                     {(price) => (
