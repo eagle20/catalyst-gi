@@ -145,7 +145,7 @@ export function ProductDetail<F extends Field>({
                         });
 
                         return (
-                          <p className="mt-2 text-sm text-green-700">
+                          <p className="mt-2 text-sm font-semibold text-green-700">
                             Factory stock. Ships by {formattedDate}
                           </p>
                         );
