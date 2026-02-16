@@ -128,7 +128,7 @@ const getProduct = async (props: Props) => {
     price: pricesTransformer(product.prices, format),
     subtitle: product.brand?.name,
     subtitleHref: product.brand?.path,
-    rating: product.reviewSummary.averageRating,
+    // rating: product.reviewSummary.averageRating, // Hidden until reviews are collected
     accordions,
     inventory_tracking: product.inventory_tracking,
     sku: product.sku,
@@ -363,7 +363,8 @@ export default async function Product(props: Props) {
             title={t('RelatedProducts.title')}
           />
         </div>
-        <Reviews productId={productId} searchParams={parsedSearchParams} />
+        {/* Hidden until reviews are collected */}
+        {/* <Reviews productId={productId} searchParams={parsedSearchParams} /> */}
 
         <Stream fallback={null} value={Streamable.from(() => getProductData(variables))}>
           {(product) => (
