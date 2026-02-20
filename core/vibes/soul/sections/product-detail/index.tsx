@@ -5,6 +5,7 @@ import { Rating } from '@/vibes/soul/primitives/rating';
 import { Breadcrumb, Breadcrumbs } from '@/vibes/soul/sections/breadcrumbs';
 import { ProductGallery } from '@/vibes/soul/sections/product-detail/product-gallery';
 import { Link } from '~/components/link';
+import { PayPalMessage } from '~/components/paypal-message';
 
 import { ProductDetailForm, ProductDetailFormAction } from './product-detail-form';
 import { Field } from './schema';
@@ -119,9 +120,25 @@ export function ProductDetail<F extends Field>({
                     {(rating) => (rating ? <Rating rating={rating} /> : null)}
                   </Stream>
                   <Stream fallback={<PriceLabelSkeleton />} value={product.price}>
-                    {(price) => (
-                      <PriceLabel className="my-3 text-xl @xl:text-2xl" price={price ?? ''} />
-                    )}
+                    {(price) => {
+                      const priceString =
+                        typeof price === 'string'
+                          ? price
+                          : price?.type === 'sale'
+                            ? price.currentValue
+                            : price?.type === 'range'
+                              ? price.minValue
+                              : '';
+
+                      return (
+                        <>
+                          <PriceLabel className="my-3 text-xl @xl:text-2xl" price={price ?? ''} />
+                          {priceString && (
+                            <PayPalMessage amount={priceString} placement="product" />
+                          )}
+                        </>
+                      );
+                    }}
                   </Stream>
                   <Stream
                     fallback={null}
