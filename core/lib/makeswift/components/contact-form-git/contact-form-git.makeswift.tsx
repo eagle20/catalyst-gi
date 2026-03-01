@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import ReCAPTCHA from 'react-google-recaptcha';
 import { TextInput, Style, Select } from '@makeswift/runtime/controls';
 import { runtime } from '../../runtime';
 import clsx from 'clsx';
@@ -8,6 +9,8 @@ import { Input } from '@/vibes/soul/form/input';
 import { Textarea } from '@/vibes/soul/form/textarea';
 import { Button } from '@/vibes/soul/primitives/button';
 import { Alert } from '@/vibes/soul/primitives/alert';
+
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
 interface ContactFormGITProps {
   email: string;
@@ -44,6 +47,8 @@ runtime.registerComponent(
     const [submitting, setSubmitting] = React.useState(false);
     const [success, setSuccess] = React.useState(false);
     const [error, setError] = React.useState('');
+    const [recaptchaToken, setRecaptchaToken] = React.useState<string | null>(null);
+    const recaptchaRef = React.useRef<ReCAPTCHA>(null);
     // Timer refs to clear timeouts if needed
     const successTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const errorTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -78,7 +83,8 @@ runtime.registerComponent(
       form.lastName.trim() &&
       form.email.trim() &&
       form.subject.trim() &&
-      form.message.trim();
+      form.message.trim() &&
+      (!RECAPTCHA_SITE_KEY || recaptchaToken);
 
     function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
       const { name, value } = e.target;
@@ -95,7 +101,7 @@ runtime.registerComponent(
         const res = await fetch('/api/contact', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...form, to: email }),
+          body: JSON.stringify({ ...form, to: email, recaptchaToken }),
         });
         if (!res.ok) throw new Error('Failed to send email');
         setSuccess(true);
@@ -108,6 +114,8 @@ runtime.registerComponent(
           subject: '',
           message: '',
         });
+        setRecaptchaToken(null);
+        recaptchaRef.current?.reset();
       } catch (err: any) {
         setError(err.message || 'Something went wrong');
       } finally {
@@ -184,6 +192,16 @@ runtime.registerComponent(
             placeholder="Your message here"
             rows={4}
           />
+          {RECAPTCHA_SITE_KEY && (
+            <div className="mt-4">
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={RECAPTCHA_SITE_KEY}
+                onChange={(token) => setRecaptchaToken(token)}
+                onExpired={() => setRecaptchaToken(null)}
+              />
+            </div>
+          )}
           {error && <Alert message={error} variant="error" />}
           {success && <Alert message={'Message sent successfully!'} variant="success" />}
           <Button

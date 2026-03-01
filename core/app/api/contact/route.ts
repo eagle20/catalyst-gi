@@ -97,13 +97,51 @@ const sendFormSpreeEmail = async (
 
 export const POST = async (request: NextRequest): Promise<NextResponse<ContactFormResponse>> => {
   const body = await request.json();
-  const { firstName, lastName, email, phone, businessName, subject, message, to } = body;
+  const { firstName, lastName, email, phone, businessName, subject, message, to, recaptchaToken } =
+    body;
 
   if (!firstName || !lastName || !email || !subject || !message) {
     return NextResponse.json(
       { status: 'error', error: 'Missing required fields' },
       { status: 400 },
     );
+  }
+
+  // Verify reCAPTCHA token if secret key is configured
+  if (process.env.RECAPTCHA_SECRET_KEY) {
+    if (!recaptchaToken) {
+      return NextResponse.json(
+        { status: 'error', error: 'reCAPTCHA verification required' },
+        { status: 400 },
+      );
+    }
+
+    try {
+      const verifyResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          secret: process.env.RECAPTCHA_SECRET_KEY,
+          response: recaptchaToken,
+        }),
+      });
+
+      const verifyData = await verifyResponse.json();
+
+      if (!verifyData.success) {
+        console.error('reCAPTCHA verification failed:', verifyData['error-codes']);
+        return NextResponse.json(
+          { status: 'error', error: 'reCAPTCHA verification failed' },
+          { status: 400 },
+        );
+      }
+    } catch (error) {
+      console.error('reCAPTCHA verification error:', error);
+      return NextResponse.json(
+        { status: 'error', error: 'reCAPTCHA verification error' },
+        { status: 500 },
+      );
+    }
   }
 
   await createAContact(
