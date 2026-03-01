@@ -361,6 +361,17 @@ export const Footer = forwardRef(function Footer(
               }
             }}
           </Stream>
+          <Stream fallback={null} value={streamablePaymentIcons}>
+            {(paymentIcons) => {
+              if (paymentIcons != null && paymentIcons.length > 0) {
+                return (
+                  <div className="mt-4 flex items-center justify-center gap-3">
+                    {paymentIcons}
+                  </div>
+                );
+              }
+            }}
+          </Stream>
         </div>
       </div>
     </footer>
