@@ -32,6 +32,7 @@ interface ProductDetailProduct {
   title: string;
   href: string;
   images: Streamable<Array<{ src: string; alt: string }>>;
+  videos?: Streamable<Array<{ title: string; url: string }>>;
   price?: Streamable<Price | null>;
   subtitle?: string;
   subtitleHref?: string;
@@ -96,8 +97,8 @@ export function ProductDetail<F extends Field>({
             product && (
               <div className="grid grid-cols-1 items-stretch gap-x-8 gap-y-8 @2xl:grid-cols-2 @5xl:gap-x-12">
                 <div className="hidden @2xl:block">
-                  <Stream fallback={<ProductGallerySkeleton />} value={product.images}>
-                    {(images) => <ProductGallery images={images} productName={product.title} />}
+                  <Stream fallback={<ProductGallerySkeleton />} value={Streamable.all([product.images, product.videos ?? Streamable.from(() => Promise.resolve([]))])}>
+                    {([images, videos]) => <ProductGallery images={images} videos={videos} productName={product.title} />}
                   </Stream>
                 </div>
 
@@ -172,10 +173,11 @@ export function ProductDetail<F extends Field>({
                     }}
                   </Stream>
                   <div className="mb-8 @2xl:hidden">
-                    <Stream fallback={<ProductGallerySkeleton />} value={product.images}>
-                      {(images) => (
+                    <Stream fallback={<ProductGallerySkeleton />} value={Streamable.all([product.images, product.videos ?? Streamable.from(() => Promise.resolve([]))])}>
+                      {([images, videos]) => (
                         <ProductGallery
                           images={images}
+                          videos={videos}
                           productName={product.title}
                           thumbnailLabel={thumbnailLabel}
                         />

@@ -175,6 +175,14 @@ const ProductDetailsFragment = graphql(
           }
         }
       }
+      videos {
+        edges {
+          node {
+            title
+            url
+          }
+        }
+      }
       defaultImage {
         altText
         url: urlTemplate(lossy: true)

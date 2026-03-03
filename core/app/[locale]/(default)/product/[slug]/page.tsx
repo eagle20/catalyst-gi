@@ -58,6 +58,11 @@ const getProduct = async (props: Props) => {
     alt: image.altText,
   }));
 
+  const videos = removeEdgesAndNodes(product.videos).map((video) => ({
+    title: video.title,
+    url: video.url,
+  }));
+
   const customFields = removeEdgesAndNodes(product.customFields);
 
   const specifications = [
@@ -125,6 +130,7 @@ const getProduct = async (props: Props) => {
           ...images.filter((image) => image.src !== product.defaultImage?.url),
         ]
       : images,
+    videos,
     price: pricesTransformer(product.prices, format),
     subtitle: product.brand?.name,
     subtitleHref: product.brand?.path,
