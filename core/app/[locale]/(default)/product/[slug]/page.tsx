@@ -85,14 +85,14 @@ const getProduct = async (props: Props) => {
           {
             title: t('specifications'),
             content: (
-              <div className="prose @container">
-                <dl className="flex flex-col gap-4">
+              <div className="@container">
+                <dl className="flex flex-col gap-2">
                   {specifications.map((field, index) => (
-                    <div className="grid grid-cols-1 gap-2 @lg:grid-cols-2" key={index}>
+                    <div className="grid grid-cols-1 gap-0 @lg:grid-cols-2" key={index}>
                       <dt>
                         <strong>{field.name}</strong>
                       </dt>
-                      <dd className="mt-5 pl-0">{field.value}</dd>
+                      <dd className="pl-0">{field.value}</dd>
                     </div>
                   ))}
                 </dl>

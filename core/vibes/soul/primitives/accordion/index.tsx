@@ -93,7 +93,7 @@ function AccordionItem({
       >
         <div
           className={clsx(
-            'py-3 font-[family-name:var(--accordion-content-font-family,var(--font-family-body))] text-base font-light leading-normal',
+            'prose prose-sm py-3 font-[family-name:var(--accordion-content-font-family,var(--font-family-body))] leading-normal',
             {
               light: 'text-[var(--accordion-light-content-text,hsl(var(--foreground)))]',
               dark: 'text-[var(--accordion-dark-content-text,hsl(var(--background)))]',
