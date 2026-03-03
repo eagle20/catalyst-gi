@@ -56,6 +56,7 @@ export function ProductGallery({
   const [isZoomed, setIsZoomed] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const imageContainerRef = useRef<HTMLDivElement>(null);
+  const [playingVideoIndex, setPlayingVideoIndex] = useState<number | null>(null);
 
   const mediaItems: MediaItem[] = useMemo(() => {
     const items: MediaItem[] = images.map((img) => ({
@@ -81,7 +82,10 @@ export function ProductGallery({
   useEffect(() => {
     if (!emblaApi) return;
 
-    const onSelect = () => setPreviewImage(emblaApi.selectedScrollSnap());
+    const onSelect = () => {
+      setPreviewImage(emblaApi.selectedScrollSnap());
+      setPlayingVideoIndex(null);
+    };
 
     emblaApi.on('select', onSelect);
 
@@ -92,6 +96,7 @@ export function ProductGallery({
 
   const selectImage = (index: number) => {
     setPreviewImage(index);
+    setPlayingVideoIndex(null);
     if (emblaApi) emblaApi.scrollTo(index);
   };
 
@@ -115,20 +120,44 @@ export function ProductGallery({
           {mediaItems.map((item, idx) => {
             if (item.type === 'video') {
               const videoId = getYouTubeVideoId(item.url);
+              const isPlaying = playingVideoIndex === idx;
 
               return (
                 <div
                   aria-label={item.title || `${productName} video`}
-                  className="relative aspect-square w-full shrink-0 grow-0 basis-full"
+                  className="relative aspect-square w-full shrink-0 grow-0 basis-full bg-black"
                   key={idx}
                 >
-                  <iframe
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="absolute inset-0 h-full w-full"
-                    src={`https://www.youtube.com/embed/${videoId}`}
-                    title={item.title || `${productName} video`}
-                  />
+                  {isPlaying ? (
+                    <iframe
+                      allow="accelerometer; autoplay; encrypted-media; gyroscope"
+                      className="absolute inset-0 h-full w-full"
+                      src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`}
+                      title={item.title || `${productName} video`}
+                    />
+                  ) : (
+                    <button
+                      className="group absolute inset-0 flex cursor-pointer items-center justify-center"
+                      onClick={() => setPlayingVideoIndex(idx)}
+                      type="button"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        alt={item.title || `${productName} video`}
+                        className="absolute inset-0 h-full w-full object-contain"
+                        src={`https://img.youtube.com/vi/${videoId}/sddefault.jpg`}
+                      />
+                      <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-black/70 transition-transform group-hover:scale-110">
+                        <svg
+                          className="ml-1 h-8 w-8 text-white"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </div>
+                    </button>
+                  )}
                 </div>
               );
             }
@@ -189,7 +218,7 @@ export function ProductGallery({
                   className="bg-contrast-100 object-cover"
                   fill
                   sizes="(min-width: 28rem) 4rem, 3rem"
-                  src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+                  src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
                 />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-black/70">
