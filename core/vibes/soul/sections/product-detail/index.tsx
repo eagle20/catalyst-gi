@@ -229,7 +229,7 @@ export function ProductDetail<F extends Field>({
                   <Stream fallback={<ProductAccordionsSkeleton />} value={product.accordions}>
                     {(accordions) =>
                       accordions && (
-                        <Accordion className="border-t border-contrast-100 pt-4" type="multiple">
+                        <Accordion className="border-t border-contrast-100 pt-4" defaultValue={['0']} type="multiple">
                           {accordions.map((accordion, index) => (
                             <AccordionItem
                               key={index}
