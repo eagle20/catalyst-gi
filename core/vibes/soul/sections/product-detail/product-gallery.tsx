@@ -213,11 +213,10 @@ export function ProductGallery({
                 key={index}
                 onClick={() => selectImage(index)}
               >
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   alt={item.title || `${productName} video`}
-                  className="bg-contrast-100 object-cover"
-                  fill
-                  sizes="(min-width: 28rem) 4rem, 3rem"
+                  className="absolute inset-0 h-full w-full bg-contrast-100 object-cover"
                   src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
                 />
                 <div className="absolute inset-0 flex items-center justify-center">
