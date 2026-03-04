@@ -8,8 +8,7 @@ import { Image } from '~/components/image';
 
 type MediaItem =
   | { type: 'image'; src: string; alt: string }
-  | { type: 'video'; url: string; title: string }
-  | { type: 'spin'; url: string; title: string };
+  | { type: 'video'; url: string; title: string };
 
 function getYouTubeVideoId(url: string): string | null {
   try {
@@ -34,16 +33,6 @@ function getYouTubeVideoId(url: string): string | null {
     return null;
   } catch {
     return null;
-  }
-}
-
-function isSpinUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-
-    return parsed.pathname.endsWith('.spin');
-  } catch {
-    return false;
   }
 }
 
@@ -77,9 +66,7 @@ export function ProductGallery({
     }));
 
     for (const video of videos) {
-      if (isSpinUrl(video.url)) {
-        items.push({ type: 'spin' as const, url: video.url, title: video.title });
-      } else if (getYouTubeVideoId(video.url)) {
+      if (getYouTubeVideoId(video.url)) {
         items.push({ type: 'video' as const, url: video.url, title: video.title });
       }
     }
@@ -88,7 +75,7 @@ export function ProductGallery({
   }, [images, videos]);
 
   const activeItem = mediaItems[previewImage];
-  const isVideoActive = activeItem?.type === 'video' || activeItem?.type === 'spin';
+  const isVideoActive = activeItem?.type === 'video';
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -129,22 +116,6 @@ export function ProductGallery({
       >
         <div className="flex">
           {mediaItems.map((item, idx) => {
-            if (item.type === 'spin') {
-              return (
-                <div
-                  aria-label={item.title || `${productName} 360° view`}
-                  className="relative aspect-square w-full shrink-0 grow-0 basis-full"
-                  key={idx}
-                >
-                  <iframe
-                    className="absolute inset-0 h-full w-full"
-                    src={item.url}
-                    title={item.title || `${productName} 360° view`}
-                  />
-                </div>
-              );
-            }
-
             if (item.type === 'video') {
               const videoId = getYouTubeVideoId(item.url);
               const isPlaying = playingVideoIndex === idx;
@@ -225,38 +196,6 @@ export function ProductGallery({
       </div>
       <div className="flex max-w-full shrink-0 flex-row gap-2 overflow-x-auto @2xl:order-1 @2xl:flex-col">
         {mediaItems.map((item, index) => {
-          if (item.type === 'spin') {
-            return (
-              <button
-                aria-label={`View 360°: ${item.title || `${productName} 360° view`}`}
-                className={clsx(
-                  'relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border transition-all duration-300 hover:opacity-100 @md:h-16 @md:w-16',
-                  index === previewImage
-                    ? 'border-foreground opacity-100'
-                    : 'border-transparent opacity-50',
-                )}
-                key={index}
-                onClick={() => selectImage(index)}
-              >
-                <div className="flex h-full w-full items-center justify-center bg-contrast-100">
-                  <svg
-                    className="h-6 w-6 text-foreground/60"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-              </button>
-            );
-          }
-
           if (item.type === 'video') {
             const videoId = getYouTubeVideoId(item.url);
 
