@@ -54,6 +54,7 @@ const getRefinedSearch = cache(async (props: Props) => {
   const parsedSearchParams = searchParamsCache?.parse(searchParams) ?? {};
 
   return await fetchFacetedSearch({
+    sort: 'best_selling',
     ...searchParams,
     ...parsedSearchParams,
   });
