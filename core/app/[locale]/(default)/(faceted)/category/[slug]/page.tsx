@@ -478,7 +478,7 @@ export default async function Category(props: Props) {
         removeLabel={removeLabel}
         resetFiltersLabel={resetFiltersLabel}
         showCompare={showCompare}
-        sortDefaultValue="featured"
+        sortDefaultValue="best_selling"
         sortLabel={sortLabel}
         sortOptions={sortOptions}
         sortParamName="sort"

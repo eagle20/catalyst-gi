@@ -370,7 +370,7 @@ export default async function Search(props: Props) {
       removeLabel={Streamable.from(getRemoveLabel)}
       resetFiltersLabel={Streamable.from(getResetFiltersLabel)}
       showCompare={Streamable.from(getShowCompare)}
-      sortDefaultValue="featured"
+      sortDefaultValue="best_selling"
       sortLabel={Streamable.from(getSortLabel)}
       sortOptions={Streamable.from(getSortOptions)}
       sortParamName="sort"
