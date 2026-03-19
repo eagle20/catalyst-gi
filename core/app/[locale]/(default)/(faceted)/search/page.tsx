@@ -54,7 +54,7 @@ const getRefinedSearch = cache(async (props: Props) => {
   const parsedSearchParams = searchParamsCache?.parse(searchParams) ?? {};
 
   return await fetchFacetedSearch({
-    sort: 'best_selling',
+    sort: 'relevance',
     ...searchParams,
     ...parsedSearchParams,
   });
@@ -371,7 +371,7 @@ export default async function Search(props: Props) {
       removeLabel={Streamable.from(getRemoveLabel)}
       resetFiltersLabel={Streamable.from(getResetFiltersLabel)}
       showCompare={Streamable.from(getShowCompare)}
-      sortDefaultValue="best_selling"
+      sortDefaultValue="relevance"
       sortLabel={Streamable.from(getSortLabel)}
       sortOptions={Streamable.from(getSortOptions)}
       sortParamName="sort"
