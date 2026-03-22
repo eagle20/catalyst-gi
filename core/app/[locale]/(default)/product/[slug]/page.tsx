@@ -17,6 +17,7 @@ import { addToCart } from './_actions/add-to-cart';
 import { ProductSchema } from './_components/product-schema';
 import { ProductViewed } from './_components/product-viewed';
 import { PaginationSearchParamNames, Reviews } from './_components/reviews';
+import { QnAList } from './_components/qna-list';
 import { getProductData } from './page-data';
 import { SectionLayout } from '@/vibes/soul/sections/section-layout';
 import { Breadcrumb } from '@/vibes/soul/sections/breadcrumbs';
@@ -391,17 +392,7 @@ export default async function Product(props: Props) {
             items.length > 0 && (
               <div className="mx-auto max-w-screen-2xl px-4 pb-20 @xl:px-6 @4xl:px-8">
                 <h2 className="mb-8 font-heading text-2xl font-medium">Questions & Answers</h2>
-                <ol className="flex flex-col gap-8">
-                  {items.map((item, i) => (
-                    <li key={i} className="flex gap-4">
-                      <span className="mt-0.5 shrink-0 font-mono text-sm text-contrast-400">{i + 1}.</span>
-                      <div className="flex flex-col gap-2">
-                        <p className="font-medium leading-snug">{item.question}</p>
-                        <p className="text-contrast-500 leading-relaxed">{item.answer}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
+                <QnAList items={items} />
               </div>
             )
           }
