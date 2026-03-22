@@ -390,15 +390,18 @@ export default async function Product(props: Props) {
           {(items) =>
             items.length > 0 && (
               <div className="mx-auto max-w-screen-2xl px-4 pb-20 @xl:px-6 @4xl:px-8">
-                <h2 className="mb-6 font-heading text-2xl font-medium">Questions & Answers</h2>
-                <div className="flex flex-col divide-y divide-contrast-100">
+                <h2 className="mb-8 font-heading text-2xl font-medium">Questions & Answers</h2>
+                <ol className="flex flex-col gap-8">
                   {items.map((item, i) => (
-                    <div key={i} className="grid grid-cols-1 gap-2 py-6 @2xl:grid-cols-2 @2xl:gap-8">
-                      <p className="font-medium">{item.question}</p>
-                      <p className="text-contrast-500">{item.answer}</p>
-                    </div>
+                    <li key={i} className="flex gap-4">
+                      <span className="mt-0.5 shrink-0 font-mono text-sm text-contrast-400">{i + 1}.</span>
+                      <div className="flex flex-col gap-2">
+                        <p className="font-medium leading-snug">{item.question}</p>
+                        <p className="text-contrast-500 leading-relaxed">{item.answer}</p>
+                      </div>
+                    </li>
                   ))}
-                </div>
+                </ol>
               </div>
             )
           }
