@@ -196,7 +196,7 @@ const getDocuments = async (props: Props): Promise<Array<{ label: string; url: s
   }
 };
 
-const getQnA = async (props: Props): Promise<Array<{ q: string; a: string }>> => {
+const getQnA = async (props: Props): Promise<Array<{ question: string; answer: string }>> => {
   const { slug } = await props.params;
   const variables = await cachedProductDataVariables(slug, props.searchParams);
   const product = await getProductData(variables);
@@ -357,7 +357,7 @@ export default async function Product(props: Props) {
   return (
     <>
       {/* ProductSchema component below handles schema.org structured data with actual product data */}
-      <SectionLayout hideOverflow={true}>
+      <SectionLayout hideOverflow={false}>
         <ProductDetail
           action={addToCart}
           breadcrumbs={Streamable.from(() => getBreadcrumbs(props))}
@@ -394,8 +394,8 @@ export default async function Product(props: Props) {
                 <div className="flex flex-col divide-y divide-contrast-100">
                   {items.map((item, i) => (
                     <div key={i} className="grid grid-cols-1 gap-2 py-6 @2xl:grid-cols-2 @2xl:gap-8">
-                      <p className="font-medium">{item.q}</p>
-                      <p className="text-contrast-500">{item.a}</p>
+                      <p className="font-medium">{item.question}</p>
+                      <p className="text-contrast-500">{item.answer}</p>
                     </div>
                   ))}
                 </div>
