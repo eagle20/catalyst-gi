@@ -210,6 +210,22 @@ const ProductDetailsFragment = graphql(
         }
       }
       warranty
+      qnaMetafields: metafields(namespace: "seo_qa", keys: ["qa_data"]) {
+        edges {
+          node {
+            key
+            value
+          }
+        }
+      }
+      documentsMetafields: metafields(namespace: "product_content", keys: ["documents"]) {
+        edges {
+          node {
+            key
+            value
+          }
+        }
+      }
       ...PricingFragment
       ...ProductFormFragment
     }

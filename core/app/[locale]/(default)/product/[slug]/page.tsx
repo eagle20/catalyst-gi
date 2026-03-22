@@ -182,6 +182,34 @@ const getCtaDisabled = async (props: Props) => {
   return false;
 };
 
+const getDocuments = async (props: Props): Promise<Array<{ label: string; url: string }>> => {
+  const { slug } = await props.params;
+  const variables = await cachedProductDataVariables(slug, props.searchParams);
+  const product = await getProductData(variables);
+  const metafields = removeEdgesAndNodes(product.documentsMetafields);
+  const field = metafields.find((f) => f.key === 'documents');
+  if (!field) return [];
+  try {
+    return JSON.parse(field.value);
+  } catch {
+    return [];
+  }
+};
+
+const getQnA = async (props: Props): Promise<Array<{ q: string; a: string }>> => {
+  const { slug } = await props.params;
+  const variables = await cachedProductDataVariables(slug, props.searchParams);
+  const product = await getProductData(variables);
+  const metafields = removeEdgesAndNodes(product.qnaMetafields);
+  const field = metafields.find((f) => f.key === 'qa_data');
+  if (!field) return [];
+  try {
+    return JSON.parse(field.value);
+  } catch {
+    return [];
+  }
+};
+
 async function getProductPromotionBadges(): Promise<Map<number, string>> {
   try {
     // Check if fetchPromotions method exists
@@ -355,7 +383,26 @@ export default async function Product(props: Props) {
           giftProducts={Streamable.from(() =>
             getProductData(variables).then((p) => p.giftProducts),
           )}
+          documents={Streamable.from(() => getDocuments(props))}
         />
+
+        <Stream fallback={null} value={Streamable.from(() => getQnA(props))}>
+          {(items) =>
+            items.length > 0 && (
+              <div className="mx-auto max-w-screen-2xl px-4 pb-20 @xl:px-6 @4xl:px-8">
+                <h2 className="mb-6 font-heading text-2xl font-medium">Questions & Answers</h2>
+                <div className="flex flex-col divide-y divide-contrast-100">
+                  {items.map((item, i) => (
+                    <div key={i} className="grid grid-cols-1 gap-2 py-6 @2xl:grid-cols-2 @2xl:gap-8">
+                      <p className="font-medium">{item.q}</p>
+                      <p className="text-contrast-500">{item.a}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          }
+        </Stream>
 
         <div className="mb-20">
           <FeaturedProductCarousel

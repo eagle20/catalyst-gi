@@ -46,6 +46,7 @@ interface ProductDetailProduct {
       content: React.ReactNode;
     }>
   >;
+  documents?: Streamable<Array<{ label: string; url: string }>>;
 }
 
 interface Props<F extends Field> {
@@ -66,6 +67,7 @@ interface Props<F extends Field> {
   sku: Streamable<string>;
   promotions?: Streamable<any>;
   giftProducts?: Streamable<any>;
+  documents?: Streamable<Array<{ label: string; url: string }>>;
 }
 
 export function ProductDetail<F extends Field>({
@@ -86,6 +88,7 @@ export function ProductDetail<F extends Field>({
   sku,
   promotions,
   giftProducts,
+  documents,
 }: Props<F>) {
   return (
     <section className="@container">
@@ -95,11 +98,36 @@ export function ProductDetail<F extends Field>({
         <Stream fallback={<ProductDetailSkeleton />} value={streamableProduct}>
           {(product) =>
             product && (
-              <div className="grid grid-cols-1 items-stretch gap-x-8 gap-y-8 @2xl:grid-cols-2 @5xl:gap-x-12">
-                <div className="hidden @2xl:block">
+              <div className="grid grid-cols-1 items-start gap-x-8 gap-y-8 @2xl:grid-cols-2 @5xl:gap-x-12">
+                <div className="sticky top-8 hidden self-start @2xl:block">
                   <Stream fallback={<ProductGallerySkeleton />} value={Streamable.all([product.images, product.videos ?? Streamable.from(() => Promise.resolve([]))])}>
                     {([images, videos]) => <ProductGallery images={images} videos={videos} productName={product.title} />}
                   </Stream>
+                  {documents && (
+                    <Stream fallback={null} value={documents}>
+                      {(docs) =>
+                        docs && docs.length > 0 && (
+                          <div className="mt-6 border-t border-contrast-100 pt-4">
+                            <p className="mb-3 font-mono text-xs uppercase tracking-wider text-contrast-400">Downloads</p>
+                            <ul className="flex flex-col gap-2">
+                              {docs.map((doc, i) => (
+                                <li key={i}>
+                                  <a
+                                    href={doc.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 text-sm text-foreground underline-offset-4 hover:underline"
+                                  >
+                                    ↓ {doc.label}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )
+                      }
+                    </Stream>
+                  )}
                 </div>
 
                 {/* Product Details */}
