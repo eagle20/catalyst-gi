@@ -92,7 +92,7 @@ export default async function Cart() {
   }));
 
   const totalCouponDiscount =
-    checkout?.coupons.reduce((sum, coupon) => sum + coupon.discountedAmount.value, 0) ?? 0;
+    checkout?.coupons?.reduce((sum, coupon) => sum + coupon.discountedAmount.value, 0) ?? 0;
 
   const shippingConsignment =
     checkout?.shippingConsignments?.find((consignment) => consignment.selectedShippingOption) ||
@@ -166,7 +166,7 @@ export default async function Cart() {
         checkoutLabel={t('proceedToCheckout')}
         couponCode={{
           action: updateCouponCode,
-          couponCodes: checkout?.coupons.map((coupon) => coupon.code) ?? [],
+          couponCodes: checkout?.coupons?.map((coupon) => coupon.code) ?? [],
           ctaLabel: t('CheckoutSummary.CouponCode.apply'),
           label: t('CheckoutSummary.CouponCode.couponCode'),
           removeLabel: t('CheckoutSummary.CouponCode.removeCouponCode'),
