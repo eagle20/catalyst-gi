@@ -29,6 +29,8 @@ export const getComponentSnapshot = async (snapshotId: string) => {
   });
 };
 
-function normalizeLocale(locale: string): string | undefined {
-  return locale === defaultLocale ? undefined : locale;
+function normalizeLocale(_locale: string): string | undefined {
+  // Makeswift only has English content — always serve default locale
+  // to prevent 404 errors for non-English locales (e.g. es-MX)
+  return undefined;
 }
