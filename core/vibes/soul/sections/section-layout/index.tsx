@@ -34,7 +34,7 @@ export function SectionLayout({
   paddingOptionsMobile: string;
 }) {
   return (
-    <section className={clsx('@container', hideOverflow && 'overflow-hidden', className)}>
+    <section className={clsx('@container', hideOverflow && 'overflow-x-clip', className)}>
       <div
         className={clsx(
           `@4xl:py-${paddingOptionsLargeDesktop} mx-auto px-4 py-${paddingOptionsMobile} @md:py-${paddingOptionsTablet} @xl:px-6 @xl:py-${paddingOptionsDesktop} @4xl:px-8`,

@@ -358,7 +358,7 @@ export default async function Product(props: Props) {
   return (
     <>
       {/* ProductSchema component below handles schema.org structured data with actual product data */}
-      <SectionLayout hideOverflow={false}>
+      <SectionLayout hideOverflow={true}>
         <ProductDetail
           action={addToCart}
           breadcrumbs={Streamable.from(() => getBreadcrumbs(props))}
