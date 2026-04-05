@@ -183,8 +183,6 @@ export default async function RootLayout({ params, children }: Props) {
             </NuqsAdapter>
           </NextIntlClientProvider>
           <VercelComponents />
-          {/* Trust badge/seal script */}
-          <script type="text/javascript" src="https://cdn.ywxi.net/js/1.js" async />
         </body>
       </html>
     </MakeswiftProvider>

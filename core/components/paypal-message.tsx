@@ -57,5 +57,5 @@ export function PayPalMessage({ amount, placement }: PayPalMessageProps) {
     }
   }, [amount, placement]);
 
-  return <div ref={containerRef} />;
+  return <div className="min-h-[20px]" ref={containerRef} />;
 }
