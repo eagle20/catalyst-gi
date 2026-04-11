@@ -12,8 +12,6 @@ import { toast } from '@/vibes/soul/primitives/toaster';
 import { StickySidebarLayout } from '@/vibes/soul/sections/sticky-sidebar-layout';
 import { Image } from '~/components/image';
 
-import { PayPalMessage } from '~/components/paypal-message';
-
 import { CouponCodeForm, CouponCodeFormState } from './coupon-code-form';
 import { cartLineItemActionFormDataSchema } from './schema';
 import { ShippingForm, ShippingFormState } from './shipping-form';
@@ -232,8 +230,6 @@ export function CartClient<LineItem extends CartLineItem>({
               <dl>{cart.total}</dl>
             </div>
           </dl>
-
-          <PayPalMessage amount={cart.total} placement="cart" />
 
           <CheckoutButton cartId={cartId} action={checkoutAction} className="mt-4 w-full">
             {checkoutLabel}

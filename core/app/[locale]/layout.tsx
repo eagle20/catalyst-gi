@@ -162,13 +162,6 @@ export default async function RootLayout({ params, children }: Props) {
           />
           {/* Lucky Orange tracking */}
           <script async defer src="https://tools.luckyorange.com/core/lo.js?site-id=a83f895c" />
-          {/* PayPal Buy Now Pay Later messaging SDK */}
-          {process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID && (
-            <script
-              src={`https://www.paypal.com/sdk/js?client-id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&components=messages`}
-              async
-            />
-          )}
         </head>
         <body>
           <NextIntlClientProvider locale={locale} messages={messages}>
