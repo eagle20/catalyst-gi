@@ -210,7 +210,7 @@ export function ProductCardSkeleton({
   aspectRatio = '5:6',
 }: Pick<ProductCardProps, 'className' | 'aspectRatio'>) {
   return (
-    <Skeleton.Root className={clsx(className)}>
+    <Skeleton.Root className={clsx('border border-transparent shadow-lg', className)}>
       <Skeleton.Box
         className={clsx(
           'rounded-[var(--product-card-border-radius,1rem)]',
