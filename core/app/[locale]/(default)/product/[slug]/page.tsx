@@ -3,6 +3,7 @@ import { Metadata } from 'next';
 import { getFormatter, getTranslations, setRequestLocale } from 'next-intl/server';
 import { createSearchParamsCache, parseAsString } from 'nuqs/server';
 import { cache } from 'react';
+import { preload } from 'react-dom';
 
 import { Stream, Streamable } from '@/vibes/soul/lib/streamable';
 import { FeaturedProductCarousel } from '@/vibes/soul/sections/featured-product-carousel';
@@ -354,6 +355,24 @@ export default async function Product(props: Props) {
   const productId = Number(slug);
   const variables = await cachedProductDataVariables(slug, props.searchParams);
   const parsedSearchParams = searchParamsCache.parse(props.searchParams);
+
+  // Preload the LCP product image so the browser fetches it immediately from
+  // the initial HTML, before the client-side gallery hydrates.
+  const productData = await getProduct(props);
+  const firstImageSrc = productData.images[0]?.src;
+  if (firstImageSrc) {
+    const sizes = [384, 640, 750, 1080, 1200];
+    const imageSrcSet = sizes
+      .map((w) => `${firstImageSrc.replace('{:size}', `${w}w`)} ${w}w`)
+      .join(', ');
+    preload(firstImageSrc.replace('{:size}', '640w'), {
+      as: 'image',
+      // @ts-ignore — fetchPriority is supported in React 18.3+ / Next.js 14+
+      fetchPriority: 'high',
+      imageSrcSet,
+      imageSizes: '(min-width: 42rem) 50vw, 100vw',
+    });
+  }
 
   return (
     <>
