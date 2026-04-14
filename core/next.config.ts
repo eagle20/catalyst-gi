@@ -51,7 +51,15 @@ export default async (): Promise<NextConfig> => {
         {
           source: '/shop',
           destination: '/categories',
-          permanent: true, // or false for temporary redirect
+          permanent: true,
+        },
+        {
+          // Redirect es-MX URLs to English equivalents — BigCommerce sitemap
+          // generates these URLs but the catalog has no Spanish translations,
+          // causing 404s for users clicking through from Google.
+          source: '/es-MX/:path*',
+          destination: '/:path*',
+          permanent: false,
         },
       ];
     },
