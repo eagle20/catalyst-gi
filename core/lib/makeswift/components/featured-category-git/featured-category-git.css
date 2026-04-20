@@ -1,14 +1,35 @@
-.custom-featured-category-git-container {
-  overflow: visible !important;
+/* Desktop: 4-column grid (inside the lg:col-span-4 container) */
+.featured-products-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
 }
 
-.custom-featured-category-git-dot-list {
-  display: none !important;
-  bottom: -40px !important;
+/* Tablet (<1024px): horizontal scroll-snap carousel */
+@media (max-width: 1023px) {
+  .featured-products-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 1.25rem;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  .featured-products-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .featured-products-grid > * {
+    flex: 0 0 calc(50% - 0.625rem);
+    scroll-snap-align: start;
+  }
 }
 
-@media (max-width: 1025px) {
-  .custom-featured-category-git-dot-list {
-    display: flex !important;
+/* Mobile (<640px): show ~1 card at a time */
+@media (max-width: 639px) {
+  .featured-products-grid > * {
+    flex: 0 0 85%;
   }
 }

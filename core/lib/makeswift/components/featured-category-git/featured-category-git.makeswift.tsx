@@ -2,7 +2,7 @@
 
 import { Combobox, Group, Select, Style, Checkbox } from '@makeswift/runtime/controls';
 
-import { runtime, breakpoints } from '~/lib/makeswift/runtime';
+import { runtime } from '~/lib/makeswift/runtime';
 import { ProductCardSkeleton } from '~/vibes/soul/primitives/product-card';
 
 import { searchProducts } from '../../utils/search-products';
@@ -16,12 +16,7 @@ import {
 import { searchCategories } from '../../utils/search-categories';
 import { ProductCard } from '@/vibes/soul/primitives/product-card-git';
 import { useCategoriesByIds } from '../../utils/fetch-categories';
-import dynamic from 'next/dynamic';
-
-import 'react-multi-carousel/lib/styles.css';
 import './featured-category-git.css';
-
-const Carousel = dynamic(() => import('react-multi-carousel'), { ssr: true });
 
 interface Props {
   className?: string;
@@ -89,41 +84,6 @@ function MakeswiftFeaturedProductsGridGIT({
     tabletColumns = 1,
     desktopColumns = 5;
 
-  const responsive = {
-    superLargeDesktop: {
-      breakpoint: { max: 4000, min: breakpoints.screen.width }, // XL and above
-      items: 4,
-      showDots: false,
-      swipeable: false,
-      draggable: false,
-      infinite: false,
-    },
-    desktop: {
-      breakpoint: { max: breakpoints.screen.width, min: breakpoints.large.width }, // 1280–1024
-      items: 4,
-      showDots: false,
-      swipeable: false,
-      draggable: false,
-      infinite: false,
-    },
-    tablet: {
-      breakpoint: { max: breakpoints.large.width, min: breakpoints.small.width }, // 1024–640
-      items: 2,
-      showDots: true,
-      swipeable: true,
-      draggable: true,
-      infinite: true,
-    },
-    mobile: {
-      breakpoint: { max: breakpoints.small.width, min: 0 }, // <640
-      items: 1,
-      showDots: true,
-      swipeable: true,
-      draggable: true,
-      infinite: true,
-    },
-  };
-
   if (productIds.length === 0 || categoryEntity == null || !categoryEntity.entityId) {
     return (
       <div className={className}>
@@ -188,62 +148,42 @@ function MakeswiftFeaturedProductsGridGIT({
           fullHeight={true}
         />
       </div>
-      <div className={clsx('lg:col-span-4 xl:col-span-4', 'featured-category-carousel-container')}>
-        {products.length > 0 ? (
-          <Carousel
-            swipeable={false}
-            draggable={false}
-            showDots={true}
-            arrows={false}
-            responsive={responsive}
-            ssr={true} // means to render carousel on server-side.
-            deviceType={'desktop'} // This is important for SSR. It should match the device type you want to render.
-            autoPlaySpeed={1 * 1000} // Convert seconds to milliseconds
-            //keyBoardControl={keyBoardControl}
-            customTransition="all 1000ms"
-            transitionDuration={1000}
-            containerClass="carousel-container custom-featured-category-git-container"
-            removeArrowOnDeviceType={['desktop', 'superLargeDesktop']}
-            dotListClass="custom-dot-list-style custom-featured-category-git-dot-list"
-            itemClass="carousel-item-padding-40-px px-2"
-            // renderDotsOutside={true}
-            className={``}
-          >
-            {products.map((product) => {
-              const { price, salePrice } = handlePrice(product.price);
+      <div className="lg:col-span-4 xl:col-span-4">
+        <div className="featured-products-grid">
+          {products.map((product) => {
+            const { price, salePrice } = handlePrice(product.price);
 
-              const badgeOptions = {
-                show: false,
-                text: '',
-                theme: 'primary',
-                shape: 'pill',
-                location: 'top-right',
-              };
+            const badgeOptions = {
+              show: false,
+              text: '',
+              theme: 'primary',
+              shape: 'pill',
+              location: 'top-right',
+            };
 
-              return (
-                <ProductCard
-                  key={product.id}
-                  className={`h-full`}
-                  image={product.image}
-                  name={product.title}
-                  // @ts-ignore
-                  rating={product.rating as number}
-                  // @ts-ignore
-                  reviewCount={product.reviewCount as number}
-                  price={price}
-                  badge={badgeOptions}
-                  showReviews={showReviews}
-                  salePrice={salePrice}
-                  aspectRatio={aspectRatio}
-                  href={product.href}
-                  id={product.id}
-                  buttonText="Add To Cart"
-                  {...props}
-                />
-              );
-            })}
-          </Carousel>
-        ) : null}
+            return (
+              <ProductCard
+                key={product.id}
+                className="h-full"
+                image={product.image}
+                name={product.title}
+                // @ts-ignore
+                rating={product.rating as number}
+                // @ts-ignore
+                reviewCount={product.reviewCount as number}
+                price={price}
+                badge={badgeOptions}
+                showReviews={showReviews}
+                salePrice={salePrice}
+                aspectRatio={aspectRatio}
+                href={product.href}
+                id={product.id}
+                buttonText="Add To Cart"
+                {...props}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );
