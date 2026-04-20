@@ -1,3 +1,31 @@
-.react-multiple-carousel__arrow {
-  z-index: 0 !important;
+@keyframes logo-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.logo-marquee-animate {
+  animation: logo-marquee var(--marquee-duration, 20s) linear infinite;
+  will-change: transform;
+}
+
+.logo-marquee-item {
+  width: calc(100% / var(--items-mobile, 2));
+}
+
+@media (min-width: 640px) {
+  .logo-marquee-item {
+    width: calc(100% / var(--items-tablet, 4));
+  }
+}
+
+@media (min-width: 1024px) {
+  .logo-marquee-item {
+    width: calc(100% / var(--items-desktop, 6));
+  }
+}
+
+@media (min-width: 1280px) {
+  .logo-marquee-item {
+    width: calc(100% / var(--items-super, 8));
+  }
 }
