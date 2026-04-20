@@ -38,26 +38,21 @@ interface CategoryInterface {
 }
 
 const PlaceholderSkeletons: React.FC<{
-  mobileColumns: number;
-  tabletColumns: number;
-  desktopColumns: number;
   className?: string;
-}> = ({ mobileColumns, tabletColumns, desktopColumns, className }) => {
+  aspectRatio?: '1:1' | '5:6' | '3:4';
+}> = ({ className, aspectRatio = '1:1' }) => {
   return (
-    <div
-      className={clsx(
-        'grid gap-5',
-        `grid-cols-${mobileColumns}`, // mobile: 1 columns
-        `sm:grid-cols-${tabletColumns}`, // tablet: 1 columns
-        `lg:grid-cols-${desktopColumns}`, // desktop: 5 columns
-        `xl:grid-cols-${desktopColumns}`, // super desktop: 5 columns
-        className,
-      )}
-    >
-      <CategoryGridItemSkeleton className={className} />
-      {Array.from({ length: 4 }).map((_, index) => (
-        <ProductCardSkeleton key={index} className={className} />
-      ))}
+    <div className={clsx('grid gap-5 grid-cols-1 lg:grid-cols-5', className)}>
+      <div className="lg:col-span-1">
+        <CategoryGridItemSkeleton aspectRatio={aspectRatio} />
+      </div>
+      <div className="lg:col-span-4">
+        <div className="featured-products-grid">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <ProductCardSkeleton key={index} aspectRatio={aspectRatio} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
@@ -80,10 +75,6 @@ function MakeswiftFeaturedProductsGridGIT({
     productEntityFour,
   ].map(({ entityId }) => entityId ?? '');
 
-  const mobileColumns = 1,
-    tabletColumns = 1,
-    desktopColumns = 5;
-
   if (productIds.length === 0 || categoryEntity == null || !categoryEntity.entityId) {
     return (
       <div className={className}>
@@ -105,39 +96,16 @@ function MakeswiftFeaturedProductsGridGIT({
   const category = categories?.[0];
 
   if (isLoading || isLoadingCategory) {
-    return (
-      <PlaceholderSkeletons
-        mobileColumns={mobileColumns}
-        tabletColumns={tabletColumns}
-        desktopColumns={desktopColumns}
-        className={className}
-      />
-    );
+    return <PlaceholderSkeletons className={className} aspectRatio={aspectRatio} />;
   }
 
   if (products == null || category == null || products.length === 0 || categoryEntity == null) {
-    return (
-      <PlaceholderSkeletons
-        mobileColumns={mobileColumns}
-        tabletColumns={tabletColumns}
-        desktopColumns={desktopColumns}
-        className={className}
-      />
-    );
+    return <PlaceholderSkeletons className={className} aspectRatio={aspectRatio} />;
   }
 
   return (
-    <div
-      className={clsx(
-        'grid gap-5',
-        `grid-cols-${mobileColumns}`, // mobile: 1 columns
-        `sm:grid-cols-${tabletColumns}`, // tablet: 1 columns
-        `lg:grid-cols-${desktopColumns}`, // desktop: 5 columns
-        `xl:grid-cols-${desktopColumns}`, // super desktop: 5 columns
-        className,
-      )}
-    >
-      <div className={clsx('grid lg:col-span-1 xl:col-span-1')}>
+    <div className={clsx('grid gap-5 grid-cols-1 lg:grid-cols-5', className)}>
+      <div className="lg:col-span-1">
         <CategoryGridCard
           id={category.id.toString()}
           name={category.name}
