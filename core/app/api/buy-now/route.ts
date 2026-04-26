@@ -27,15 +27,49 @@ const CheckoutRedirectMutation = graphql(`
   }
 `);
 
+async function resolveEntityId(productId: string): Promise<number | null> {
+  const numeric = Number(productId);
+
+  if (Number.isInteger(numeric) && numeric > 0) {
+    return numeric;
+  }
+
+  // SKU-based lookup via BigCommerce Management API
+  const storeHash = process.env.BIGCOMMERCE_STORE_HASH;
+  const accessToken = process.env.BIGCOMMERCE_ACCESS_TOKEN;
+
+  if (!storeHash || !accessToken) return null;
+
+  const url = `https://api.bigcommerce.com/stores/${storeHash}/v3/catalog/products?sku=${encodeURIComponent(productId)}&include_fields=id`;
+
+  const res = await fetch(url, {
+    headers: {
+      'X-Auth-Token': accessToken,
+      Accept: 'application/json',
+    },
+    cache: 'no-store',
+  });
+
+  if (!res.ok) return null;
+
+  const json = await res.json() as { data?: Array<{ id: number }> };
+
+  return json.data?.[0]?.id ?? null;
+}
+
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
   const { searchParams } = request.nextUrl;
   const rawProductId = searchParams.get('product_id');
   const quantity = Math.max(1, Number(searchParams.get('quantity') ?? '1'));
 
-  const productEntityId = Number(rawProductId);
+  if (!rawProductId) {
+    return NextResponse.json({ error: 'Missing product_id' }, { status: 400 });
+  }
 
-  if (!rawProductId || !Number.isInteger(productEntityId) || productEntityId <= 0) {
-    return NextResponse.json({ error: 'Missing or invalid product_id' }, { status: 400 });
+  const productEntityId = await resolveEntityId(rawProductId);
+
+  if (!productEntityId) {
+    return NextResponse.json({ error: `Product not found: ${rawProductId}` }, { status: 404 });
   }
 
   try {
