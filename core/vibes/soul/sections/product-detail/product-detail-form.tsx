@@ -372,6 +372,7 @@ export function ProductDetailForm<F extends Field>({
               {/* Buttons: stacked and full width on mobile, side by side on desktop */}
               <div className="col-span-1 flex w-full flex-col gap-3 sm:col-span-6 sm:flex-row">
                 <SubmitButton disabled={ctaDisabled}>{ctaLabel}</SubmitButton>
+                <BuyNowButton productId={productId} quantity={quantityControl.value} />
                 <B2BNinjaAddToQuoteButton productId={productId} quantity={quantityControl.value} />
               </div>
             </div>
@@ -395,6 +396,30 @@ function SubmitButton({ children, disabled }: { children: React.ReactNode; disab
       variant="secondary"
     >
       {children}
+    </Button>
+  );
+}
+
+function BuyNowButton({ productId, quantity }: { productId: string; quantity?: string }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleBuyNow = () => {
+    setLoading(true);
+    const qty = Math.max(1, Number(quantity ?? '1'));
+
+    window.location.href = `/api/buy-now?product_id=${encodeURIComponent(productId)}&quantity=${qty}`;
+  };
+
+  return (
+    <Button
+      className="w-auto @xl:w-56"
+      loading={loading}
+      onClick={handleBuyNow}
+      size="medium"
+      type="button"
+      variant="primary"
+    >
+      Buy Now
     </Button>
   );
 }
