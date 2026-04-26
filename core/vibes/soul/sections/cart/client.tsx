@@ -405,12 +405,9 @@ function CheckoutButton({
   }, [form.errors]);
 
   return (
-    <>
-      <form action={formAction}>
-        <SubmitButton {...rest} />
-      </form>
-      <B2BNinjaCartToQuoteButton cartId={cartId} />
-    </>
+    <form action={formAction}>
+      <SubmitButton {...rest} />
+    </form>
   );
 }
 
@@ -420,29 +417,3 @@ function SubmitButton(props: React.ComponentPropsWithoutRef<typeof Button>) {
   return <Button {...props} disabled={pending} loading={pending} type="submit" />;
 }
 
-function B2BNinjaCartToQuoteButton({ cartId }: { cartId?: string }) {
-  return (
-    <Button
-      onClick={async (event) => {
-        if (typeof window !== 'undefined' && window.BN && window.BN.cart_id_to_quote) {
-          event.preventDefault();
-          if (cartId) {
-            await window.BN.cart_id_to_quote(cartId)
-              .then(() => {
-                window.BN.show_quote('quote-view');
-              })
-              .catch((error: any) => {
-                console.error('Error converting cart to quote:', error);
-              });
-          }
-        }
-      }}
-      className="mt-2 w-full"
-      variant="secondary"
-      size="large"
-      type="button"
-    >
-      Add Cart To Quote
-    </Button>
-  );
-}

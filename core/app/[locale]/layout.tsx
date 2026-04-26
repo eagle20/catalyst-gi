@@ -26,8 +26,6 @@ import { Providers } from '../providers';
 
 import '~/lib/makeswift/components';
 import { getUser } from '~/lib/user';
-import { QuoteNinjaCustomerSyncLoader } from '~/components/QuoteNinjaCustomerSyncLoader';
-import { getCustomerV2RecordByEmail } from '~/auth';
 
 const RootLayoutMetadataQuery = graphql(`
   query RootLayoutMetadataQuery {
@@ -133,12 +131,7 @@ export default async function RootLayout({ params, children }: Props) {
   // need to call this method everywhere where static rendering is enabled
   setRequestLocale(locale);
 
-  const [messages, user] = await Promise.all([getMessages(), getUser()]);
-
-  let v2CustomerRecord = null;
-  if (user?.email) {
-    v2CustomerRecord = await getCustomerV2RecordByEmail(user.email);
-  }
+  const [messages] = await Promise.all([getMessages(), getUser()]);
 
   return (
     <MakeswiftProvider previewMode={(await draftMode()).isEnabled}>
@@ -167,7 +160,6 @@ export default async function RootLayout({ params, children }: Props) {
           <NextIntlClientProvider locale={locale} messages={messages}>
             <NuqsAdapter>
               <Providers>
-                <QuoteNinjaCustomerSyncLoader customer={v2CustomerRecord} />
                 {toastNotificationCookieData && (
                   <CookieNotifications {...toastNotificationCookieData} />
                 )}

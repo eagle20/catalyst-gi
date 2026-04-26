@@ -372,10 +372,16 @@ export function ProductDetailForm<F extends Field>({
               {/* Buttons: stacked and full width on mobile, side by side on desktop */}
               <div className="col-span-1 flex w-full flex-col gap-3 sm:col-span-6 sm:flex-row">
                 <SubmitButton disabled={ctaDisabled}>{ctaLabel}</SubmitButton>
-                <B2BNinjaAddToQuoteButton productId={productId} quantity={quantityControl.value} />
+                <BuyNowButton productId={productId} quantity={quantityControl.value} />
               </div>
             </div>
           </div>
+          <p className="pt-2 text-sm text-gray-500">
+            Buying in bulk?{' '}
+            <a className="underline hover:text-gray-700" href="/contact">
+              Contact us for a quote
+            </a>
+          </p>
         </div>
       </form>
     </FormProvider>
@@ -399,62 +405,30 @@ function SubmitButton({ children, disabled }: { children: React.ReactNode; disab
   );
 }
 
-function B2BNinjaAddToQuoteButton({
-  productId,
-  quantity,
-}: {
-  productId: string;
-  quantity?: string;
-}) {
+function BuyNowButton({ productId, quantity }: { productId: string; quantity?: string }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleBuyNow = () => {
+    setLoading(true);
+    const qty = Math.max(1, Number(quantity ?? '1'));
+
+    window.location.href = `/api/buy-now?product_id=${encodeURIComponent(productId)}&quantity=${qty}`;
+  };
+
   return (
     <Button
-      className="top-0 mt-0 w-auto @xl:w-56"
-      id="qn-cart-to-quote"
-      onClick={(event) => {
-        event.preventDefault();
-
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (window.BN?.add_products_to_quote) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-          window.BN.add_products_to_quote(
-            [
-              {
-                id: parseInt(productId, 10),
-                qty: parseInt(quantity ?? '1', 10),
-                options: [],
-              },
-            ],
-            true,
-            true,
-          )
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            .then((result: boolean) => {
-              if (!result) {
-                // Optionally handle failed add to quote (e.g., show error, log)
-                // eslint-disable-next-line no-console
-                console.warn('B2BNinja add to quote failed: invalid product data');
-              } else {
-                // eslint-disable-next-line no-console
-                console.log('B2BNinja add to quote successful');
-              }
-            })
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            .catch((err: unknown) => {
-              // Optionally handle error
-              // eslint-disable-next-line no-console
-              console.error('B2BNinja add to quote error:', err);
-            });
-        }
-      }}
+      className="w-auto @xl:w-56"
+      loading={loading}
+      onClick={handleBuyNow}
       size="medium"
-      style={{ marginTop: '0' }}
-      type="submit"
-      variant="secondary"
+      type="button"
+      variant="primary"
     >
-      Add To Quote
+      Buy Now
     </Button>
   );
 }
+
 
 function FormField({
   field,
