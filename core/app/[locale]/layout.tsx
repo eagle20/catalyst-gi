@@ -131,7 +131,7 @@ export default async function RootLayout({ params, children }: Props) {
   // need to call this method everywhere where static rendering is enabled
   setRequestLocale(locale);
 
-  const [messages] = await Promise.all([getMessages(), getUser()]);
+  const [messages, user] = await Promise.all([getMessages(), getUser()]);
 
   return (
     <MakeswiftProvider previewMode={(await draftMode()).isEnabled}>
@@ -155,6 +155,30 @@ export default async function RootLayout({ params, children }: Props) {
           />
           {/* Lucky Orange tracking */}
           <script async defer src="https://tools.luckyorange.com/core/lo.js?site-id=a83f895c" />
+          {/* SparkLayer B2B — options must be set before the async script executes */}
+          {process.env.NEXT_PUBLIC_SPARKLAYER_SITE_ID && user && (
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `window.sparkOptions = ${JSON.stringify({
+                  siteId: process.env.NEXT_PUBLIC_SPARKLAYER_SITE_ID,
+                  platform: 'bigcommerce',
+                  rootUrl: process.env.NEXT_PUBLIC_SITE_URL ?? '/',
+                  language: locale,
+                  auth: { user: user.email },
+                })};`,
+              }}
+            />
+          )}
+          {process.env.NEXT_PUBLIC_SPARKLAYER_SITE_ID && (
+            <>
+              <script
+                async
+                src={`https://sparkcdn.io/sparkjs/${process.env.NEXT_PUBLIC_SPARKLAYER_SITE_ID}/${process.env.NEXT_PUBLIC_SPARKLAYER_ENV ?? 'test'}`}
+              />
+              {/* Required for linking to SparkLayer orders/quotes pages */}
+              <script async src="https://cdn.sparklayer.io/spark-redirect.js" />
+            </>
+          )}
         </head>
         <body>
           <NextIntlClientProvider locale={locale} messages={messages}>
