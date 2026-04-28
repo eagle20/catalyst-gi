@@ -378,38 +378,33 @@ export default async function Product(props: Props) {
     <>
       {/* ProductSchema component below handles schema.org structured data with actual product data */}
       <SectionLayout hideOverflow={true}>
-        <div data-spark="b2c-only">
-          <ProductDetail
-            action={addToCart}
-            breadcrumbs={Streamable.from(() => getBreadcrumbs(props))}
-            additionaInformationTitle={t('ProductDetails.additionalInformation')}
-            ctaDisabled={Streamable.from(() => getCtaDisabled(props))}
-            ctaLabel={Streamable.from(() => getCtaLabel(props))}
-            decrementLabel={t('ProductDetails.decreaseQuantity')}
-            fields={Streamable.from(() => getFields(props))}
-            incrementLabel={t('ProductDetails.increaseQuantity')}
-            prefetch={true}
-            product={Streamable.from(() => getProduct(props))}
-            productId={productId}
-            quantityLabel={t('ProductDetails.quantity')}
-            thumbnailLabel={t('ProductDetails.thumbnail')}
-            inventoryTracking={Streamable.from(() =>
-              getProduct(props).then((p) => p.inventory_tracking),
-            )}
-            inventoryLevel={Streamable.from(() =>
-              getProductData(variables).then((p) => p.inventory_level),
-            )}
-            sku={Streamable.from(() => getProduct(props).then((p) => p.sku))}
-            promotions={Streamable.from(() => getProductData(variables).then((p) => p.promotions))}
-            giftProducts={Streamable.from(() =>
-              getProductData(variables).then((p) => p.giftProducts),
-            )}
-            documents={Streamable.from(() => getDocuments(props))}
-          />
-        </div>
-        {/* SparkLayer B2B Product Detail Widget — rendered by SparkLayer script for B2B customers */}
-        {/* @ts-expect-error spark-pdp is a SparkLayer custom element */}
-        <spark-pdp parent-id={String(productId)} />
+        <ProductDetail
+          action={addToCart}
+          breadcrumbs={Streamable.from(() => getBreadcrumbs(props))}
+          additionaInformationTitle={t('ProductDetails.additionalInformation')}
+          ctaDisabled={Streamable.from(() => getCtaDisabled(props))}
+          ctaLabel={Streamable.from(() => getCtaLabel(props))}
+          decrementLabel={t('ProductDetails.decreaseQuantity')}
+          fields={Streamable.from(() => getFields(props))}
+          incrementLabel={t('ProductDetails.increaseQuantity')}
+          prefetch={true}
+          product={Streamable.from(() => getProduct(props))}
+          productId={productId}
+          quantityLabel={t('ProductDetails.quantity')}
+          thumbnailLabel={t('ProductDetails.thumbnail')}
+          inventoryTracking={Streamable.from(() =>
+            getProduct(props).then((p) => p.inventory_tracking),
+          )}
+          inventoryLevel={Streamable.from(() =>
+            getProductData(variables).then((p) => p.inventory_level),
+          )}
+          sku={Streamable.from(() => getProduct(props).then((p) => p.sku))}
+          promotions={Streamable.from(() => getProductData(variables).then((p) => p.promotions))}
+          giftProducts={Streamable.from(() =>
+            getProductData(variables).then((p) => p.giftProducts),
+          )}
+          documents={Streamable.from(() => getDocuments(props))}
+        />
 
         <Stream fallback={null} value={Streamable.from(() => getQnA(props))}>
           {(items) =>

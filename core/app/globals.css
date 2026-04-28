@@ -19,40 +19,6 @@
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-/* SparkLayer B2B widget brand customization */
-:root {
-  /* Brand tokens */
-  --b2b-brand-color: #011F4B;
-  --b2b-brand-color-hover: #022a68;
-  --b2b-brand-font: 'Inter', system-ui, sans-serif;
-  --b2b-brand-font-heading: 'Inter', system-ui, sans-serif;
-
-  /* Colours */
-  --spark-default-body-color: hsl(0 0% 34%);
-  --spark-primary-color: hsl(0 0% 7%);
-  --spark-secondary-color: var(--b2b-brand-color);
-  --spark-link-color: var(--b2b-brand-color);
-
-  /* Typefaces */
-  --spark-font-default: var(--b2b-brand-font);
-  --spark-font-highlight: var(--b2b-brand-font-heading);
-  --spark-header-font: var(--b2b-brand-font-heading);
-
-  /* Buttons */
-  --spark-button-font-family: var(--b2b-brand-font-heading);
-  --spark-button-color: var(--b2b-brand-color);
-  --spark-button-color-highlight: var(--b2b-brand-color-hover);
-  --spark-button-large-color: var(--b2b-brand-color);
-  --spark-button-large-color-highlight: var(--b2b-brand-color-hover);
-  --spark-border-radius-button: 0.375rem;
-  --spark-border-radius-default: 0.375rem;
-
-  /* Tables */
-  --spark-table-border-color: hsl(0 0% 82%);
-  --spark-table-header-background-color: hsl(0 0% 93%);
-  --spark-table-header-text-color: hsl(0 0% 7%);
-}
-
 main h2 {
   @apply text-3xl;
   @apply mb-2;
