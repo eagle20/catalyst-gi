@@ -155,8 +155,10 @@ export default async function RootLayout({ params, children }: Props) {
           />
           {/* Lucky Orange tracking */}
           <script async defer src="https://tools.luckyorange.com/core/lo.js?site-id=a83f895c" />
-          {/* SparkLayer B2B — options must be set before the async script executes */}
-          {process.env.NEXT_PUBLIC_SPARKLAYER_SITE_ID && user && (
+          {/* SparkLayer B2B — options must be set before the async script executes.
+              Always set for all visitors so SparkLayer doesn't fall back to native
+              BigCommerce storefront API calls (which 503 on headless stores). */}
+          {process.env.NEXT_PUBLIC_SPARKLAYER_SITE_ID && (
             <script
               dangerouslySetInnerHTML={{
                 __html: `window.sparkOptions = ${JSON.stringify({
@@ -164,7 +166,7 @@ export default async function RootLayout({ params, children }: Props) {
                   platform: 'bigcommerce',
                   rootUrl: process.env.NEXT_PUBLIC_SITE_URL ?? '/',
                   language: locale,
-                  auth: { user: user.email },
+                  auth: { user: user?.email ?? '' },
                 })};`,
               }}
             />
