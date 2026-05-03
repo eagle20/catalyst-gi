@@ -25,15 +25,23 @@ export default async function Layout({ children, params }: Props) {
   return (
     <StickySidebarLayout
       sidebar={
-        <SidebarMenu
-          links={[
-            { href: '/account/orders', label: t('orders') },
-            { href: '/account/addresses', label: t('addresses') },
-            { href: '/account/settings', label: t('settings') },
-            { href: '/account/wishlists', label: t('wishlists') },
-            { href: '/logout', label: t('logout'), prefetch: 'none' },
-          ]}
-        />
+        <div className="flex flex-col">
+          <SidebarMenu
+            links={[
+              { href: '/account/orders', label: t('orders') },
+              { href: '/account/addresses', label: t('addresses') },
+              { href: '/account/settings', label: t('settings') },
+              { href: '/account/wishlists', label: t('wishlists') },
+            ]}
+          />
+          {/* Full-page navigation required so the session is cleared before re-render */}
+          <a
+            className="flex min-h-10 items-center rounded-md px-3 text-sm font-semibold text-red-600 hover:bg-contrast-100"
+            href="/logout"
+          >
+            {t('logout')}
+          </a>
+        </div>
       }
       sidebarSize="small"
     >

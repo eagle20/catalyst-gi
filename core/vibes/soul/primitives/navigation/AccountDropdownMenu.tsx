@@ -60,12 +60,12 @@ export const AccountDropdownMenu: React.FC<AccountDropdownMenuProps> = ({
           </DropdownMenu.Item>
           <DropdownMenu.Separator className="my-1 h-px bg-[var(--nav-menu-border,hsl(var(--foreground)/5%))]" />
           <DropdownMenu.Item asChild>
-            <Link
+            <a
               href="/logout"
               className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
             >
               Logout
-            </Link>
+            </a>
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
