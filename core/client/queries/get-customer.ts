@@ -6,6 +6,7 @@ export const GetCustomerGroup = graphql(`
   query CustomerGroup {
     customer {
       customerGroupId
+      customerGroupName
     }
   }
 `);

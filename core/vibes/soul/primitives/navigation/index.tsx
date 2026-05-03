@@ -109,6 +109,7 @@ interface Props<S extends SearchResult> {
   cartCount?: Streamable<number | null>;
   user?: Streamable<UserInterface | undefined>;
   isLoggedIn: Streamable<boolean>;
+  isB2B?: Streamable<boolean>;
   cartHref: string;
   links: Streamable<Link[]>;
   categoryLinks: Link[];
@@ -288,6 +289,7 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
     categoryLinks,
     logo: streamableLogo,
     isLoggedIn,
+    isB2B,
     logoHref = '/',
     logoLabel = 'Home',
     logoWidth = 200,
@@ -549,7 +551,20 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
             >
               {(loggedIn) =>
                 loggedIn ? (
-                  <AccountDropdownMenu accountHref={accountHref} accountLabel={accountLabel} />
+                  <>
+                    <AccountDropdownMenu accountHref={accountHref} accountLabel={accountLabel} />
+                    {isB2B && (
+                      <Stream value={isB2B} fallback={null}>
+                        {(b2b) =>
+                          b2b ? (
+                            <span className="rounded-full bg-[#011F4B] px-2.5 py-0.5 text-xs font-semibold text-white">
+                              B2B Account
+                            </span>
+                          ) : null
+                        }
+                      </Stream>
+                    )}
+                  </>
                 ) : (
                   <Link
                     aria-label={accountLabel}

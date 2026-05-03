@@ -20,6 +20,8 @@ import { routing } from '~/i18n/routing';
 import { SiteTheme } from '~/lib/makeswift/components/site-theme';
 import { MakeswiftProvider } from '~/lib/makeswift/provider';
 
+import { B2BProvider } from '~/components/b2b/provider';
+
 import { getToastNotification } from '../../lib/server-toast';
 import { CookieNotifications } from '../notifications';
 import { Providers } from '../providers';
@@ -163,7 +165,7 @@ export default async function RootLayout({ params, children }: Props) {
                 {toastNotificationCookieData && (
                   <CookieNotifications {...toastNotificationCookieData} />
                 )}
-                {children}
+                <B2BProvider>{children}</B2BProvider>
               </Providers>
             </NuqsAdapter>
           </NextIntlClientProvider>
