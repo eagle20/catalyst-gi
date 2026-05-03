@@ -48,9 +48,11 @@ export function SignInForm({
       const params = new URLSearchParams(window.location.search);
       const redirectTo = params.get('redirectTo');
 
-      // Only follow redirectTo if it's a safe relative path (prevents open redirect)
+      // Full page navigation required so the server renders the destination
+      // with the new session cookie — router.push() would serve a stale cache.
+      // Only follow redirectTo if it's a safe relative path (prevents open redirect).
       if (redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//')) {
-        router.push(redirectTo);
+        window.location.href = redirectTo;
       } else {
         router.refresh();
       }
