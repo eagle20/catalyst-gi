@@ -20,7 +20,7 @@ import { ProductViewed } from './_components/product-viewed';
 import { PaginationSearchParamNames, Reviews } from './_components/reviews';
 import { QnAList } from './_components/qna-list';
 import { getProductData } from './page-data';
-import { B2BOnly, B2COnly } from '~/components/b2b/visibility';
+import { B2BOnly } from '~/components/b2b/visibility';
 import { B2BProductWidget } from '~/components/b2b/product-widget';
 import { SectionLayout } from '@/vibes/soul/sections/section-layout';
 import { Breadcrumb } from '@/vibes/soul/sections/breadcrumbs';
@@ -380,42 +380,42 @@ export default async function Product(props: Props) {
     <>
       {/* ProductSchema component below handles schema.org structured data with actual product data */}
       <SectionLayout hideOverflow={true}>
-        {/* B2C customers see the standard retail detail form */}
-        <B2COnly>
-          <ProductDetail
-            action={addToCart}
-            breadcrumbs={Streamable.from(() => getBreadcrumbs(props))}
-            additionaInformationTitle={t('ProductDetails.additionalInformation')}
-            ctaDisabled={Streamable.from(() => getCtaDisabled(props))}
-            ctaLabel={Streamable.from(() => getCtaLabel(props))}
-            decrementLabel={t('ProductDetails.decreaseQuantity')}
-            fields={Streamable.from(() => getFields(props))}
-            incrementLabel={t('ProductDetails.increaseQuantity')}
-            prefetch={true}
-            product={Streamable.from(() => getProduct(props))}
-            productId={productId}
-            quantityLabel={t('ProductDetails.quantity')}
-            thumbnailLabel={t('ProductDetails.thumbnail')}
-            inventoryTracking={Streamable.from(() =>
-              getProduct(props).then((p) => p.inventory_tracking),
-            )}
-            inventoryLevel={Streamable.from(() =>
-              getProductData(variables).then((p) => p.inventory_level),
-            )}
-            sku={Streamable.from(() => getProduct(props).then((p) => p.sku))}
-            promotions={Streamable.from(() => getProductData(variables).then((p) => p.promotions))}
-            giftProducts={Streamable.from(() =>
-              getProductData(variables).then((p) => p.giftProducts),
-            )}
-            documents={Streamable.from(() => getDocuments(props))}
-          />
-        </B2COnly>
+        {/* Product detail shown to all customers — images, title, description, specs */}
+        <ProductDetail
+          action={addToCart}
+          breadcrumbs={Streamable.from(() => getBreadcrumbs(props))}
+          additionaInformationTitle={t('ProductDetails.additionalInformation')}
+          ctaDisabled={Streamable.from(() => getCtaDisabled(props))}
+          ctaLabel={Streamable.from(() => getCtaLabel(props))}
+          decrementLabel={t('ProductDetails.decreaseQuantity')}
+          fields={Streamable.from(() => getFields(props))}
+          incrementLabel={t('ProductDetails.increaseQuantity')}
+          prefetch={true}
+          product={Streamable.from(() => getProduct(props))}
+          productId={productId}
+          quantityLabel={t('ProductDetails.quantity')}
+          thumbnailLabel={t('ProductDetails.thumbnail')}
+          inventoryTracking={Streamable.from(() =>
+            getProduct(props).then((p) => p.inventory_tracking),
+          )}
+          inventoryLevel={Streamable.from(() =>
+            getProductData(variables).then((p) => p.inventory_level),
+          )}
+          sku={Streamable.from(() => getProduct(props).then((p) => p.sku))}
+          promotions={Streamable.from(() => getProductData(variables).then((p) => p.promotions))}
+          giftProducts={Streamable.from(() =>
+            getProductData(variables).then((p) => p.giftProducts),
+          )}
+          documents={Streamable.from(() => getDocuments(props))}
+        />
 
-        {/* B2B customers see the contract-pricing bulk order widget instead */}
+        {/* B2B customers also see the contract-pricing bulk order widget below the product detail */}
         <B2BOnly>
-          <Stream fallback={<div className="h-48 animate-pulse rounded-xl bg-contrast-100" />} value={Streamable.from(() => getProduct(props))}>
-            {(p) => <B2BProductWidget productName={p.title} sku={p.sku} />}
-          </Stream>
+          <div className="mx-auto max-w-screen-2xl px-4 pb-10 @xl:px-6 @4xl:px-8">
+            <Stream fallback={<div className="h-48 animate-pulse rounded-xl bg-contrast-100" />} value={Streamable.from(() => getProduct(props))}>
+              {(p) => <B2BProductWidget productName={p.title} sku={p.sku} />}
+            </Stream>
+          </div>
         </B2BOnly>
 
         <Stream fallback={null} value={Streamable.from(() => getQnA(props))}>
