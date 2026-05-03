@@ -569,7 +569,13 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
                   <Link
                     aria-label={accountLabel}
                     className={clsx(navCustomButtonClassName)}
-                    href={accountHref}
+                    href={
+                      // Attach current path as redirectTo so login returns the user
+                      // to where they came from. Skip auth/utility pages as destinations.
+                      ['/login', '/logout', '/register'].some((p) => pathname.startsWith(p))
+                        ? accountHref
+                        : `${accountHref}?redirectTo=${encodeURIComponent(pathname)}`
+                    }
                   >
                     <span>
                       <LogIn size={20} strokeWidth={1} className="mr-1 inline" />

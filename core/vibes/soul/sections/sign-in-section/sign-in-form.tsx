@@ -45,7 +45,15 @@ export function SignInForm({
 
   useEffect(() => {
     if (lastResult?.status === 'success') {
-      router.refresh();
+      const params = new URLSearchParams(window.location.search);
+      const redirectTo = params.get('redirectTo');
+
+      // Only follow redirectTo if it's a safe relative path (prevents open redirect)
+      if (redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//')) {
+        router.push(redirectTo);
+      } else {
+        router.refresh();
+      }
     }
   }, [lastResult]);
 
