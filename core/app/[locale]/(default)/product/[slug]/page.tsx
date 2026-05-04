@@ -142,6 +142,7 @@ const getProduct = async (props: Props) => {
     accordions,
     inventory_tracking: product.inventory_tracking,
     sku: product.sku,
+    bcPriceValue: product.prices?.price?.value ?? null,
   };
 };
 
@@ -413,7 +414,7 @@ export default async function Product(props: Props) {
         <B2BOnly>
           <div className="mx-auto max-w-screen-2xl px-4 pb-10 @xl:px-6 @4xl:px-8">
             <Stream fallback={<div className="h-48 animate-pulse rounded-xl bg-contrast-100" />} value={Streamable.from(() => getProduct(props))}>
-              {(p) => <B2BProductWidget productName={p.title} sku={p.sku} />}
+              {(p) => <B2BProductWidget bcPrice={p.bcPriceValue} bcProductId={productId} productName={p.title} sku={p.sku} />}
             </Stream>
           </div>
         </B2BOnly>

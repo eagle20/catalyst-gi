@@ -6,9 +6,12 @@ import { getB2BPricing, addToB2BCart, type B2BPricingResult } from '~/lib/b2b/ap
 interface Props {
   sku: string;
   productName: string;
+  bcProductId: number;
+  /** BC catalog price — used as fallback when no portal contract price is set */
+  bcPrice?: number | null;
 }
 
-export function B2BProductWidget({ sku, productName }: Props) {
+export function B2BProductWidget({ sku, productName, bcProductId, bcPrice }: Props) {
   const [pricing, setPricing] = useState<B2BPricingResult | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -26,7 +29,7 @@ export function B2BProductWidget({ sku, productName }: Props) {
     setAdding(true);
     setMessage(null);
     try {
-      await addToB2BCart(sku, quantity);
+      await addToB2BCart(sku, quantity, bcProductId, productName);
       setMessage({
         type: 'success',
         text: `${quantity} × ${productName} added to your B2B cart.`,
@@ -45,7 +48,9 @@ export function B2BProductWidget({ sku, productName }: Props) {
     return <div className="h-48 animate-pulse rounded-xl bg-contrast-100" />;
   }
 
-  const unitPrice = pricing?.price ?? null;
+  const contractPrice = pricing?.price ?? null;
+  const unitPrice = contractPrice ?? bcPrice ?? null;
+  const isContractPrice = contractPrice != null;
 
   return (
     <div className="rounded-xl border border-contrast-200 bg-white p-6 shadow-sm">
@@ -60,7 +65,9 @@ export function B2BProductWidget({ sku, productName }: Props) {
       {unitPrice != null ? (
         <p className="mb-5 text-3xl font-bold text-[#011F4B]">
           ${unitPrice.toFixed(2)}
-          <span className="ml-2 text-sm font-normal text-contrast-400">/ unit — your contract price</span>
+          <span className="ml-2 text-sm font-normal text-contrast-400">
+            {isContractPrice ? '/ unit — your contract price' : '/ unit — standard price'}
+          </span>
         </p>
       ) : (
         <p className="mb-5 text-sm text-contrast-500">
