@@ -6,18 +6,16 @@
  */
 
 export interface B2BPricingResult {
-  found: boolean;
-  sku?: string;
-  name?: string;
-  /** null means the product exists but has no company-specific price set */
+  sku: string;
+  /** null means no contract price set for this company yet */
   price: number | null;
 }
 
 export interface B2BCartItem {
   id: string;
-  productId: string;
-  name: string;
   sku: string;
+  bcProductId: number;
+  productName: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -48,12 +46,14 @@ export async function getB2BCart(): Promise<B2BCart> {
 export async function addToB2BCart(
   sku: string,
   quantity: number,
+  bcProductId: number,
+  productName: string,
   notes?: string,
 ): Promise<B2BCartItem> {
   const res = await fetch('/api/b2b/cart', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sku, quantity, notes }),
+    body: JSON.stringify({ sku, quantity, bcProductId, productName, notes }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
