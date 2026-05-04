@@ -138,7 +138,7 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice }: Pro
         PO-based checkout and order history are available in your{' '}
         <a
           className="underline hover:text-foreground"
-          href="https://portal.gitool.com"
+          href={process.env.NEXT_PUBLIC_B2B_PORTAL_URL ?? 'https://portal.gitool.com'}
           rel="noopener noreferrer"
           target="_blank"
         >

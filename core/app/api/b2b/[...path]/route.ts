@@ -11,10 +11,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '~/auth';
 
-const PORTAL_URL = (process.env.B2B_PORTAL_URL ?? 'https://portal.gitool.com').replace(/\/$/, '');
+const PORTAL_URL = (process.env.B2B_PORTAL_URL ?? '').replace(/\/$/, '');
 const PORTAL_SECRET = process.env.B2B_PORTAL_SECRET ?? '';
 
 async function proxy(request: NextRequest, method: string): Promise<NextResponse> {
+  if (!PORTAL_URL) {
+    console.error('[B2B proxy] B2B_PORTAL_URL env var is not set');
+    return NextResponse.json({ error: 'Portal not configured' }, { status: 503 });
+  }
+
   const session = await auth();
 
   if (!session?.user?.email) {
