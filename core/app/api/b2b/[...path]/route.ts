@@ -47,6 +47,15 @@ async function proxy(request: NextRequest, method: string): Promise<NextResponse
     return NextResponse.json({ error: 'Portal unreachable' }, { status: 502 });
   }
 
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) {
+    console.error(`[B2B proxy] Non-JSON response from portal (${response.status}): ${portalUrl}`);
+    return NextResponse.json(
+      { error: `Portal returned unexpected response (${response.status})` },
+      { status: 502 },
+    );
+  }
+
   const data = await response.json();
   return NextResponse.json(data, { status: response.status });
 }
