@@ -13,6 +13,7 @@ import { auth } from '~/auth';
 
 const PORTAL_URL = (process.env.B2B_PORTAL_URL ?? '').replace(/\/$/, '');
 const PORTAL_SECRET = process.env.B2B_PORTAL_SECRET ?? '';
+const VERCEL_BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET ?? '';
 
 async function proxy(request: NextRequest, method: string): Promise<NextResponse> {
   if (!PORTAL_URL) {
@@ -35,6 +36,7 @@ async function proxy(request: NextRequest, method: string): Promise<NextResponse
     'Content-Type': 'application/json',
     'x-portal-secret': PORTAL_SECRET,
     'x-customer-email': session.user.email,
+    ...(VERCEL_BYPASS_SECRET && { 'x-vercel-protection-bypass': VERCEL_BYPASS_SECRET }),
   };
 
   const body = method !== 'GET' ? await request.text() : undefined;
