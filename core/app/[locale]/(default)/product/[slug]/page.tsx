@@ -20,8 +20,10 @@ import { ProductViewed } from './_components/product-viewed';
 import { PaginationSearchParamNames, Reviews } from './_components/reviews';
 import { QnAList } from './_components/qna-list';
 import { getProductData } from './page-data';
+import { auth } from '~/auth';
 import { B2BOnly } from '~/components/b2b/visibility';
 import { B2BProductWidget } from '~/components/b2b/product-widget';
+import { generateSSOUrl } from '~/lib/b2b/sso';
 import { SectionLayout } from '@/vibes/soul/sections/section-layout';
 import { Breadcrumb } from '@/vibes/soul/sections/breadcrumbs';
 
@@ -413,8 +415,15 @@ export default async function Product(props: Props) {
         {/* B2B customers also see the contract-pricing bulk order widget below the product detail */}
         <B2BOnly>
           <div className="mx-auto max-w-screen-2xl px-4 pb-10 @xl:px-6 @4xl:px-8">
-            <Stream fallback={<div className="h-48 animate-pulse rounded-xl bg-contrast-100" />} value={Streamable.from(() => getProduct(props))}>
-              {(p) => <B2BProductWidget bcPrice={p.bcPriceValue} bcProductId={productId} portalUrl={process.env.B2B_PORTAL_URL} productName={p.title} sku={p.sku} />}
+            <Stream fallback={<div className="h-48 animate-pulse rounded-xl bg-contrast-100" />} value={Streamable.from(async () => {
+              const [p, session] = await Promise.all([getProduct(props), auth()]);
+              const portalBase = process.env.B2B_PORTAL_URL ?? '';
+              const ssoUrl = session?.user?.email
+                ? generateSSOUrl(session.user.email, portalBase)
+                : portalBase;
+              return { ...p, ssoUrl };
+            })}>
+              {(p) => <B2BProductWidget bcPrice={p.bcPriceValue} bcProductId={productId} portalUrl={p.ssoUrl} productName={p.title} sku={p.sku} />}
             </Stream>
           </div>
         </B2BOnly>
