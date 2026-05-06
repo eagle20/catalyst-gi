@@ -9,9 +9,10 @@ interface Props {
   bcProductId: number;
   /** BC catalog price — used as fallback when no portal contract price is set */
   bcPrice?: number | null;
+  portalUrl?: string;
 }
 
-export function B2BProductWidget({ sku, productName, bcProductId, bcPrice }: Props) {
+export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, portalUrl }: Props) {
   const [pricing, setPricing] = useState<B2BPricingResult | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -138,7 +139,7 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice }: Pro
         PO-based checkout and order history are available in your{' '}
         <a
           className="underline hover:text-foreground"
-          href={process.env.NEXT_PUBLIC_B2B_PORTAL_URL ?? 'https://portal.gitool.com'}
+          href={portalUrl ?? 'https://portal.gitool.com'}
           rel="noopener noreferrer"
           target="_blank"
         >
