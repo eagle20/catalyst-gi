@@ -1,7 +1,7 @@
 import { createHmac } from 'crypto';
 
 const SECRET = process.env.B2B_PORTAL_SECRET ?? '';
-const TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 /**
  * Generates a short-lived HMAC-signed SSO URL for the portal.
