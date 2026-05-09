@@ -9,10 +9,13 @@ interface Props {
   bcProductId: number;
   /** BC catalog price — used as fallback when no portal contract price is set */
   bcPrice?: number | null;
+  /** SSO URL pointing to portal dashboard */
   portalUrl?: string;
+  /** SSO URL pointing directly to portal cart */
+  cartUrl?: string;
 }
 
-export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, portalUrl }: Props) {
+export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, portalUrl, cartUrl }: Props) {
   const [pricing, setPricing] = useState<B2BPricingResult | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -127,11 +130,21 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, porta
 
       {/* Feedback message */}
       {message && (
-        <p
-          className={`mt-3 text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}
-        >
-          {message.text}
-        </p>
+        <div className="mt-3">
+          <p className={`text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+            {message.text}
+          </p>
+          {message.type === 'success' && cartUrl && (
+            <a
+              className="mt-1 inline-block text-sm font-medium text-[#011F4B] underline hover:text-[#022a68]"
+              href={cartUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              View your B2B cart →
+            </a>
+          )}
+        </div>
       )}
 
       {/* Footer link to portal */}

@@ -418,12 +418,12 @@ export default async function Product(props: Props) {
             <Stream fallback={<div className="h-48 animate-pulse rounded-xl bg-contrast-100" />} value={Streamable.from(async () => {
               const [p, session] = await Promise.all([getProduct(props), auth()]);
               const portalBase = process.env.B2B_PORTAL_URL ?? '';
-              const ssoUrl = session?.user?.email
-                ? generateSSOUrl(session.user.email, portalBase)
-                : portalBase;
-              return { ...p, ssoUrl };
+              const email = session?.user?.email;
+              const ssoUrl = email ? generateSSOUrl(email, portalBase) : portalBase;
+              const cartSsoUrl = email ? generateSSOUrl(email, portalBase, '/cart') : `${portalBase}/cart`;
+              return { ...p, ssoUrl, cartSsoUrl };
             })}>
-              {(p) => <B2BProductWidget bcPrice={p.bcPriceValue} bcProductId={productId} portalUrl={p.ssoUrl} productName={p.title} sku={p.sku} />}
+              {(p) => <B2BProductWidget bcPrice={p.bcPriceValue} bcProductId={productId} cartUrl={p.cartSsoUrl} portalUrl={p.ssoUrl} productName={p.title} sku={p.sku} />}
             </Stream>
           </div>
         </B2BOnly>
