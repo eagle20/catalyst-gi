@@ -43,6 +43,22 @@ export async function getB2BCart(): Promise<B2BCart> {
   return body.data as B2BCart;
 }
 
+export async function updateB2BCartItem(cartItemId: string, quantity: number): Promise<void> {
+  const res = await fetch('/api/b2b/cart/items', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cartItemId, quantity }),
+  });
+  if (!res.ok) throw new Error(`B2B cart update failed: ${res.status}`);
+}
+
+export async function removeFromB2BCart(cartItemId: string): Promise<void> {
+  const res = await fetch(`/api/b2b/cart/items?cartItemId=${encodeURIComponent(cartItemId)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`B2B cart remove failed: ${res.status}`);
+}
+
 export async function addToB2BCart(
   sku: string,
   quantity: number,

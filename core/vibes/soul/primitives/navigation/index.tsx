@@ -43,6 +43,7 @@ import { button } from '~/lib/makeswift/components/site-theme/components/button'
 import { User as UserInterface } from '~/lib/user';
 
 import { AccountDropdownMenu } from './AccountDropdownMenu';
+import { useB2BCart } from '~/components/b2b/cart-context';
 
 interface Link {
   label: string;
@@ -323,6 +324,8 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
   const [navMenuValue, setNavMenuValue] = useState<string | null>(null);
   const [hiddenCategoryBar, SetHiddenCategoryBar] = useState(false);
 
+  const { isB2B: isB2BCart, cartCount: b2bCartCount, openCart: openB2BCart } = useB2BCart();
+
   const pathname = usePathname();
 
   useEffect(() => {
@@ -589,24 +592,39 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
             <span className="text-[#D2D2D2]">|</span>
 
             {/* Cart Icon */}
-            <Link aria-label={cartLabel} className={navButtonClassName} href={cartHref}>
-              <ShoppingBasket size={20} strokeWidth={1} />
-              <Stream
-                fallback={
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 animate-pulse items-center justify-center rounded-full bg-contrast-100 text-xs text-background" />
-                }
-                value={streamableCartCount}
+            {isB2BCart ? (
+              <button
+                aria-label={cartLabel}
+                className={navButtonClassName}
+                onClick={openB2BCart}
               >
-                {(cartCount) =>
-                  cartCount != null &&
-                  cartCount > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--nav-cart-count-background,hsl(var(--foreground)))] font-[family-name:var(--nav-cart-count-font-family,var(--font-family-body))] text-xs text-[var(--nav-cart-count-text,hsl(var(--background)))]">
-                      {cartCount}
-                    </span>
-                  )
-                }
-              </Stream>
-            </Link>
+                <ShoppingBasket size={20} strokeWidth={1} />
+                {b2bCartCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--nav-cart-count-background,hsl(var(--foreground)))] font-[family-name:var(--nav-cart-count-font-family,var(--font-family-body))] text-xs text-[var(--nav-cart-count-text,hsl(var(--background)))]">
+                    {b2bCartCount}
+                  </span>
+                )}
+              </button>
+            ) : (
+              <Link aria-label={cartLabel} className={navButtonClassName} href={cartHref}>
+                <ShoppingBasket size={20} strokeWidth={1} />
+                <Stream
+                  fallback={
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 animate-pulse items-center justify-center rounded-full bg-contrast-100 text-xs text-background" />
+                  }
+                  value={streamableCartCount}
+                >
+                  {(cartCount) =>
+                    cartCount != null &&
+                    cartCount > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--nav-cart-count-background,hsl(var(--foreground)))] font-[family-name:var(--nav-cart-count-font-family,var(--font-family-body))] text-xs text-[var(--nav-cart-count-text,hsl(var(--background)))]">
+                        {cartCount}
+                      </span>
+                    )
+                  }
+                </Stream>
+              </Link>
+            )}
             {/* Locale / Language Dropdown */}
             {locales && locales.length > 1 ? (
               <LocaleSwitcher

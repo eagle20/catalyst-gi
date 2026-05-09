@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getB2BPricing, addToB2BCart, type B2BPricingResult } from '~/lib/b2b/api';
+import { getB2BPricing, type B2BPricingResult } from '~/lib/b2b/api';
+import { useB2BCart } from './cart-context';
 
 interface Props {
   sku: string;
@@ -9,31 +10,28 @@ interface Props {
   bcProductId: number;
   /** BC catalog price — used as fallback when no portal contract price is set */
   bcPrice?: number | null;
-  /** SSO URL pointing to portal dashboard */
+  /** SSO URL pointing to portal dashboard (for the footer link) */
   portalUrl?: string;
-  /** SSO URL pointing directly to portal cart */
-  cartUrl?: string;
 }
 
-export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, portalUrl, cartUrl }: Props) {
+export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, portalUrl }: Props) {
+  const { addItem, loading: cartLoading } = useB2BCart();
   const [pricing, setPricing] = useState<B2BPricingResult | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
+  const [pricingLoading, setPricingLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     getB2BPricing(sku)
       .then(setPricing)
-      .catch(() => setPricing({ found: false, price: null }))
-      .finally(() => setLoading(false));
+      .catch(() => setPricing({ sku, price: null }))
+      .finally(() => setPricingLoading(false));
   }, [sku]);
 
   async function handleAddToCart() {
-    setAdding(true);
     setMessage(null);
     try {
-      await addToB2BCart(sku, quantity, bcProductId, productName, unitPrice ?? undefined);
+      await addItem(sku, quantity, bcProductId, productName, unitPrice ?? undefined);
       setMessage({
         type: 'success',
         text: `${quantity} × ${productName} added to your B2B cart.`,
@@ -43,12 +41,10 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, porta
         type: 'error',
         text: err instanceof Error ? err.message : 'Failed to add to cart. Please try again.',
       });
-    } finally {
-      setAdding(false);
     }
   }
 
-  if (loading) {
+  if (pricingLoading) {
     return <div className="h-48 animate-pulse rounded-xl bg-contrast-100" />;
   }
 
@@ -121,30 +117,18 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, porta
       {/* Add to B2B cart */}
       <button
         className="w-full rounded-lg bg-[#011F4B] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#022a68] disabled:cursor-not-allowed disabled:opacity-50"
-        disabled={adding}
-        onClick={handleAddToCart}
+        disabled={cartLoading}
+        onClick={() => void handleAddToCart()}
         type="button"
       >
-        {adding ? 'Adding…' : 'Add to B2B Cart'}
+        {cartLoading ? 'Adding…' : 'Add to B2B Cart'}
       </button>
 
       {/* Feedback message */}
       {message && (
-        <div className="mt-3">
-          <p className={`text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-            {message.text}
-          </p>
-          {message.type === 'success' && cartUrl && (
-            <a
-              className="mt-1 inline-block text-sm font-medium text-[#011F4B] underline hover:text-[#022a68]"
-              href={cartUrl}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              View your B2B cart →
-            </a>
-          )}
-        </div>
+        <p className={`mt-3 text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+          {message.text}
+        </p>
       )}
 
       {/* Footer link to portal */}

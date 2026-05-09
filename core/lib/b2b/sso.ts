@@ -22,3 +22,23 @@ export function generateSSOUrl(email: string, portalBaseUrl: string, redirectPat
   url.searchParams.set('redirect', redirectPath);
   return url.toString();
 }
+
+/**
+ * Generates a short-lived HMAC-signed SSO checkout URL.
+ * Points directly to /api/auth/sso/checkout which handles auth + cart + redirect
+ * to /checkout/shipping in one step.
+ */
+export function generateCheckoutSSOUrl(email: string, portalBaseUrl: string): string {
+  if (!SECRET || !portalBaseUrl) return '';
+
+  const payload = Buffer.from(
+    JSON.stringify({ email: email.toLowerCase(), exp: Date.now() + TOKEN_TTL_MS }),
+  ).toString('base64url');
+
+  const sig = createHmac('sha256', SECRET).update(payload).digest('hex');
+  const token = `${payload}.${sig}`;
+
+  const url = new URL('/api/auth/sso/checkout', portalBaseUrl);
+  url.searchParams.set('token', token);
+  return url.toString();
+}

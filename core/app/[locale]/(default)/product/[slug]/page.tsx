@@ -420,10 +420,9 @@ export default async function Product(props: Props) {
               const portalBase = process.env.B2B_PORTAL_URL ?? '';
               const email = session?.user?.email;
               const ssoUrl = email ? generateSSOUrl(email, portalBase) : portalBase;
-              const cartSsoUrl = email ? generateSSOUrl(email, portalBase, '/dashboard?cart=open') : `${portalBase}/dashboard`;
-              return { ...p, ssoUrl, cartSsoUrl };
+              return { ...p, ssoUrl };
             })}>
-              {(p) => <B2BProductWidget bcPrice={p.bcPriceValue} bcProductId={productId} cartUrl={p.cartSsoUrl} portalUrl={p.ssoUrl} productName={p.title} sku={p.sku} />}
+              {(p) => <B2BProductWidget bcPrice={p.bcPriceValue} bcProductId={productId} portalUrl={p.ssoUrl} productName={p.title} sku={p.sku} />}
             </Stream>
           </div>
         </B2BOnly>
