@@ -48,12 +48,13 @@ export async function addToB2BCart(
   quantity: number,
   bcProductId: number,
   productName: string,
+  unitPrice?: number,
   notes?: string,
 ): Promise<B2BCartItem> {
   const res = await fetch('/api/b2b/cart', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sku, quantity, bcProductId, productName, notes }),
+    body: JSON.stringify({ sku, quantity, bcProductId, productName, unitPrice, notes }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

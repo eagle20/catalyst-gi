@@ -33,7 +33,7 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, porta
     setAdding(true);
     setMessage(null);
     try {
-      await addToB2BCart(sku, quantity, bcProductId, productName);
+      await addToB2BCart(sku, quantity, bcProductId, productName, unitPrice ?? undefined);
       setMessage({
         type: 'success',
         text: `${quantity} × ${productName} added to your B2B cart.`,
