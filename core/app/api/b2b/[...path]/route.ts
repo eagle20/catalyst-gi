@@ -70,6 +70,14 @@ export async function POST(request: NextRequest) {
   return proxy(request, 'POST');
 }
 
+export async function PUT(request: NextRequest) {
+  return proxy(request, 'PUT');
+}
+
+export async function DELETE(request: NextRequest) {
+  return proxy(request, 'DELETE');
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204 });
 }
