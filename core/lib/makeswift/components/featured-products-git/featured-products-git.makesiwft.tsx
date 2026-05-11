@@ -122,8 +122,6 @@ function MakeswiftFeaturedProductsGridGIT({
 
   const hasCategory = props.categoryItem && props.categoryItem.entityId;
 
-  console.log('category', category);
-
   return (
     <div className="grid gap-5 xl:grid-cols-5">
       {hasCategory && category ? (
