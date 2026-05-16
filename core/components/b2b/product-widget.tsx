@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { FormStatus } from '@/vibes/soul/form/form-status';
+import { NumberInput } from '@/vibes/soul/form/number-input';
+import { Button } from '@/vibes/soul/primitives/button';
 import { getB2BPricing, type B2BPricingResult } from '~/lib/b2b/api';
 import { useB2BCart } from './cart-context';
 
@@ -53,89 +56,77 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, porta
   const isContractPrice = contractPrice != null;
 
   return (
-    <div className="rounded-xl border border-contrast-200 bg-white p-6 shadow-sm">
-      {/* Header badge */}
-      <div className="mb-4 flex items-center gap-2">
-        <span className="rounded-full bg-[#011F4B] px-3 py-1 text-xs font-semibold text-white">
+    <div className="rounded-lg border border-[hsl(var(--contrast-200))] bg-[hsl(var(--background))] p-6">
+      {/* Header */}
+      <div className="mb-5 flex items-center gap-2">
+        <span className="rounded-full bg-[hsl(var(--foreground))] px-3 py-1 text-xs font-semibold text-[hsl(var(--background))]">
           B2B Account Pricing
         </span>
       </div>
 
       {/* Price display */}
       {unitPrice != null ? (
-        <p className="mb-5 text-3xl font-bold text-[#011F4B]">
-          ${unitPrice.toFixed(2)}
-          <span className="ml-2 text-sm font-normal text-contrast-400">
-            {isContractPrice ? '/ unit — your contract price' : '/ unit — standard price'}
-          </span>
-        </p>
+        <div className="mb-6">
+          <p className="font-heading text-3xl font-medium text-[hsl(var(--foreground))]">
+            ${unitPrice.toFixed(2)}
+          </p>
+          <p className="mt-1 text-sm text-[hsl(var(--contrast-400))]">
+            {isContractPrice ? 'Your contract price' : 'Standard price'} / unit
+          </p>
+        </div>
       ) : (
-        <p className="mb-5 text-sm text-contrast-500">
+        <p className="mb-6 text-sm text-[hsl(var(--contrast-500))]">
           Contact your account manager for pricing on this item.
         </p>
       )}
 
-      {/* Quantity picker + running total */}
-      <div className="mb-5 flex items-center gap-3">
-        <label className="shrink-0 text-sm font-medium" htmlFor="b2b-qty">
-          Qty
-        </label>
-        <div className="flex items-center overflow-hidden rounded-lg border border-contrast-200">
-          <button
-            aria-label="Decrease quantity"
-            className="px-3 py-2 text-lg leading-none hover:bg-contrast-100 disabled:opacity-40"
-            disabled={quantity <= 1}
-            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-            type="button"
-          >
-            −
-          </button>
-          <input
-            className="w-14 border-x border-contrast-200 py-2 text-center text-sm"
-            id="b2b-qty"
-            min={1}
-            onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-            type="number"
-            value={quantity}
-          />
-          <button
-            aria-label="Increase quantity"
-            className="px-3 py-2 text-lg leading-none hover:bg-contrast-100"
-            onClick={() => setQuantity((q) => q + 1)}
-            type="button"
-          >
-            +
-          </button>
-        </div>
+      {/* Quantity + running total */}
+      <div className="mb-5 flex flex-wrap items-center gap-4">
+        <NumberInput
+          aria-label="Quantity"
+          buttonClassName="w-full"
+          decrementLabel="Decrease quantity"
+          incrementLabel="Increase quantity"
+          min={1}
+          max={9999}
+          value={quantity}
+          onChange={(e) => setQuantity(Math.max(1, parseInt(e.currentTarget.value) || 1))}
+        />
         {unitPrice != null && (
-          <span className="text-sm text-contrast-500">
-            Total: <strong className="text-foreground">${(unitPrice * quantity).toFixed(2)}</strong>
-          </span>
+          <p className="text-sm text-[hsl(var(--contrast-500))]">
+            Total:{' '}
+            <strong className="font-semibold text-[hsl(var(--foreground))]">
+              ${(unitPrice * quantity).toFixed(2)}
+            </strong>
+          </p>
         )}
       </div>
 
-      {/* Add to B2B cart */}
-      <button
-        className="w-full rounded-lg bg-[#011F4B] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#022a68] disabled:cursor-not-allowed disabled:opacity-50"
+      {/* CTA */}
+      <Button
+        className="w-full"
         disabled={cartLoading}
         onClick={() => void handleAddToCart()}
+        shape="rounded"
+        size="medium"
         type="button"
+        variant="secondary"
       >
         {cartLoading ? 'Adding…' : 'Add to B2B Cart'}
-      </button>
+      </Button>
 
       {/* Feedback message */}
       {message && (
-        <p className={`mt-3 text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-          {message.text}
-        </p>
+        <div className="mt-3">
+          <FormStatus type={message.type}>{message.text}</FormStatus>
+        </div>
       )}
 
-      {/* Footer link to portal */}
-      <p className="mt-4 text-xs text-contrast-400">
+      {/* Portal link */}
+      <p className="mt-5 text-xs text-[hsl(var(--contrast-400))]">
         PO-based checkout and order history are available in your{' '}
         <a
-          className="underline hover:text-foreground"
+          className="underline underline-offset-2 hover:text-[hsl(var(--foreground))] transition-colors"
           href={portalUrl ?? 'https://portal.gitool.com'}
           rel="noopener noreferrer"
           target="_blank"
