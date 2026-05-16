@@ -68,7 +68,17 @@ export function B2BCartDrawer() {
                 <li key={item.id} className="flex flex-col gap-2 py-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
-                      <p className="text-sm font-medium leading-snug text-[hsl(var(--foreground))]">{item.productName}</p>
+                      {item.productUrl ? (
+                        <a
+                          className="text-sm font-medium leading-snug text-[hsl(var(--foreground))] underline-offset-2 hover:underline"
+                          href={item.productUrl}
+                          onClick={closeCart}
+                        >
+                          {item.productName}
+                        </a>
+                      ) : (
+                        <p className="text-sm font-medium leading-snug text-[hsl(var(--foreground))]">{item.productName}</p>
+                      )}
                       <p className="mt-0.5 text-xs text-[hsl(var(--contrast-500))]">SKU: {item.sku}</p>
                     </div>
                     <button

@@ -24,6 +24,7 @@ interface B2BCartContextType {
     bcProductId: number,
     productName: string,
     unitPrice?: number,
+    productUrl?: string,
   ) => Promise<void>;
   updateItem: (cartItemId: string, quantity: number) => Promise<void>;
   removeItem: (cartItemId: string) => Promise<void>;
@@ -84,10 +85,11 @@ export function B2BCartProvider({
       bcProductId: number,
       productName: string,
       unitPrice?: number,
+      productUrl?: string,
     ) => {
       setLoading(true);
       try {
-        await addToB2BCart(sku, quantity, bcProductId, productName, unitPrice);
+        await addToB2BCart(sku, quantity, bcProductId, productName, unitPrice, undefined, productUrl);
         await refreshCart();
         setIsOpen(true);
       } finally {

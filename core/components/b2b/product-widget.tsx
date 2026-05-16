@@ -13,11 +13,13 @@ interface Props {
   bcProductId: number;
   /** BC catalog price — used as fallback when no portal contract price is set */
   bcPrice?: number | null;
+  /** Relative URL of this product page e.g. /products/my-product */
+  productUrl?: string;
   /** SSO URL pointing to portal dashboard (for the footer link) */
   portalUrl?: string;
 }
 
-export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, portalUrl }: Props) {
+export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, productUrl, portalUrl }: Props) {
   const { addItem, loading: cartLoading } = useB2BCart();
   const [pricing, setPricing] = useState<B2BPricingResult | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -34,7 +36,7 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, porta
   async function handleAddToCart() {
     setMessage(null);
     try {
-      await addItem(sku, quantity, bcProductId, productName, unitPrice ?? undefined);
+      await addItem(sku, quantity, bcProductId, productName, unitPrice ?? undefined, productUrl);
       setMessage({
         type: 'success',
         text: `${quantity} × ${productName} added to your B2B cart.`,

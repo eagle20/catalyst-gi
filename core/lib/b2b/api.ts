@@ -19,6 +19,7 @@ export interface B2BCartItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  productUrl?: string | null;
   notes?: string | null;
 }
 
@@ -66,11 +67,12 @@ export async function addToB2BCart(
   productName: string,
   unitPrice?: number,
   notes?: string,
+  productUrl?: string,
 ): Promise<B2BCartItem> {
   const res = await fetch('/api/b2b/cart', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sku, quantity, bcProductId, productName, unitPrice, notes }),
+    body: JSON.stringify({ sku, quantity, bcProductId, productName, unitPrice, notes, productUrl }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
