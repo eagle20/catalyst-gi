@@ -421,7 +421,7 @@ export default async function Product(props: Props) {
                   return { ...p, ssoUrl };
                 })}
               >
-                {(p) => <B2BProductWidget bcPrice={p.bcPriceValue} bcProductId={productId} portalUrl={p.ssoUrl} productName={p.title} productUrl={p.path} sku={p.sku} />}
+                {(p) => <B2BProductWidget bcPrice={p.bcPriceValue} bcProductId={productId} portalUrl={p.ssoUrl} productName={p.title} productUrl={p.href} sku={p.sku} />}
               </Stream>
             </B2BOnly>
           }

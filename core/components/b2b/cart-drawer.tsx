@@ -70,7 +70,7 @@ export function B2BCartDrawer() {
                     <div className="flex-1">
                       {item.productUrl ? (
                         <a
-                          className="text-sm font-medium leading-snug text-[hsl(var(--foreground))] underline-offset-2 hover:underline"
+                          className="text-sm font-medium leading-snug text-[hsl(var(--foreground))] underline underline-offset-2 hover:text-[hsl(var(--contrast-500))] transition-colors"
                           href={item.productUrl}
                           onClick={closeCart}
                         >
