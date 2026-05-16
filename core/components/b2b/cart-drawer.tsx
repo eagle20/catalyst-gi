@@ -1,6 +1,7 @@
 'use client';
 
 import { Minus, Plus, ShoppingBasket, Trash2, X } from 'lucide-react';
+import { Button } from '@/vibes/soul/primitives/button';
 import { useB2BCart } from './cart-context';
 
 export function B2BCartDrawer() {
@@ -129,13 +130,17 @@ export function B2BCartDrawer() {
               <span className="text-sm text-[hsl(var(--contrast-500))]">Subtotal</span>
               <span className="text-sm font-semibold text-[hsl(var(--foreground))]">${cart.subtotal.toFixed(2)}</span>
             </div>
-            <button
-              className="w-full rounded bg-[hsl(var(--foreground))] px-4 py-3 text-sm font-semibold text-[hsl(var(--background))] hover:bg-[hsl(var(--contrast-600))] disabled:opacity-50 transition-colors"
+            <Button
+              className="w-full"
               disabled={loading || !checkoutUrl}
               onClick={handleCheckout}
+              shape="rounded"
+              size="medium"
+              type="button"
+              variant="secondary"
             >
               Checkout
-            </button>
+            </Button>
           </div>
         )}
       </div>
