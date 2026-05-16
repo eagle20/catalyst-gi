@@ -21,7 +21,7 @@ import { PaginationSearchParamNames, Reviews } from './_components/reviews';
 import { QnAList } from './_components/qna-list';
 import { getProductData } from './page-data';
 import { auth } from '~/auth';
-import { B2BOnly } from '~/components/b2b/visibility';
+import { B2BOnly, B2COnly } from '~/components/b2b/visibility';
 import { B2BProductWidget } from '~/components/b2b/product-widget';
 import { generateSSOUrl } from '~/lib/b2b/sso';
 import { SectionLayout } from '@/vibes/soul/sections/section-layout';
@@ -383,7 +383,8 @@ export default async function Product(props: Props) {
     <>
       {/* ProductSchema component below handles schema.org structured data with actual product data */}
       <SectionLayout hideOverflow={true}>
-        {/* Product detail shown to all customers — images, title, description, specs */}
+        {/* Product detail — hidden for B2B customers who see the widget below instead */}
+        <B2COnly>
         <ProductDetail
           action={addToCart}
           breadcrumbs={Streamable.from(() => getBreadcrumbs(props))}
@@ -411,8 +412,9 @@ export default async function Product(props: Props) {
           )}
           documents={Streamable.from(() => getDocuments(props))}
         />
+        </B2COnly>
 
-        {/* B2B customers also see the contract-pricing bulk order widget below the product detail */}
+        {/* B2B customers see the contract-pricing widget instead of the standard product detail */}
         <B2BOnly>
           <div className="mx-auto max-w-screen-2xl px-4 pb-10 @xl:px-6 @4xl:px-8">
             <Stream fallback={<div className="h-48 animate-pulse rounded-xl bg-contrast-100" />} value={Streamable.from(async () => {
