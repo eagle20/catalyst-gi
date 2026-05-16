@@ -5,6 +5,7 @@ import { Rating } from '@/vibes/soul/primitives/rating';
 import { Breadcrumb, Breadcrumbs } from '@/vibes/soul/sections/breadcrumbs';
 import { ProductGallery } from '@/vibes/soul/sections/product-detail/product-gallery';
 import { Link } from '~/components/link';
+import { B2COnly } from '~/components/b2b/visibility';
 import { ProductDetailForm, ProductDetailFormAction } from './product-detail-form';
 import { Field } from './schema';
 
@@ -66,6 +67,8 @@ interface Props<F extends Field> {
   promotions?: Streamable<any>;
   giftProducts?: Streamable<any>;
   documents?: Streamable<Array<{ label: string; url: string }>>;
+  /** When provided, renders in the right column alongside the retail form (which is hidden for B2B users via B2COnly). */
+  formSlot?: React.ReactNode;
 }
 
 export function ProductDetail<F extends Field>({
@@ -87,6 +90,7 @@ export function ProductDetail<F extends Field>({
   promotions,
   giftProducts,
   documents,
+  formSlot,
 }: Props<F>) {
   return (
     <section className="@container">
@@ -200,33 +204,68 @@ export function ProductDetail<F extends Field>({
                       summary !== '' && <p className="text-contrast-500">{summary}</p>
                     }
                   </Stream>
-                  <Stream
-                    fallback={<ProductDetailFormSkeleton />}
-                    value={Streamable.all([
-                      streamableFields,
-                      streamableCtaLabel,
-                      streamableCtaDisabled,
-                      promotions ?? Streamable.from(() => Promise.resolve(null)),
-                      giftProducts ?? Streamable.from(() => Promise.resolve(null)),
-                    ])}
-                  >
-                    {([fields, ctaLabel, ctaDisabled, promos, gifts]) => (
-                      <ProductDetailForm
-                        action={action}
-                        ctaDisabled={ctaDisabled ?? undefined}
-                        ctaLabel={ctaLabel ?? undefined}
-                        decrementLabel={decrementLabel}
-                        fields={fields}
-                        incrementLabel={incrementLabel}
-                        inventoryLevel={inventoryLevel}
-                        prefetch={prefetch}
-                        productId={product.id}
-                        quantityLabel={quantityLabel}
-                        promotions={promos}
-                        giftProducts={gifts}
-                      />
-                    )}
-                  </Stream>
+                  {formSlot ? (
+                    <>
+                      <B2COnly>
+                        <Stream
+                          fallback={<ProductDetailFormSkeleton />}
+                          value={Streamable.all([
+                            streamableFields,
+                            streamableCtaLabel,
+                            streamableCtaDisabled,
+                            promotions ?? Streamable.from(() => Promise.resolve(null)),
+                            giftProducts ?? Streamable.from(() => Promise.resolve(null)),
+                          ])}
+                        >
+                          {([fields, ctaLabel, ctaDisabled, promos, gifts]) => (
+                            <ProductDetailForm
+                              action={action}
+                              ctaDisabled={ctaDisabled ?? undefined}
+                              ctaLabel={ctaLabel ?? undefined}
+                              decrementLabel={decrementLabel}
+                              fields={fields}
+                              incrementLabel={incrementLabel}
+                              inventoryLevel={inventoryLevel}
+                              prefetch={prefetch}
+                              productId={product.id}
+                              quantityLabel={quantityLabel}
+                              promotions={promos}
+                              giftProducts={gifts}
+                            />
+                          )}
+                        </Stream>
+                      </B2COnly>
+                      {formSlot}
+                    </>
+                  ) : (
+                    <Stream
+                      fallback={<ProductDetailFormSkeleton />}
+                      value={Streamable.all([
+                        streamableFields,
+                        streamableCtaLabel,
+                        streamableCtaDisabled,
+                        promotions ?? Streamable.from(() => Promise.resolve(null)),
+                        giftProducts ?? Streamable.from(() => Promise.resolve(null)),
+                      ])}
+                    >
+                      {([fields, ctaLabel, ctaDisabled, promos, gifts]) => (
+                        <ProductDetailForm
+                          action={action}
+                          ctaDisabled={ctaDisabled ?? undefined}
+                          ctaLabel={ctaLabel ?? undefined}
+                          decrementLabel={decrementLabel}
+                          fields={fields}
+                          incrementLabel={incrementLabel}
+                          inventoryLevel={inventoryLevel}
+                          prefetch={prefetch}
+                          productId={product.id}
+                          quantityLabel={quantityLabel}
+                          promotions={promos}
+                          giftProducts={gifts}
+                        />
+                      )}
+                    </Stream>
+                  )}
 
                   <Stream fallback={<ProductDescriptionSkeleton />} value={product.description}>
                     {(description) =>
