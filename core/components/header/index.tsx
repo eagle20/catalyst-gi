@@ -18,6 +18,7 @@ import { search } from './_actions/search';
 import { switchCurrency } from './_actions/switch-currency';
 import { HeaderFragment } from './fragment';
 import { getUser, isB2BCustomer } from '~/lib/user';
+import { generateSSOUrl } from '~/lib/b2b/sso';
 
 const GetCartCountQuery = graphql(`
   query GetCartCountQuery($cartId: String) {
@@ -135,6 +136,11 @@ export const Header = async () => {
   const defaultCurrency = currencies.find(({ isDefault }) => isDefault);
   const activeCurrencyId = currencyCode ?? defaultCurrency?.id;
 
+  const portalBase = process.env.B2B_PORTAL_URL ?? '';
+  const user = await getUser();
+  const portalDashboardUrl =
+    user?.email && portalBase ? generateSSOUrl(user.email, portalBase, '/dashboard') : undefined;
+
   return (
     <HeaderSection
       // @ts-ignore
@@ -161,6 +167,7 @@ export const Header = async () => {
         currencies,
         activeCurrencyId,
         currencyAction: switchCurrency,
+        portalDashboardUrl,
       }}
     />
   );

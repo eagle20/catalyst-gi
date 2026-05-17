@@ -111,6 +111,7 @@ interface Props<S extends SearchResult> {
   user?: Streamable<UserInterface | undefined>;
   isLoggedIn: Streamable<boolean>;
   isB2B?: Streamable<boolean>;
+  portalDashboardUrl?: string;
   cartHref: string;
   links: Streamable<Link[]>;
   categoryLinks: Link[];
@@ -291,6 +292,7 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
     logo: streamableLogo,
     isLoggedIn,
     isB2B,
+    portalDashboardUrl,
     logoHref = '/',
     logoLabel = 'Home',
     logoWidth = 200,
@@ -560,9 +562,18 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
                       <Stream value={isB2B} fallback={null}>
                         {(b2b) =>
                           b2b ? (
-                            <span className="rounded-full bg-[#011F4B] px-2.5 py-0.5 text-xs font-semibold text-white">
-                              B2B Account
-                            </span>
+                            portalDashboardUrl ? (
+                              <a
+                                href={portalDashboardUrl}
+                                className="rounded-full bg-[#011F4B] px-2.5 py-0.5 text-xs font-semibold text-white hover:bg-[#022a68] transition-colors"
+                              >
+                                B2B Portal
+                              </a>
+                            ) : (
+                              <span className="rounded-full bg-[#011F4B] px-2.5 py-0.5 text-xs font-semibold text-white">
+                                B2B Account
+                              </span>
+                            )
                           ) : null
                         }
                       </Stream>
