@@ -417,7 +417,7 @@ export default async function Product(props: Props) {
                   const [p, session] = await Promise.all([getProduct(props), auth()]);
                   const portalBase = process.env.B2B_PORTAL_URL ?? '';
                   const email = session?.user?.email;
-                  const ssoUrl = email ? generateSSOUrl(email, portalBase) : portalBase;
+                  const ssoUrl = email && portalBase ? generateSSOUrl(email, portalBase) : portalBase;
                   return { ...p, ssoUrl };
                 })}
               >
