@@ -20,6 +20,7 @@ import './components/category-grid-git/category-grid-git.makeswift';
 import './components/featured-products-git/featured-products-git.makesiwft';
 import './components/featured-category-git/featured-category-git.makeswift';
 import './components/contact-form-git/contact-form-git.makeswift';
+import './components/brand-banner/brand-banner.makeswift';
 
 import './components/site-theme/register';
 

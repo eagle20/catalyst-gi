@@ -21,6 +21,8 @@ import { MAX_COMPARE_LIMIT } from '../../../compare/page-data';
 import { getCompareProducts as getCompareProductsData } from '../../fetch-compare-products';
 import { fetchFacetedSearch } from '../../fetch-faceted-search';
 
+import { OptionalMakeswiftSection } from '~/lib/makeswift/optional-page';
+
 import { getBrandPageData } from './page-data';
 
 const cachedBrandDataVariables = cache((brandId: string) => {
@@ -331,6 +333,7 @@ export default async function Brand(props: Props) {
 
   // Fetch all data server-side in parallel
   const [
+    brand,
     compareLabel,
     compareProducts,
     emptyStateSubtitle,
@@ -350,6 +353,7 @@ export default async function Brand(props: Props) {
     title,
     totalCount,
   ] = await Promise.all([
+    getBrand(props),
     getCompareLabel(),
     getCompareProducts(props),
     getEmptyStateSubtitle(),
@@ -371,7 +375,9 @@ export default async function Brand(props: Props) {
   ]);
 
   return (
-    <ProductsListSection
+    <>
+      <OptionalMakeswiftSection locale={locale} path={brand.path} />
+      <ProductsListSection
       compareLabel={compareLabel}
       // @ts-ignore
       compareProducts={compareProducts}
@@ -395,5 +401,6 @@ export default async function Brand(props: Props) {
       title={title}
       totalCount={totalCount}
     />
+    </>
   );
 }
