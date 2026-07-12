@@ -31,16 +31,21 @@ export const addToCart = async (
   lastResult: SubmissionResult | null;
   successMessage?: ReactNode;
 }> => {
-  if (await isB2BCustomer()) {
-    return { lastResult: null, fields: prevState.fields };
-  }
-
   const t = await getTranslations('Product.ProductDetails');
 
   const submission = parseWithZod(payload, { schema: schema(prevState.fields) });
 
   if (submission.status !== 'success') {
     return { lastResult: submission.reply(), fields: prevState.fields };
+  }
+
+  if (await isB2BCustomer()) {
+    return {
+      lastResult: submission.reply({
+        formErrors: ['B2B accounts must purchase through the B2B portal.'],
+      }),
+      fields: prevState.fields,
+    };
   }
 
   const productEntityId = Number(submission.value.id);
