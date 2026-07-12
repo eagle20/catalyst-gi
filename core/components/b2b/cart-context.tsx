@@ -28,7 +28,6 @@ interface B2BCartContextType {
   ) => Promise<void>;
   updateItem: (cartItemId: string, quantity: number) => Promise<void>;
   removeItem: (cartItemId: string) => Promise<void>;
-  checkoutUrl: string;
 }
 
 const B2BCartContext = createContext<B2BCartContextType>({
@@ -43,16 +42,9 @@ const B2BCartContext = createContext<B2BCartContextType>({
   addItem: async () => {},
   updateItem: async () => {},
   removeItem: async () => {},
-  checkoutUrl: '',
 });
 
-export function B2BCartProvider({
-  children,
-  checkoutUrl,
-}: {
-  children: React.ReactNode;
-  checkoutUrl: string;
-}) {
+export function B2BCartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<B2BCart | null>(null);
   const [isB2B, setIsB2B] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -141,7 +133,6 @@ export function B2BCartProvider({
         addItem,
         updateItem,
         removeItem,
-        checkoutUrl,
       }}
     >
       {children}

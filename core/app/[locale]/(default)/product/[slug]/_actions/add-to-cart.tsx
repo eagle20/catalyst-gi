@@ -11,6 +11,7 @@ import { graphql } from '~/client/graphql';
 import { Link } from '~/components/link';
 import { addToOrCreateCart, getCartId } from '~/lib/cart';
 import { MissingCartError } from '~/lib/cart/error';
+import { isB2BCustomer } from '~/lib/user';
 import { getCart } from '~/client/queries/get-cart';
 import { applyCouponCode } from '../../../cart/_actions/apply-coupon-code';
 
@@ -30,6 +31,10 @@ export const addToCart = async (
   lastResult: SubmissionResult | null;
   successMessage?: ReactNode;
 }> => {
+  if (await isB2BCustomer()) {
+    return { lastResult: null, fields: prevState.fields };
+  }
+
   const t = await getTranslations('Product.ProductDetails');
 
   const submission = parseWithZod(payload, { schema: schema(prevState.fields) });

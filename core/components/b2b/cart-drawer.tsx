@@ -1,18 +1,24 @@
 'use client';
 
+import { useState } from 'react';
 import { Minus, Plus, ShoppingBasket, Trash2, X } from 'lucide-react';
 import { Button } from '@/vibes/soul/primitives/button';
+import { getB2BCheckoutUrl } from '~/lib/b2b/actions';
 import { useB2BCart } from './cart-context';
 
 export function B2BCartDrawer() {
-  const { isOpen, closeCart, cart, cartCount, loading, updateItem, removeItem, checkoutUrl } =
-    useB2BCart();
+  const { isOpen, closeCart, cart, cartCount, loading, updateItem, removeItem } = useB2BCart();
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleCheckout = () => {
-    if (checkoutUrl) {
-      window.location.href = checkoutUrl;
+  const handleCheckout = async () => {
+    setCheckoutLoading(true);
+    try {
+      const url = await getB2BCheckoutUrl();
+      if (url) window.location.href = url;
+    } finally {
+      setCheckoutLoading(false);
     }
   };
 
@@ -142,14 +148,14 @@ export function B2BCartDrawer() {
             </div>
             <Button
               className="w-full"
-              disabled={loading || !checkoutUrl}
-              onClick={handleCheckout}
+              disabled={loading || checkoutLoading}
+              onClick={() => void handleCheckout()}
               shape="rounded"
               size="medium"
               type="button"
               variant="secondary"
             >
-              Checkout
+              {checkoutLoading ? 'Redirecting…' : 'Checkout'}
             </Button>
           </div>
         )}

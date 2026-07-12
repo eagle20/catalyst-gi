@@ -23,7 +23,6 @@ import { MakeswiftProvider } from '~/lib/makeswift/provider';
 import { B2BProvider } from '~/components/b2b/provider';
 import { B2BCartProvider } from '~/components/b2b/cart-context';
 import { B2BCartDrawer } from '~/components/b2b/cart-drawer';
-import { generateCheckoutSSOUrl } from '~/lib/b2b/sso';
 import { getUser } from '~/lib/user';
 
 import { getToastNotification } from '../../lib/server-toast';
@@ -136,11 +135,7 @@ export default async function RootLayout({ params, children }: Props) {
   // need to call this method everywhere where static rendering is enabled
   setRequestLocale(locale);
 
-  const [messages, user] = await Promise.all([getMessages(), getUser()]);
-
-  const portalBase = process.env.B2B_PORTAL_URL ?? '';
-  const checkoutUrl =
-    user?.email && portalBase ? generateCheckoutSSOUrl(user.email, portalBase) : '';
+  const [messages] = await Promise.all([getMessages(), getUser()]);
 
   return (
     <MakeswiftProvider previewMode={(await draftMode()).isEnabled}>
@@ -172,7 +167,7 @@ export default async function RootLayout({ params, children }: Props) {
                 {toastNotificationCookieData && (
                   <CookieNotifications {...toastNotificationCookieData} />
                 )}
-                <B2BCartProvider checkoutUrl={checkoutUrl}>
+                <B2BCartProvider>
                   <B2BProvider>{children}</B2BProvider>
                   <B2BCartDrawer />
                 </B2BCartProvider>

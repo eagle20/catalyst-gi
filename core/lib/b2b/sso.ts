@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { createHmac } from 'crypto';
 
 const SECRET = process.env.B2B_PORTAL_SECRET ?? '';
