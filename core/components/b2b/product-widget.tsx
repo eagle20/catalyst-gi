@@ -33,6 +33,14 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, produ
       .finally(() => setPricingLoading(false));
   }, [sku]);
 
+  if (pricingLoading) {
+    return <div className="h-48 animate-pulse rounded-xl bg-contrast-100" />;
+  }
+
+  const contractPrice = pricing?.price ?? null;
+  const unitPrice = contractPrice ?? bcPrice ?? null;
+  const isContractPrice = contractPrice != null;
+
   async function handleAddToCart() {
     setMessage(null);
     try {
@@ -48,14 +56,6 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, produ
       });
     }
   }
-
-  if (pricingLoading) {
-    return <div className="h-48 animate-pulse rounded-xl bg-contrast-100" />;
-  }
-
-  const contractPrice = pricing?.price ?? null;
-  const unitPrice = contractPrice ?? bcPrice ?? null;
-  const isContractPrice = contractPrice != null;
 
   return (
     <div className="rounded-lg border border-[hsl(var(--contrast-200))] bg-[hsl(var(--background))] p-6">
