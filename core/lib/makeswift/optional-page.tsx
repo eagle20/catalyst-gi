@@ -9,7 +9,13 @@ export async function OptionalMakeswiftSection({
   path: string;
   locale: string;
 }) {
-  const snapshot = await getPageSnapshot({ path, locale });
+  let snapshot;
+
+  try {
+    snapshot = await getPageSnapshot({ path, locale });
+  } catch {
+    return null;
+  }
 
   if (snapshot == null) return null;
 
