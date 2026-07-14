@@ -19,9 +19,15 @@ export const withMakeswift: MiddlewareFactory = (middleware) => {
 
     try {
       draftRequest = await unstable_createMakeswiftDraftRequest(request, MAKESWIFT_SITE_API_KEY);
-    } catch (err) {
-      // Log the real error so it appears in Vercel Runtime Logs
-      console.error('[withMakeswift] Draft request failed:', err);
+    } catch (err: unknown) {
+      const cause = (err as { cause?: unknown })?.cause;
+      console.error(
+        '[withMakeswift] Draft request failed.',
+        'error:', String(err),
+        'cause:', String(cause),
+        'origin:', request.nextUrl.origin,
+        'href:', request.nextUrl.href,
+      );
       throw err;
     }
 
