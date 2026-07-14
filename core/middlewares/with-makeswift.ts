@@ -15,10 +15,15 @@ const localeCookieName = ({ localeCookie }: { localeCookie?: boolean | { name?: 
 
 export const withMakeswift: MiddlewareFactory = (middleware) => {
   return async (request, event) => {
-    const draftRequest = await unstable_createMakeswiftDraftRequest(
-      request,
-      MAKESWIFT_SITE_API_KEY,
-    );
+    let draftRequest;
+
+    try {
+      draftRequest = await unstable_createMakeswiftDraftRequest(request, MAKESWIFT_SITE_API_KEY);
+    } catch (err) {
+      // Log the real error so it appears in Vercel Runtime Logs
+      console.error('[withMakeswift] Draft request failed:', err);
+      throw err;
+    }
 
     if (draftRequest != null) {
       if (routing.localeCookie) {
