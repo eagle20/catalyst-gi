@@ -4,6 +4,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { clsx } from 'clsx';
 import type { Metadata } from 'next';
 import { draftMode } from 'next/headers';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
@@ -138,7 +139,7 @@ export default async function RootLayout({ params, children }: Props) {
   const [messages] = await Promise.all([getMessages(), getUser()]);
 
   return (
-    <MakeswiftProvider previewMode={(await draftMode()).isEnabled}>
+    <MakeswiftProvider previewMode={(await draftMode()).isEnabled || (await headers()).get('x-makeswift-draft-mode-active') === '1'}>
       <html className={clsx(fonts.map((f) => f.variable))} lang={locale}>
         <head>
           <SiteTheme />

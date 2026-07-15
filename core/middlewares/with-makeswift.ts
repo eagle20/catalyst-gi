@@ -26,6 +26,13 @@ export const withMakeswift: MiddlewareFactory = (middleware) => {
         draftRequest.cookies.delete(localeCookieName(routing));
       }
 
+      // Signal to Server Components that Makeswift draft mode is active. next-intl copies
+      // all headers from draftRequest into its NextResponse.rewrite({ request: { headers } }),
+      // which sets x-middleware-request-x-makeswift-draft-mode-active + x-middleware-override-headers.
+      // The page handler receives this header and uses it to set previewMode and siteVersion
+      // without relying on draftMode().isEnabled (which requires the cookie header override to work).
+      draftRequest.headers.set('x-makeswift-draft-mode-active', '1');
+
       // Fast path: draft cookies are already in the browser. The Cookie header on
       // draftRequest already contains __prerender_bypass, so next-intl will carry it
       // to the page handler via x-middleware-request-cookie, and draftMode().isEnabled
