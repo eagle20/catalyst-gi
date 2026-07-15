@@ -55,7 +55,20 @@ export const withMakeswift: MiddlewareFactory = (middleware) => {
             draftRequest.cookies.delete(localeCookieName(routing));
           }
 
-          return middleware(draftRequest, event);
+          const response = await middleware(draftRequest, event);
+
+          // withRoutes returns NextResponse.rewrite() which does not automatically forward
+          // modified request headers to the origin. Without this, draftMode().isEnabled is
+          // false in the page handler → MakeswiftProvider previewMode={false} → not editable.
+          // Setting x-middleware-request-cookie explicitly tells Next.js to override the
+          // Cookie header on the forwarded/rewritten request, for both next() and rewrite().
+          const cookieHeader = draftRequest.headers.get('cookie');
+
+          if (cookieHeader) {
+            response.headers.set('x-middleware-request-cookie', cookieHeader);
+          }
+
+          return response;
         }
       } catch {
         // Fall through to SDK path below.
