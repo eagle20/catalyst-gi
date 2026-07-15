@@ -17,6 +17,24 @@ export const withMakeswift: MiddlewareFactory = (middleware) => {
   return async (request, event) => {
     let draftRequest;
 
+    // Diagnostic: probe the draft-mode endpoint directly before calling the SDK.
+    const draftParam = request.nextUrl.searchParams.get('x-makeswift-draft-mode');
+    if (draftParam != null) {
+      try {
+        const probeUrl = new URL('/api/makeswift/draft-mode', request.nextUrl.origin);
+        probeUrl.searchParams.set('secret', MAKESWIFT_SITE_API_KEY);
+        const probeRes = await fetch(probeUrl.toString());
+        const probeBody = await probeRes.text();
+        console.log(
+          '[withMakeswift] probe status:', probeRes.status,
+          'set-cookie:', probeRes.headers.get('set-cookie'),
+          'body:', probeBody.slice(0, 300),
+        );
+      } catch (probeErr) {
+        console.error('[withMakeswift] probe fetch threw:', String(probeErr));
+      }
+    }
+
     try {
       draftRequest = await unstable_createMakeswiftDraftRequest(request, MAKESWIFT_SITE_API_KEY);
     } catch (err: unknown) {
@@ -25,8 +43,6 @@ export const withMakeswift: MiddlewareFactory = (middleware) => {
         '[withMakeswift] Draft request failed.',
         'error:', String(err),
         'cause:', String(cause),
-        'origin:', request.nextUrl.origin,
-        'href:', request.nextUrl.href,
       );
       throw err;
     }
