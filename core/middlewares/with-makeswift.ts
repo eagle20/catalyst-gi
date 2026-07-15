@@ -1,3 +1,4 @@
+import { unstable_createMakeswiftDraftRequest } from '@makeswift/runtime/next/middleware';
 import { NextRequest } from 'next/server';
 
 import { routing } from '~/i18n/routing';
@@ -18,9 +19,10 @@ export const withMakeswift: MiddlewareFactory = (middleware) => {
     const draftParam = request.nextUrl.searchParams.get('x-makeswift-draft-mode');
 
     if (draftParam === MAKESWIFT_SITE_API_KEY) {
-      // gitool.com is behind Cloudflare, which blocks the SDK's internal self-fetch
-      // to /api/makeswift/draft-mode with a 403 bot-challenge page. Bypass Cloudflare
-      // by fetching via VERCEL_URL (the deployment's direct .vercel.app hostname).
+      // gitool.com is behind Cloudflare, which returns a 403 bot-challenge page when
+      // the SDK makes its internal self-fetch to /api/makeswift/draft-mode on the public
+      // domain. Bypass Cloudflare by fetching via VERCEL_URL — the deployment's direct
+      // .vercel.app hostname, which is not proxied through Cloudflare.
       const internalOrigin = process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
         : request.nextUrl.origin;
@@ -45,39 +47,28 @@ export const withMakeswift: MiddlewareFactory = (middleware) => {
           }
 
           if (routing.localeCookie) {
+            // If the i18n middleware is configured to use a cookie, it will first try to derive the
+            // locale from the existing request cookie before attempting to match the URL against the
+            // locale routes. The locale switcher in the Makeswift Builder expects the host to always
+            // determine the locale from the URL, though, so we have to erase the cookie from the
+            // proxied request to force that behavior.
             draftRequest.cookies.delete(localeCookieName(routing));
           }
 
           return middleware(draftRequest, event);
         }
-
-        console.error('[withMakeswift] draft-mode fetch returned:', res.status, 'origin:', internalOrigin);
-      } catch (err) {
-        console.error('[withMakeswift] draft-mode fetch threw:', String(err));
+      } catch {
+        // Fall through to SDK path below.
       }
-
-      // If the internal fetch failed, fall through and let the SDK attempt its own
-      // self-fetch (will likely also fail, but preserves the original error path).
     }
 
-    // Non-draft-mode requests, or fallback if the internal fetch failed above.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { unstable_createMakeswiftDraftRequest } = require('@makeswift/runtime/next/middleware') as {
-      unstable_createMakeswiftDraftRequest: typeof import('@makeswift/runtime/next/middleware').unstable_createMakeswiftDraftRequest;
-    };
-
-    let draftRequest;
-    try {
-      draftRequest = await unstable_createMakeswiftDraftRequest(request, MAKESWIFT_SITE_API_KEY);
-    } catch (err: unknown) {
-      console.error('[withMakeswift] SDK draft request failed:', String(err));
-      throw err;
-    }
+    const draftRequest = await unstable_createMakeswiftDraftRequest(request, MAKESWIFT_SITE_API_KEY);
 
     if (draftRequest != null) {
       if (routing.localeCookie) {
         draftRequest.cookies.delete(localeCookieName(routing));
       }
+
       return middleware(draftRequest, event);
     }
 
