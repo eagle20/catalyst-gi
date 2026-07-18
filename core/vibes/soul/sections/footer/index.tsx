@@ -159,7 +159,7 @@ export const Footer = forwardRef(function Footer(
                   {trustBadges.map(({ src, alt, href }, i) =>
                     href ? (
                       <Link href={href} key={i} target="_blank">
-                        <img alt={alt} className="h-14 w-auto object-contain" src={src} />
+                        <img alt={alt} className="h-14 w-auto object-contain grayscale transition-all duration-300 hover:grayscale-0" src={src} />
                       </Link>
                     ) : (
                       <img alt={alt} className="h-14 w-auto object-contain" key={i} src={src} />
