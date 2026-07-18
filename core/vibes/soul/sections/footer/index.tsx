@@ -30,6 +30,12 @@ interface ContactInformation {
   phone?: string;
 }
 
+interface TrustBadge {
+  src: string;
+  alt: string;
+  href?: string;
+}
+
 interface Props {
   logo?: Streamable<string | Image | null>;
   sections: Streamable<Section[]>;
@@ -37,6 +43,7 @@ interface Props {
   contactInformation?: Streamable<ContactInformation | null>;
   paymentIcons?: Streamable<ReactNode[] | null>;
   socialMediaLinks?: Streamable<SocialMediaLink[] | null>;
+  trustBadges?: TrustBadge[];
   contactTitle?: string;
   className?: string;
   logoHref?: string;
@@ -74,6 +81,7 @@ export const Footer = forwardRef(function Footer(
     contactInformation: streamableContactInformation,
     paymentIcons: streamablePaymentIcons,
     socialMediaLinks: streamableSocialMediaLinks,
+    trustBadges,
     copyright: streamableCopyright,
     className,
     logoHref = '#',
@@ -341,37 +349,53 @@ export const Footer = forwardRef(function Footer(
           </Stream>
         </div>
 
-        {/* Footer Bottom: horizontal line and centered copyright */}
-        <div className="mt-12 border-t border-[#E5E7EB] border-[var(--footer-border-top,hsl(var(--contrast-100)))] pt-6 text-center">
-          <Stream
-            fallback={
-              <div className="flex h-[1lh] animate-pulse items-center justify-center text-sm">
-                <span className="h-[1ex] w-[40ch] rounded-sm bg-contrast-100" />
-              </div>
-            }
-            value={streamableCopyright}
-          >
-            {(copyright) => {
-              if (copyright != null) {
-                return (
-                  <p className="text-sm text-[var(--footer-copyright,hsl(var(--contrast-400)))]">
-                    {copyright}
-                  </p>
-                );
+        {/* Footer Bottom: copyright + payment left, trust badges right */}
+        <div className="mt-12 flex flex-col items-start justify-between gap-6 border-t border-[#E5E7EB] border-[var(--footer-border-top,hsl(var(--contrast-100)))] pt-6 @md:flex-row @md:items-center">
+          <div>
+            <Stream
+              fallback={
+                <div className="flex h-[1lh] animate-pulse items-center text-sm">
+                  <span className="h-[1ex] w-[40ch] rounded-sm bg-contrast-100" />
+                </div>
               }
-            }}
-          </Stream>
-          <Stream fallback={null} value={streamablePaymentIcons}>
-            {(paymentIcons) => {
-              if (paymentIcons != null && paymentIcons.length > 0) {
-                return (
-                  <div className="mt-4 flex items-center justify-center gap-3">
-                    {paymentIcons}
-                  </div>
-                );
-              }
-            }}
-          </Stream>
+              value={streamableCopyright}
+            >
+              {(copyright) => {
+                if (copyright != null) {
+                  return (
+                    <p className="text-sm text-[var(--footer-copyright,hsl(var(--contrast-400)))]">
+                      {copyright}
+                    </p>
+                  );
+                }
+              }}
+            </Stream>
+            <Stream fallback={null} value={streamablePaymentIcons}>
+              {(paymentIcons) => {
+                if (paymentIcons != null && paymentIcons.length > 0) {
+                  return (
+                    <div className="mt-4 flex items-center gap-3">
+                      {paymentIcons}
+                    </div>
+                  );
+                }
+              }}
+            </Stream>
+          </div>
+
+          {trustBadges && trustBadges.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3">
+              {trustBadges.map(({ src, alt, href }, i) =>
+                href ? (
+                  <Link href={href} key={i} target="_blank">
+                    <img alt={alt} className="h-12 w-auto object-contain" src={src} />
+                  </Link>
+                ) : (
+                  <img alt={alt} className="h-12 w-auto object-contain" key={i} src={src} />
+                ),
+              )}
+            </div>
+          )}
         </div>
       </div>
     </footer>

@@ -48,5 +48,17 @@ runtime.registerComponent(MakeswiftFooter, {
       getItemLabel: (item) => item?.title ?? 'Section',
     }),
     copyright: TextInput({ label: 'Copyright text' }),
+    trustBadges: List({
+      label: 'Trust Badges',
+      type: Group({
+        label: 'Badge',
+        props: {
+          src: Image({ label: 'Image' }),
+          alt: TextInput({ label: 'Alt text', defaultValue: 'Trust badge' }),
+          href: TextInput({ label: 'Link URL (optional)' }),
+        },
+      }),
+      getItemLabel: (item) => item?.alt ?? 'Badge',
+    }),
   },
 });

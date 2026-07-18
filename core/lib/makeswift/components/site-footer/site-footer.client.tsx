@@ -47,6 +47,11 @@ interface Props {
     }>;
   }>;
   copyright?: string;
+  trustBadges?: Array<{
+    src?: string;
+    alt: string;
+    href?: string;
+  }>;
 }
 
 function combineSections(
@@ -64,9 +69,12 @@ function combineSections(
 }
 
 export const MakeswiftFooter = forwardRef(
-  ({ logo, sections, copyright }: Props, ref: Ref<HTMLDivElement>) => {
+  ({ logo, sections, copyright, trustBadges }: Props, ref: Ref<HTMLDivElement>) => {
     const passedProps = useContext(PropsContext);
     const logoObject = logo.src ? { src: logo.src, alt: logo.alt } : passedProps.logo;
+    const resolvedBadges = trustBadges
+      ?.filter((b) => b.src)
+      .map((b) => ({ src: b.src!, alt: b.alt, href: b.href || undefined }));
 
     return (
       <Footer
@@ -76,7 +84,8 @@ export const MakeswiftFooter = forwardRef(
         logoHeight={logo.show ? logo.height : 0}
         logoWidth={logo.show ? logo.width : 0}
         ref={ref}
-        sections={combineSections([], sections)} //{combineSections(passedProps.sections, sections)}
+        sections={combineSections([], sections)}
+        trustBadges={resolvedBadges}
       />
     );
   },
