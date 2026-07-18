@@ -113,51 +113,6 @@ export const Footer = forwardRef(function Footer(
               width={logoWidth}
             />
 
-            {/* Contact Information */}
-            <Stream
-              fallback={
-                <div className="mb-2 animate-pulse text-lg @lg:text-xl">
-                  <div className="flex h-[1lh] items-center">
-                    <span className="h-[1ex] w-[10ch] rounded bg-contrast-100" />
-                  </div>
-                  <div className="flex h-[1lh] items-center">
-                    <span className="h-[1ex] w-[15ch] rounded bg-contrast-100" />
-                  </div>
-                  <div className="flex h-[1lh] items-center">
-                    <span className="h-[1ex] w-[12ch] rounded bg-contrast-100" />
-                  </div>
-                </div>
-              }
-              value={streamableContactInformation}
-            >
-              {(contactInformation) => {
-                if (contactInformation?.address != null || contactInformation?.phone != null) {
-                  return (
-                    <div className="text-sm font-medium @lg:text-base">
-                      <div className="text-[var(--footer-contact-text,hsl(var(--foreground)))]">
-                        {contactInformation.address != null &&
-                          contactInformation.address !== '' && (
-                            <address className="not-italic">
-                              {contactInformation.address.split('\n').map((line, idx) => (
-                                <span key={idx} style={{ display: 'block' }}>
-                                  {line}
-                                </span>
-                              ))}
-                            </address>
-                          )}
-                        {contactInformation.phone != null && contactInformation.phone !== '' && (
-                          <p>{contactInformation.phone}</p>
-                        )}
-                      </div>
-                      {/* <h3 className="text-[var(--footer-contact-title,hsl(var(--contrast-300)))]">
-                        {contactTitle}
-                      </h3> */}
-                    </div>
-                  );
-                }
-              }}
-            </Stream>
-
             {/* Social Media Links */}
             <Stream
               fallback={
@@ -191,6 +146,28 @@ export const Footer = forwardRef(function Footer(
                 }
               }}
             </Stream>
+
+            {/* Trust Badges */}
+            {trustBadges && trustBadges.length > 0 && (
+              <div className="flex flex-col gap-2 pt-2">
+                {trustBadgesLabel && (
+                  <p className="text-xs font-medium text-[var(--footer-copyright,hsl(var(--contrast-400)))]">
+                    {trustBadgesLabel}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-3">
+                  {trustBadges.map(({ src, alt, href }, i) =>
+                    href ? (
+                      <Link href={href} key={i} target="_blank">
+                        <img alt={alt} className="h-10 w-auto object-contain" src={src} />
+                      </Link>
+                    ) : (
+                      <img alt={alt} className="h-10 w-auto object-contain" key={i} src={src} />
+                    ),
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer Columns of Links */}
@@ -351,60 +328,37 @@ export const Footer = forwardRef(function Footer(
           </Stream>
         </div>
 
-        {/* Footer Bottom: copyright + payment left, trust badges right */}
-        <div className="mt-12 flex flex-col items-start justify-between gap-6 border-t border-[#E5E7EB] border-[var(--footer-border-top,hsl(var(--contrast-100)))] pt-6 @md:flex-row @md:items-center">
-          <div>
-            <Stream
-              fallback={
-                <div className="flex h-[1lh] animate-pulse items-center text-sm">
-                  <span className="h-[1ex] w-[40ch] rounded-sm bg-contrast-100" />
-                </div>
-              }
-              value={streamableCopyright}
-            >
-              {(copyright) => {
-                if (copyright != null) {
-                  return (
-                    <p className="text-sm text-[var(--footer-copyright,hsl(var(--contrast-400)))]">
-                      {copyright}
-                    </p>
-                  );
-                }
-              }}
-            </Stream>
-            <Stream fallback={null} value={streamablePaymentIcons}>
-              {(paymentIcons) => {
-                if (paymentIcons != null && paymentIcons.length > 0) {
-                  return (
-                    <div className="mt-4 flex items-center gap-3">
-                      {paymentIcons}
-                    </div>
-                  );
-                }
-              }}
-            </Stream>
-          </div>
-
-          {trustBadges && trustBadges.length > 0 && (
-            <div className="flex flex-col gap-2">
-              {trustBadgesLabel && (
-                <p className="text-xs font-medium text-[var(--footer-copyright,hsl(var(--contrast-400)))]">
-                  {trustBadgesLabel}
-                </p>
-              )}
-              <div className="flex flex-wrap items-center gap-3">
-                {trustBadges.map(({ src, alt, href }, i) =>
-                  href ? (
-                    <Link href={href} key={i} target="_blank">
-                      <img alt={alt} className="h-12 w-auto object-contain" src={src} />
-                    </Link>
-                  ) : (
-                    <img alt={alt} className="h-12 w-auto object-contain" key={i} src={src} />
-                  ),
-                )}
+        {/* Footer Bottom: copyright + payment icons */}
+        <div className="mt-12 border-t border-[#E5E7EB] border-[var(--footer-border-top,hsl(var(--contrast-100)))] pt-6 text-center">
+          <Stream
+            fallback={
+              <div className="flex h-[1lh] animate-pulse items-center justify-center text-sm">
+                <span className="h-[1ex] w-[40ch] rounded-sm bg-contrast-100" />
               </div>
-            </div>
-          )}
+            }
+            value={streamableCopyright}
+          >
+            {(copyright) => {
+              if (copyright != null) {
+                return (
+                  <p className="text-sm text-[var(--footer-copyright,hsl(var(--contrast-400)))]">
+                    {copyright}
+                  </p>
+                );
+              }
+            }}
+          </Stream>
+          <Stream fallback={null} value={streamablePaymentIcons}>
+            {(paymentIcons) => {
+              if (paymentIcons != null && paymentIcons.length > 0) {
+                return (
+                  <div className="mt-4 flex items-center justify-center gap-3">
+                    {paymentIcons}
+                  </div>
+                );
+              }
+            }}
+          </Stream>
         </div>
       </div>
     </footer>
