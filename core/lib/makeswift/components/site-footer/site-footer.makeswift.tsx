@@ -48,6 +48,7 @@ runtime.registerComponent(MakeswiftFooter, {
       getItemLabel: (item) => item?.title ?? 'Section',
     }),
     copyright: TextInput({ label: 'Copyright text' }),
+    trustBadgesLabel: TextInput({ label: 'Trust Badges Label', defaultValue: 'Proud member of' }),
     trustBadges: List({
       label: 'Trust Badges',
       type: Group({

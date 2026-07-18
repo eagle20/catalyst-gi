@@ -47,6 +47,7 @@ interface Props {
     }>;
   }>;
   copyright?: string;
+  trustBadgesLabel?: string;
   trustBadges?: Array<{
     src?: string;
     alt: string;
@@ -69,7 +70,7 @@ function combineSections(
 }
 
 export const MakeswiftFooter = forwardRef(
-  ({ logo, sections, copyright, trustBadges }: Props, ref: Ref<HTMLDivElement>) => {
+  ({ logo, sections, copyright, trustBadgesLabel, trustBadges }: Props, ref: Ref<HTMLDivElement>) => {
     const passedProps = useContext(PropsContext);
     const logoObject = logo.src ? { src: logo.src, alt: logo.alt } : passedProps.logo;
     const resolvedBadges = trustBadges
@@ -85,6 +86,7 @@ export const MakeswiftFooter = forwardRef(
         logoWidth={logo.show ? logo.width : 0}
         ref={ref}
         sections={combineSections([], sections)}
+        trustBadgesLabel={trustBadgesLabel}
         trustBadges={resolvedBadges}
       />
     );

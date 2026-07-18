@@ -44,6 +44,7 @@ interface Props {
   paymentIcons?: Streamable<ReactNode[] | null>;
   socialMediaLinks?: Streamable<SocialMediaLink[] | null>;
   trustBadges?: TrustBadge[];
+  trustBadgesLabel?: string;
   contactTitle?: string;
   className?: string;
   logoHref?: string;
@@ -82,6 +83,7 @@ export const Footer = forwardRef(function Footer(
     paymentIcons: streamablePaymentIcons,
     socialMediaLinks: streamableSocialMediaLinks,
     trustBadges,
+    trustBadgesLabel,
     copyright: streamableCopyright,
     className,
     logoHref = '#',
@@ -131,7 +133,7 @@ export const Footer = forwardRef(function Footer(
               {(contactInformation) => {
                 if (contactInformation?.address != null || contactInformation?.phone != null) {
                   return (
-                    <div className="text-lg font-medium @lg:text-xl">
+                    <div className="text-sm font-medium @lg:text-base">
                       <div className="text-[var(--footer-contact-text,hsl(var(--foreground)))]">
                         {contactInformation.address != null &&
                           contactInformation.address !== '' && (
@@ -384,16 +386,23 @@ export const Footer = forwardRef(function Footer(
           </div>
 
           {trustBadges && trustBadges.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3">
-              {trustBadges.map(({ src, alt, href }, i) =>
-                href ? (
-                  <Link href={href} key={i} target="_blank">
-                    <img alt={alt} className="h-12 w-auto object-contain" src={src} />
-                  </Link>
-                ) : (
-                  <img alt={alt} className="h-12 w-auto object-contain" key={i} src={src} />
-                ),
+            <div className="flex flex-col gap-2">
+              {trustBadgesLabel && (
+                <p className="text-xs font-medium text-[var(--footer-copyright,hsl(var(--contrast-400)))]">
+                  {trustBadgesLabel}
+                </p>
               )}
+              <div className="flex flex-wrap items-center gap-3">
+                {trustBadges.map(({ src, alt, href }, i) =>
+                  href ? (
+                    <Link href={href} key={i} target="_blank">
+                      <img alt={alt} className="h-12 w-auto object-contain" src={src} />
+                    </Link>
+                  ) : (
+                    <img alt={alt} className="h-12 w-auto object-contain" key={i} src={src} />
+                  ),
+                )}
+              </div>
             </div>
           )}
         </div>
