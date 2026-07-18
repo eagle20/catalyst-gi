@@ -151,7 +151,7 @@ export const Footer = forwardRef(function Footer(
             {trustBadges && trustBadges.length > 0 && (
               <div className="flex flex-col gap-2 pt-2">
                 {trustBadgesLabel && (
-                  <p className="mb-3 font-semibold text-[var(--footer-section-title,hsl(var(--foreground)))]">
+                  <p className="mb-3 font-semibold text-[var(--footer-copyright,hsl(var(--contrast-400)))]">
                     {trustBadgesLabel}
                   </p>
                 )}
