@@ -22,7 +22,7 @@ function BrandBanner({ className, bodyCopy, subcategoryLinks }: BrandBannerProps
   return (
     <div className={className}>
       <div className="mx-auto max-w-screen-2xl px-4 pb-8 pt-10 @xl:px-6 @4xl:px-8">
-        <div className="font-sans">{bodyCopy}</div>
+        <div className="font-body">{bodyCopy}</div>
 
         {hasLinks && (
           <div className="mt-6 flex flex-wrap gap-3">
