@@ -127,7 +127,7 @@ export const Footer = forwardRef(function Footer(
                       <div className="text-[var(--footer-contact-text,hsl(var(--foreground)))]">
                         {contactInformation.address != null &&
                           contactInformation.address !== '' && (
-                            <address>
+                            <address className="not-italic">
                               {contactInformation.address.split('\n').map((line, idx) => (
                                 <span key={idx} style={{ display: 'block' }}>
                                   {line}
