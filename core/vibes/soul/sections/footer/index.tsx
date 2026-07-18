@@ -151,7 +151,7 @@ export const Footer = forwardRef(function Footer(
             {trustBadges && trustBadges.length > 0 && (
               <div className="flex flex-col gap-2 pt-2">
                 {trustBadgesLabel && (
-                  <p className="text-xs font-medium text-[var(--footer-copyright,hsl(var(--contrast-400)))]">
+                  <p className="mb-3 font-semibold text-[var(--footer-section-title,hsl(var(--foreground)))]">
                     {trustBadgesLabel}
                   </p>
                 )}
@@ -159,10 +159,10 @@ export const Footer = forwardRef(function Footer(
                   {trustBadges.map(({ src, alt, href }, i) =>
                     href ? (
                       <Link href={href} key={i} target="_blank">
-                        <img alt={alt} className="h-10 w-auto object-contain" src={src} />
+                        <img alt={alt} className="h-14 w-auto object-contain" src={src} />
                       </Link>
                     ) : (
-                      <img alt={alt} className="h-10 w-auto object-contain" key={i} src={src} />
+                      <img alt={alt} className="h-14 w-auto object-contain" key={i} src={src} />
                     ),
                   )}
                 </div>
