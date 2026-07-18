@@ -376,8 +376,8 @@ export default async function Brand(props: Props) {
 
   return (
     <>
-      <OptionalMakeswiftSection locale={locale} path={brand.path} />
       <ProductsListSection
+      belowTitleSlot={<OptionalMakeswiftSection locale={locale} path={brand.path} />}
       compareLabel={compareLabel}
       // @ts-ignore
       compareProducts={compareProducts}

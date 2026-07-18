@@ -44,6 +44,7 @@ interface Props {
   maxItems?: number;
   maxCompareLimitMessage?: Streamable<string>;
   description?: Streamable<string | null>;
+  belowTitleSlot?: React.ReactNode;
 }
 
 export function ProductsListSection({
@@ -75,6 +76,7 @@ export function ProductsListSection({
   maxItems,
   maxCompareLimitMessage,
   description,
+  belowTitleSlot,
 }: Props) {
   return (
     <div className="group/products-list-section @container">
@@ -125,6 +127,8 @@ export function ProductsListSection({
             </h1>
           </div>
         </div>
+
+        {belowTitleSlot}
 
         {description && (
           <Stream value={description}>
