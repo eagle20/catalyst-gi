@@ -181,13 +181,15 @@
     }
   },
   "Search": {
-    "title": "Search results",
+    "title": "Search",
     "heading": "Search",
     "products": "Products",
     "sortBy": "{items, plural, =0 {no items} =1 {1 item} other {# items}}",
     "searchResults": "Search results for",
     "emptyStateTitle": "Sorry, no results for \"{term}\".",
     "emptyStateSubtitle": "Please try another search.",
+    "emptyStateNoTermTitle": "What are you looking for?",
+    "emptyStateNoTermSubtitle": "Enter a search term above to find products.",
     "Breadcrumbs": {
       "home": "Home",
       "search": "Search"

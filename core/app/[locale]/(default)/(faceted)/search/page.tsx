@@ -89,6 +89,8 @@ async function getTitle(props: Props): Promise<string> {
   const searchTerm = await getSearchTerm(props);
   const t = await getTranslations('Search');
 
+  if (searchTerm === '') return t('title');
+
   return `${t('searchResults')} "${searchTerm}"`;
 }
 
@@ -315,11 +317,16 @@ async function getEmptyStateTitle(props: Props): Promise<string> {
   const searchTerm = await getSearchTerm(props);
   const t = await getTranslations('Search');
 
+  if (searchTerm === '') return t('emptyStateNoTermTitle');
+
   return t('emptyStateTitle', { term: searchTerm });
 }
 
-async function getEmptyStateSubtitle(): Promise<string> {
+async function getEmptyStateSubtitle(props: Props): Promise<string> {
+  const searchTerm = await getSearchTerm(props);
   const t = await getTranslations('Search');
+
+  if (searchTerm === '') return t('emptyStateNoTermSubtitle');
 
   return t('emptyStateSubtitle');
 }
@@ -358,7 +365,7 @@ export default async function Search(props: Props) {
       breadcrumbs={Streamable.from(getBreadcrumbs)}
       compareLabel={Streamable.from(getCompareLabel)}
       compareProducts={Streamable.from(() => getCompareProducts(props))}
-      emptyStateSubtitle={Streamable.from(getEmptyStateSubtitle)}
+      emptyStateSubtitle={Streamable.from(() => getEmptyStateSubtitle(props))}
       emptyStateTitle={Streamable.from(() => getEmptyStateTitle(props))}
       filterLabel={await getFilterLabel()}
       filters={Streamable.from(() => getFilters(props))}
