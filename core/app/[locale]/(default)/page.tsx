@@ -23,7 +23,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     ...(title && {
       title,
-      openGraph: buildOpenGraph({ title, description: description ?? undefined, path: '/' }),
+      // image: null - Makeswift's own PageHead already renders og:image/twitter:image
+      // from the page's socialImage when set (MAKESWIFT_METADATA keeps that on); adding
+      // Next's generic fallback on top would produce two competing og:image tags.
+      openGraph: buildOpenGraph({
+        title,
+        description: description ?? undefined,
+        path: '/',
+        image: null,
+      }),
     }),
   };
 }
