@@ -21,11 +21,7 @@ export function buildOpenGraph({
   title: string;
   description?: string;
   path: string;
-  // undefined -> use the generic site fallback image (the right default for routes
-  // with no other image source). null -> omit images entirely; use this when the
-  // page already gets its own og:image from elsewhere (Makeswift's PageHead renders
-  // its own when socialImage is set), so we don't end up with two competing tags.
-  image?: { url: string; alt: string } | null;
+  image?: { url: string; alt: string };
   siteName?: string;
 }): NonNullable<Metadata['openGraph']> {
   return {
@@ -33,13 +29,11 @@ export function buildOpenGraph({
     description,
     url: buildPageUrl(path),
     siteName,
-    ...(image !== null && {
-      images: [
-        image ?? {
-          url: process.env.NEXT_PUBLIC_OG_IMAGE || '/favicon.ico',
-          alt: `${siteName} Logo`,
-        },
-      ],
-    }),
+    images: [
+      image ?? {
+        url: process.env.NEXT_PUBLIC_OG_IMAGE || '/favicon.ico',
+        alt: `${siteName} Logo`,
+      },
+    ],
   };
 }

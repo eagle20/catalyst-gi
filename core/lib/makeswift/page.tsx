@@ -6,28 +6,33 @@ import { getPageSnapshot } from './client';
 
 // Mirrors the priority the SDK's own PageHead uses internally (base localized page
 // wins over the top-level document field) — reading document.meta.title directly
-// would silently miss a title/description set on the base locale variant.
+// would silently miss a title/description/image set on the base locale variant.
 export function getPageMeta(document: MakeswiftPageDocument) {
   const baseLocalizedPage = document.localizedPages.find(({ parentId }) => parentId == null);
 
   return {
     title: baseLocalizedPage?.meta.title ?? document.meta.title,
     description: baseLocalizedPage?.meta.description ?? document.meta.description,
+    socialImage: baseLocalizedPage?.meta.socialImage ?? document.meta.socialImage,
   };
 }
 
-// Next.js's own generateMetadata is the single source of truth for title/description
-// (and the og:/twitter: tags derived from them) — Makeswift's built-in PageHead would
-// otherwise render a second, duplicate set from the page's own SEO settings. Every
-// other field stays on: canonicalUrl/indexingBlocked/favicon/keywords/socialImage are
-// not duplicated elsewhere, and socialImage is the only per-page og:image source for
-// freeform Makeswift pages. All keys must be listed explicitly — flattenMetadataSettings
-// does not backfill omitted keys, so a partial object would silently disable them too.
+// Next.js's own generateMetadata is the single source of truth for title/description/
+// image (and the og:/twitter: tags derived from them) — Makeswift's built-in PageHead
+// would otherwise render a second, duplicate set from the page's own SEO settings.
+// socialImage is off here too: Next's twitter:card auto-derivation still defaults to
+// "summary" whenever openGraph is present, even with no images set, so omitting just
+// the image field from openGraph doesn't avoid a second (conflicting) twitter:card —
+// only having exactly one system own image/title/description together does. The real
+// image is pulled from the snapshot via getPageMeta and passed into buildOpenGraph
+// instead. canonicalUrl/indexingBlocked/favicon/keywords are unaffected by any of this
+// and stay on. All keys must be listed explicitly — flattenMetadataSettings does not
+// backfill omitted keys, so a partial object would silently disable them too.
 export const MAKESWIFT_METADATA = {
   title: false,
   description: false,
   keywords: true,
-  socialImage: true,
+  socialImage: false,
   canonicalUrl: true,
   indexingBlocked: true,
   favicon: true,

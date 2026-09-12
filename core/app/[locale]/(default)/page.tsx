@@ -15,7 +15,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   const snapshot = await getPageSnapshot('/', locale);
-  const { title, description } = snapshot ? getPageMeta(snapshot.document) : {};
+  const { title, description, socialImage } = snapshot ? getPageMeta(snapshot.document) : {};
 
   return {
     alternates: {
@@ -23,14 +23,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     ...(title && {
       title,
-      // image: null - Makeswift's own PageHead already renders og:image/twitter:image
-      // from the page's socialImage when set (MAKESWIFT_METADATA keeps that on); adding
-      // Next's generic fallback on top would produce two competing og:image tags.
       openGraph: buildOpenGraph({
         title,
         description: description ?? undefined,
         path: '/',
-        image: null,
+        image: socialImage ? { url: socialImage.publicUrl, alt: title } : undefined,
       }),
     }),
   };

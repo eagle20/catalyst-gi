@@ -27,21 +27,19 @@ export async function generateMetadata({
   const { rest, locale } = await params;
   const path = `/${rest.join('/')}`;
   const snapshot = await getPageSnapshot(path, locale);
-  const { title, description } = snapshot ? getPageMeta(snapshot.document) : {};
+  const { title, description, socialImage } = snapshot ? getPageMeta(snapshot.document) : {};
+  const resolvedTitle = title || titleFromPath(path);
 
   return {
     ...(title && { title }),
     alternates: {
       canonical: buildPageUrl(path),
     },
-    // image: null - Makeswift's own PageHead already renders og:image/twitter:image
-    // from the page's socialImage when set (MAKESWIFT_METADATA keeps that on); adding
-    // Next's generic fallback on top would produce two competing og:image tags.
     openGraph: buildOpenGraph({
-      title: title || titleFromPath(path),
+      title: resolvedTitle,
       description: description ?? undefined,
       path,
-      image: null,
+      image: socialImage ? { url: socialImage.publicUrl, alt: resolvedTitle } : undefined,
     }),
   };
 }
