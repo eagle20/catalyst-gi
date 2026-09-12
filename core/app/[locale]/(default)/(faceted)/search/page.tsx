@@ -15,6 +15,7 @@ import { Option as SortOption } from '@/vibes/soul/sections/products-list-sectio
 import { facetsTransformer } from '~/data-transformers/facets-transformer';
 import { pricesTransformer } from '~/data-transformers/prices-transformer';
 import { client } from '~/client';
+import { buildOpenGraph } from '~/lib/seo';
 
 import { MAX_COMPARE_LIMIT } from '../../compare/page-data';
 import { getCompareProducts as getCompareProductsData } from '../fetch-compare-products';
@@ -356,6 +357,7 @@ export async function generateMetadata(): Promise<Metadata> {
     alternates: {
       canonical: canonicalUrl,
     },
+    openGraph: buildOpenGraph({ title: t('title'), path: '/search' }),
   };
 }
 

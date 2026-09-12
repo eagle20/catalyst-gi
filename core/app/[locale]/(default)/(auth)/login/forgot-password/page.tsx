@@ -7,6 +7,7 @@ import { getTranslations } from 'next-intl/server';
 // import { bypassReCaptcha } from '~/lib/bypass-recaptcha';
 
 import { ForgotPasswordSection } from '@/vibes/soul/sections/forgot-password-section';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
 import { resetPassword } from './_actions/reset-password';
 
@@ -29,6 +30,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: t('title'),
+    alternates: {
+      canonical: buildPageUrl('/login/forgot-password'),
+    },
+    openGraph: buildOpenGraph({ title: t('title'), path: '/login/forgot-password' }),
   };
 }
 

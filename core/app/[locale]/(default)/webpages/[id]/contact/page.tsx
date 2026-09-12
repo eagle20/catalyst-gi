@@ -13,6 +13,8 @@ import {
   truncateBreadcrumbs,
 } from '~/data-transformers/breadcrumbs-transformer';
 
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
+
 import { WebPage, WebPageContent } from '../_components/web-page';
 
 import { submitContactForm } from './_actions/submit-contact-form';
@@ -158,11 +160,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const webpage = await getWebPage(id);
   const { pageTitle, metaDescription, metaKeywords } = webpage.seo;
+  const title = pageTitle || webpage.title;
+  const path = `/webpages/${webpage.title}/contact`;
 
   return {
-    title: pageTitle || webpage.title,
+    title,
     description: metaDescription,
     keywords: metaKeywords ? metaKeywords.split(',') : null,
+    alternates: {
+      canonical: buildPageUrl(path),
+    },
+    openGraph: buildOpenGraph({ title, description: metaDescription, path }),
   };
 }
 

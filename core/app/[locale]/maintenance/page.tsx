@@ -7,6 +7,7 @@ import { client } from '~/client';
 import { graphql } from '~/client/graphql';
 import { StoreLogoFragment } from '~/components/store-logo/fragment';
 import { logoTransformer } from '~/data-transformers/logo-transformer';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
 const MaintenancePageQuery = graphql(
   `
@@ -37,6 +38,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title: t('title'),
+    alternates: {
+      canonical: buildPageUrl('/maintenance'),
+    },
+    openGraph: buildOpenGraph({ title: t('title'), path: '/maintenance' }),
   };
 }
 

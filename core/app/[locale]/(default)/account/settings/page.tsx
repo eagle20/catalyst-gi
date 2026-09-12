@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 
 import { AccountSettingsSection } from '@/vibes/soul/sections/account-settings-section';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
 import { changePassword } from './_actions/change-password';
 import { updateCustomer } from './_actions/update-customer';
@@ -13,6 +14,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: t('title'),
+    alternates: {
+      canonical: buildPageUrl('/account/settings'),
+    },
+    openGraph: buildOpenGraph({ title: t('title'), path: '/account/settings' }),
   };
 }
 

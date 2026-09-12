@@ -19,6 +19,7 @@ import { pageInfoTransformer } from '~/data-transformers/page-info-transformer';
 import { pricesTransformer } from '~/data-transformers/prices-transformer';
 import { getProductPromotions } from '~/client/management/get-product-promotions';
 import { client } from '~/client';
+import { buildOpenGraph } from '~/lib/seo';
 
 import { MAX_COMPARE_LIMIT } from '../../../compare/page-data';
 import { getCompareProducts as getCompareProductsData } from '../../fetch-compare-products';
@@ -391,14 +392,16 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL
     ? `${process.env.NEXT_PUBLIC_SITE_URL}${category.path}`
     : `https://gitool.com${category.path}`;
+  const title = pageTitle || category.name;
 
   return {
-    title: pageTitle || category.name,
+    title,
     description: metaDescription,
     keywords: metaKeywords ? metaKeywords.split(',') : null,
     alternates: {
       canonical: canonicalUrl,
     },
+    openGraph: buildOpenGraph({ title, description: metaDescription, path: category.path }),
   };
 }
 

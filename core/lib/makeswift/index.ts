@@ -1,2 +1,2 @@
-export { Page } from './page';
-export { client } from './client';
+export { getPageMeta, Page } from './page';
+export { client, getPageSnapshot } from './client';

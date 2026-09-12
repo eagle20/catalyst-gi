@@ -13,6 +13,7 @@ import {
   mapFormFieldValueToName,
   transformFieldsToLayout,
 } from '~/data-transformers/form-field-transformer/utils';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 import { exists } from '~/lib/utils';
 
 import { addressAction } from './_actions/address-action';
@@ -31,6 +32,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: t('title'),
+    alternates: {
+      canonical: buildPageUrl('/account/addresses'),
+    },
+    openGraph: buildOpenGraph({ title: t('title'), path: '/account/addresses' }),
   };
 }
 

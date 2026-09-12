@@ -10,18 +10,19 @@ import { setRequestLocale } from 'next-intl/server';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
 import { Link } from '~/components/link';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL
-    ? `${process.env.NEXT_PUBLIC_SITE_URL}/brands`
-    : 'https://gitool.com/brands';
+  const title = 'Brands';
+  const description = 'Explore our diverse range of brands offering quality products.';
 
   return {
-    title: 'Brands',
-    description: 'Explore our diverse range of brands offering quality products.',
+    title,
+    description,
     alternates: {
-      canonical: canonicalUrl,
+      canonical: buildPageUrl('/brands'),
     },
+    openGraph: buildOpenGraph({ title, description, path: '/brands' }),
   };
 }
 

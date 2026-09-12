@@ -5,6 +5,7 @@ import { ButtonLink } from '@/vibes/soul/primitives/button-link';
 import { SignInSection } from '@/vibes/soul/sections/sign-in-section';
 import { ForceRefresh } from '~/components/force-refresh';
 import { Slot } from '~/lib/makeswift/slot';
+import { buildOpenGraph } from '~/lib/seo';
 
 import { login } from './_actions/login';
 
@@ -31,6 +32,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   return {
     title: t('title'),
     alternates: { canonical: canonicalUrl },
+    openGraph: buildOpenGraph({ title: t('title'), path: '/login' }),
     ...(redirectTo && { robots: { index: false, follow: true } }),
   };
 }

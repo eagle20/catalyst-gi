@@ -8,6 +8,7 @@ import { Streamable } from '@/vibes/soul/lib/streamable';
 import { CompareCardWithId } from '@/vibes/soul/primitives/compare-card';
 import { CompareSection } from '@/vibes/soul/sections/compare-section';
 import { pricesTransformer } from '~/data-transformers/prices-transformer';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
 import { addToCart } from './_actions/add-to-cart';
 import { getCompareData } from './page-data';
@@ -62,6 +63,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: t('title'),
+    alternates: {
+      canonical: buildPageUrl('/compare'),
+    },
+    openGraph: buildOpenGraph({ title: t('title'), path: '/compare' }),
   };
 }
 

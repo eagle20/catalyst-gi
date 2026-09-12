@@ -7,6 +7,7 @@ import { createSearchParamsCache, parseAsInteger, parseAsString } from 'nuqs/ser
 import { Streamable } from '@/vibes/soul/lib/streamable';
 import { FeaturedBlogPostList } from '@/vibes/soul/sections/featured-blog-post-list';
 import { defaultPageInfo, pageInfoTransformer } from '~/data-transformers/page-info-transformer';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
 import { getBlog, getBlogPosts } from './page-data';
 
@@ -27,13 +28,19 @@ const searchParamsCache = createSearchParamsCache({
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('Blog');
   const blog = await getBlog();
+  const title = blog?.name ?? t('title');
+  const description =
+    blog?.description && blog.description.length > 150
+      ? `${blog.description.substring(0, 150)}...`
+      : blog?.description;
 
   return {
-    title: blog?.name ?? t('title'),
-    description:
-      blog?.description && blog.description.length > 150
-        ? `${blog.description.substring(0, 150)}...`
-        : blog?.description,
+    title,
+    description,
+    alternates: {
+      canonical: buildPageUrl('/blog'),
+    },
+    openGraph: buildOpenGraph({ title, description, path: '/blog' }),
   };
 }
 

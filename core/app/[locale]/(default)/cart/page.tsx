@@ -4,6 +4,7 @@ import { getFormatter, getTranslations } from 'next-intl/server';
 import { Cart as CartComponent, CartEmptyState } from '@/vibes/soul/sections/cart';
 import { getCartId } from '~/lib/cart';
 import { Slot } from '~/lib/makeswift/slot';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 import { exists } from '~/lib/utils';
 
 import { redirectToCheckout } from './_actions/redirect-to-checkout';
@@ -18,6 +19,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: t('title'),
+    alternates: {
+      canonical: buildPageUrl('/cart'),
+    },
+    openGraph: buildOpenGraph({ title: t('title'), path: '/cart' }),
   };
 }
 

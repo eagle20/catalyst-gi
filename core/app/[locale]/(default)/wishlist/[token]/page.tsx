@@ -17,6 +17,7 @@ import {
 import { ExistingResultType } from '~/client/util';
 import { defaultPageInfo, pageInfoTransformer } from '~/data-transformers/page-info-transformer';
 import { publicWishlistDetailsTransformer } from '~/data-transformers/wishlists-transformer';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 import { isMobileUser } from '~/lib/user-agent';
 
 import { getPublicWishlist } from './page-data';
@@ -68,9 +69,15 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const searchParamsParsed = searchParamsCache.parse(await searchParams);
   const t = await getTranslations('PublicWishlist');
   const wishlist = await getPublicWishlist(token, searchParamsParsed);
+  const title = wishlist?.name ?? t('title');
+  const path = `/wishlist/${token}`;
 
   return {
-    title: wishlist?.name ?? t('title'),
+    title,
+    alternates: {
+      canonical: buildPageUrl(path),
+    },
+    openGraph: buildOpenGraph({ title, path }),
   };
 }
 

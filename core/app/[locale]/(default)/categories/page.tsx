@@ -4,11 +4,19 @@ import { SectionLayout } from '@/vibes/soul/sections/section-layout';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { CategoryCard } from '@/vibes/soul/sections/products-list-section/filters-panel';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
 export async function generateMetadata(): Promise<Metadata> {
+  const title = 'Categories';
+  const description = 'Explore our diverse range of categories offering quality products.';
+
   return {
-    title: 'Categories',
-    description: 'Explore our diverse range of categories offering quality products.',
+    title,
+    description,
+    alternates: {
+      canonical: buildPageUrl('/categories'),
+    },
+    openGraph: buildOpenGraph({ title, description, path: '/categories' }),
   };
 }
 

@@ -22,6 +22,7 @@ import { getCompareProducts as getCompareProductsData } from '../../fetch-compar
 import { fetchFacetedSearch } from '../../fetch-faceted-search';
 
 import { OptionalMakeswiftSection } from '~/lib/makeswift/optional-page';
+import { buildOpenGraph } from '~/lib/seo';
 
 import { getBrandPageData } from './page-data';
 
@@ -316,14 +317,16 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL
     ? `${process.env.NEXT_PUBLIC_SITE_URL}${brand.path}`
     : `https://gitool.com${brand.path}`;
+  const title = pageTitle || brand.name;
 
   return {
-    title: pageTitle || brand.name,
+    title,
     description: metaDescription,
     keywords: metaKeywords ? metaKeywords.split(',') : null,
     alternates: {
       canonical: canonicalUrl,
     },
+    openGraph: buildOpenGraph({ title, description: metaDescription, path: brand.path }),
   };
 }
 

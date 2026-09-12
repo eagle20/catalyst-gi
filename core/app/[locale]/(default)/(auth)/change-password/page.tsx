@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 
 import { ResetPasswordSection } from '@/vibes/soul/sections/reset-password-section';
 import { redirect } from '~/i18n/routing';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
 import { changePassword } from './_actions/change-password';
 
@@ -19,6 +20,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: t('title'),
+    alternates: {
+      canonical: buildPageUrl('/change-password'),
+    },
+    openGraph: buildOpenGraph({ title: t('title'), path: '/change-password' }),
   };
 }
 

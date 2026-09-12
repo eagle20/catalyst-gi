@@ -1,9 +1,45 @@
+import type { Metadata } from 'next';
+
 import { defaultLocale, locales } from '~/i18n/routing';
-import { client, Page } from '~/lib/makeswift';
+import { client, getPageMeta, getPageSnapshot, Page } from '~/lib/makeswift';
+import { buildOpenGraph, buildPageUrl, DEFAULT_SITE_NAME } from '~/lib/seo';
 
 interface PageParams {
   locale: string;
   rest: string[];
+}
+
+// Not every Makeswift page has its SEO title filled in — fall back to a readable
+// label derived from the path (same approach already used on the visual sitemap page)
+// rather than dropping canonical/openGraph entirely for pages missing one.
+function titleFromPath(path: string): string {
+  const lastSegment = path.split('/').filter(Boolean).pop() ?? '';
+  const readable = lastSegment.replaceAll('-', ' ');
+
+  return readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : DEFAULT_SITE_NAME;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<PageParams>;
+}): Promise<Metadata> {
+  const { rest, locale } = await params;
+  const path = `/${rest.join('/')}`;
+  const snapshot = await getPageSnapshot(path, locale);
+  const { title, description } = snapshot ? getPageMeta(snapshot.document) : {};
+
+  return {
+    ...(title && { title }),
+    alternates: {
+      canonical: buildPageUrl(path),
+    },
+    openGraph: buildOpenGraph({
+      title: title || titleFromPath(path),
+      description: description ?? undefined,
+      path,
+    }),
+  };
 }
 
 export async function generateStaticParams(): Promise<PageParams[]> {

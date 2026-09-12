@@ -12,6 +12,7 @@ import { productCardTransformer } from '~/data-transformers/product-card-transfo
 import { productOptionsTransformer } from '~/data-transformers/product-options-transformer';
 import { getPreferredCurrencyCode } from '~/lib/currency';
 import { ProductDetail } from '~/lib/makeswift/components/product-detail';
+import { DEFAULT_SITE_NAME } from '~/lib/seo';
 import { client } from '~/client';
 
 import { addToCart } from './_actions/add-to-cart';
@@ -316,7 +317,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     metaDescription && metaDescription.length <= 160
       ? metaDescription
       : `${product.plainTextDescription.slice(0, 150)}...`;
-  const siteName = process.env.NEXT_PUBLIC_STORE_NAME || 'Catalyst Store';
+  const siteName = process.env.NEXT_PUBLIC_STORE_NAME || DEFAULT_SITE_NAME;
   const pageUrl = process.env.NEXT_PUBLIC_SITE_URL
     ? `${process.env.NEXT_PUBLIC_SITE_URL}${product.path}`
     : `https://gitool.com${product.path}`;

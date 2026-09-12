@@ -5,6 +5,7 @@ import { cache } from 'react';
 
 import { BlogPostContent, BlogPostContentBlogPost } from '@/vibes/soul/sections/blog-post-content';
 import { Breadcrumb } from '@/vibes/soul/sections/breadcrumbs';
+import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
 import { getBlogPageData } from './page-data';
 
@@ -27,11 +28,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const { pageTitle, metaDescription, metaKeywords } = blogPost.seo;
+  const title = pageTitle || blogPost.name;
+  const path = `/blog/${blogId}`;
 
   return {
-    title: pageTitle || blogPost.name,
+    title,
     description: metaDescription,
     keywords: metaKeywords ? metaKeywords.split(',') : null,
+    alternates: {
+      canonical: buildPageUrl(path),
+    },
+    openGraph: buildOpenGraph({ title, description: metaDescription, path }),
   };
 }
 

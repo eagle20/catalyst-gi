@@ -8,6 +8,7 @@ import {
   breadcrumbsTransformer,
   truncateBreadcrumbs,
 } from '~/data-transformers/breadcrumbs-transformer';
+import { DEFAULT_SITE_NAME } from '~/lib/seo';
 
 import { WebPageContent, WebPage as WebPageData } from '../_components/web-page';
 
@@ -66,7 +67,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     metaDescription && metaDescription.length <= 160
       ? metaDescription
       : `${webpage.title} - Learn more about this page.`;
-  const siteName = process.env.NEXT_PUBLIC_STORE_NAME || 'GI Tool Store';
+  const siteName = process.env.NEXT_PUBLIC_STORE_NAME || DEFAULT_SITE_NAME;
   const pageUrl = process.env.NEXT_PUBLIC_SITE_URL
     ? `${process.env.NEXT_PUBLIC_SITE_URL}/webpages/${webpage.title}`
     : `https://gitool.com/webpages/${webpage.title}`;
