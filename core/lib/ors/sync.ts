@@ -73,7 +73,7 @@ function getConfig(): Config {
   return { margin, buffer };
 }
 
-async function bigcommerce<T>(path: string, init?: RequestInit): Promise<T> {
+async function bigcommerce<T>(path: string, init?: RequestInit, attempt = 1): Promise<T> {
   const storeHash = process.env.BIGCOMMERCE_STORE_HASH;
   const token = process.env.BIGCOMMERCE_ACCESS_TOKEN;
 
@@ -86,6 +86,15 @@ async function bigcommerce<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'X-Auth-Token': token, Accept: 'application/json', 'Content-Type': 'application/json' },
     cache: 'no-store',
   });
+
+  // Rate limited: wait out the window BigCommerce reports, then retry.
+  if (response.status === 429 && attempt <= 5) {
+    const waitMs = Number(response.headers.get('X-Rate-Limit-Time-Reset-Ms')) || 2000;
+
+    await new Promise((resolve) => setTimeout(resolve, waitMs + 250));
+
+    return bigcommerce<T>(path, init, attempt + 1);
+  }
 
   if (!response.ok) {
     throw new Error(`BigCommerce ${init?.method ?? 'GET'} ${path}: ${response.status} ${await response.text()}`);

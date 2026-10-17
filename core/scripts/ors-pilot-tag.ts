@@ -58,7 +58,7 @@ if (!storeHash || !token) {
 
 const api = `https://api.bigcommerce.com/stores/${storeHash}/v3/catalog`;
 
-async function bc<T>(path: string, init?: RequestInit): Promise<T> {
+async function bc<T>(path: string, init?: RequestInit, attempt = 1): Promise<T> {
   const response = await fetch(`${api}${path}`, {
     ...init,
     headers: {
@@ -67,6 +67,15 @@ async function bc<T>(path: string, init?: RequestInit): Promise<T> {
       'Content-Type': 'application/json',
     },
   });
+
+  // Rate limited: wait out the window BigCommerce reports, then retry.
+  if (response.status === 429 && attempt <= 5) {
+    const waitMs = Number(response.headers.get('X-Rate-Limit-Time-Reset-Ms')) || 2000;
+
+    await new Promise((resolve) => setTimeout(resolve, waitMs + 250));
+
+    return bc<T>(path, init, attempt + 1);
+  }
 
   if (!response.ok) {
     throw new Error(`BigCommerce ${init?.method ?? 'GET'} ${path}: ${response.status} ${await response.text()}`);
