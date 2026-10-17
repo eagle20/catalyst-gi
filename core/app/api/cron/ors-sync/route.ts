@@ -25,8 +25,14 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line no-console
     console.log(
       `[ors-sync] ${dryRun ? 'dry run' : 'applied'}: ${result.changed.length} changed, ` +
-        `${result.unchanged.length} unchanged, ${result.skipped.length} skipped of ${result.enrolled}`,
+        `${result.unchanged.length} unchanged, ${result.skipped.length} skipped, ` +
+        `${result.priceHeld.length} price(s) held for review, of ${result.enrolled}`,
     );
+
+    for (const held of result.priceHeld) {
+      // eslint-disable-next-line no-console
+      console.warn(`[ors-sync] price held for review: ${held.sku} (${held.orsCode}) floor ${held.floor} vs ${held.current}`);
+    }
 
     return NextResponse.json(result);
   } catch (error) {

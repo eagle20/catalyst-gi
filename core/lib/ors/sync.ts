@@ -6,6 +6,8 @@ import { getOrsStockAtWarehouse, OrsStock } from '~/client/ors-nasco';
 // writes (product_code, warehouse); nothing about the pilot lives in code.
 const NAMESPACE = 'ors';
 const UPDATE_BATCH_SIZE = 10;
+// Automatic price raises above 1.5x the current price are held for review.
+const MAX_PRICE_INCREASE = 1.5;
 
 interface Metafield {
   key: string;
@@ -47,6 +49,8 @@ export interface OrsSyncResult {
   changed: OrsSyncChange[];
   unchanged: string[];
   skipped: Array<{ sku: string; orsCode: string; reason: string }>;
+  // Prices left unchanged because the margin floor was an outsized jump.
+  priceHeld: Array<{ sku: string; orsCode: string; current: number; floor: number }>;
 }
 
 interface Config {
@@ -168,7 +172,14 @@ export async function runOrsSync({ dryRun }: { dryRun: boolean }): Promise<OrsSy
     for (const [code, entry] of warehouseStock) stock.set(`${warehouse}:${code}`, entry);
   }
 
-  const result: OrsSyncResult = { dryRun, enrolled: enrolled.size, changed: [], unchanged: [], skipped: [] };
+  const result: OrsSyncResult = {
+    dryRun,
+    enrolled: enrolled.size,
+    changed: [],
+    unchanged: [],
+    skipped: [],
+    priceHeld: [],
+  };
   const updates: Array<ProductUpdate | { id: number; inventory_level: 0 }> = [];
   const zeroStock: Array<{ id: number; inventory_level: 0 }> = [];
 
@@ -205,10 +216,18 @@ export async function runOrsSync({ dryRun }: { dryRun: boolean }): Promise<OrsSy
     }
 
     const floor = roundCents(ors.price / (1 - margin));
+    // An outsized jump usually means bad ORS data (e.g. a unit change), so hold
+    // the price for a person to review; stock and cost still update.
+    const holdPrice = product.price > 0 && floor > product.price * MAX_PRICE_INCREASE;
+
+    if (holdPrice) {
+      result.priceHeld.push({ sku: product.sku, orsCode, current: product.price, floor });
+    }
+
     const update: ProductUpdate = {
       id: product.id,
       cost_price: ors.price,
-      price: Math.max(product.price, floor),
+      price: holdPrice ? product.price : Math.max(product.price, floor),
       inventory_tracking: 'product',
       inventory_level: Math.max(0, ors.quantity - buffer),
     };

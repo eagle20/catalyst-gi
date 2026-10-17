@@ -31,6 +31,10 @@ async function main() {
   if (result.unchanged.length) console.log(`Unchanged: ${result.unchanged.join(', ')}`);
 
   for (const s of result.skipped) console.log(`SKIPPED ${s.sku} (${s.orsCode}): ${s.reason}`);
+
+  for (const h of result.priceHeld) {
+    console.log(`PRICE HELD ${h.sku} (${h.orsCode}): floor ${money(h.floor)} is >1.5x current ${money(h.current)}; review`);
+  }
 }
 
 main().catch((error: unknown) => {
