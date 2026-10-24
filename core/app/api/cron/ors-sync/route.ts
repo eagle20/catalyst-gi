@@ -29,6 +29,14 @@ export async function GET(request: NextRequest) {
         `${result.priceHeld.length} price(s) held for review, of ${result.enrolled}`,
     );
 
+    if (result.unrecognised.length > 0 && result.unrecognised.length === result.enrolled) {
+      // eslint-disable-next-line no-console
+      console.error(`[ors-sync] ORS outage: no data for any of ${result.enrolled} products; stock left as is`);
+    } else if (result.unrecognised.length > 0) {
+      // eslint-disable-next-line no-console
+      console.warn(`[ors-sync] ORS returned no data for (left as is): ${result.unrecognised.join(', ')}`);
+    }
+
     for (const held of result.priceHeld) {
       // eslint-disable-next-line no-console
       console.warn(`[ors-sync] price held for review: ${held.sku} (${held.orsCode}) floor ${held.floor} vs ${held.current}`);

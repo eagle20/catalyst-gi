@@ -51,6 +51,8 @@ export interface OrsSyncResult {
   skipped: Array<{ sku: string; orsCode: string; reason: string }>;
   // Prices left unchanged because the margin floor was an outsized jump.
   priceHeld: Array<{ sku: string; orsCode: string; current: number; floor: number }>;
+  // SKUs ORS returned no data for; left untouched (also listed in skipped).
+  unrecognised: string[];
 }
 
 interface Config {
@@ -160,6 +162,7 @@ const roundCents = (n: number) => Math.round(n * 100) / 100;
  *   - cost     = ORS contract price
  *   - price    = raised to cost / (1 - margin) when below it; never lowered
  * ORS or BigCommerce read failures abort the run before anything is written.
+ * Products ORS returns no data for (it does this during outages) are left as is.
  */
 export async function runOrsSync({ dryRun }: { dryRun: boolean }): Promise<OrsSyncResult> {
   const { margin, buffer } = getConfig();
@@ -188,9 +191,9 @@ export async function runOrsSync({ dryRun }: { dryRun: boolean }): Promise<OrsSy
     unchanged: [],
     skipped: [],
     priceHeld: [],
+    unrecognised: [],
   };
-  const updates: Array<ProductUpdate | { id: number; inventory_level: 0 }> = [];
-  const zeroStock: Array<{ id: number; inventory_level: 0 }> = [];
+  const updates: ProductUpdate[] = [];
 
   for (const product of products) {
     const tag = enrolled.get(product.id);
@@ -202,15 +205,10 @@ export async function runOrsSync({ dryRun }: { dryRun: boolean }): Promise<OrsSy
     const ors = stock.get(`${warehouse}:${orsCode}`);
 
     if (!ors) {
-      // A code ORS stops recognising is usually discontinued; stop selling
-      // stock we can no longer source, but leave never-synced products alone.
-      if (product.inventory_tracking !== 'none' && product.inventory_level > 0) {
-        zeroStock.push({ id: product.id, inventory_level: 0 });
-        skip('ORS does not recognise this product code; stock set to 0');
-      } else {
-        skip('ORS does not recognise this product code');
-      }
-
+      // ORS answers with empty rows during its outages, which look the same as
+      // an unknown code. Leave the product as it is until ORS answers again.
+      result.unrecognised.push(product.sku);
+      skip('ORS returned no data for this product code; left unchanged');
       continue;
     }
 
@@ -269,8 +267,6 @@ export async function runOrsSync({ dryRun }: { dryRun: boolean }): Promise<OrsSy
       result.skipped.push({ sku: `product #${id}`, orsCode: enrolled.get(id)?.orsCode ?? '', reason: 'product no longer exists' });
     }
   }
-
-  updates.push(...zeroStock);
 
   if (!dryRun) {
     for (let i = 0; i < updates.length; i += UPDATE_BATCH_SIZE) {
