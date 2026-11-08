@@ -7,17 +7,21 @@ name: Bundle Size
 # and fails if the PR is over budget (commenting only in that case). The
 # `bundle-size-ok` label acknowledges an intended increase.
 
+# GI: disabled; it compares against BigCommerce's integrations/makeswift branch and needs store
+# secrets in GitHub. Run by hand only. Upstream trigger was:
+# on:
+#   pull_request:
+#     types: [opened, synchronize, reopened, labeled, unlabeled]
+#     paths:
+#       - core/**
+#       - packages/client/**
+#       - package.json
+#       - pnpm-lock.yaml
+#       - .github/workflows/bundle-size.yml
+#       - .github/scripts/bundle-size.mts
+#       - .github/scripts/post-bundle-comment.js
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths:
-      - core/**
-      - packages/client/**
-      - package.json
-      - pnpm-lock.yaml
-      - .github/workflows/bundle-size.yml
-      - .github/scripts/bundle-size.mts
-      - .github/scripts/post-bundle-comment.js
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
