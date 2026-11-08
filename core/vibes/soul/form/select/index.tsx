@@ -8,7 +8,7 @@ import * as React from 'react';
 import { FieldError } from '@/vibes/soul/form/field-error';
 import { Label } from '@/vibes/soul/form/label';
 
-type Props = {
+export type Props = {
   colorScheme?: 'light' | 'dark';
   id?: string;
   name: string;
@@ -32,34 +32,36 @@ type Props = {
  *
  * ```css
  *  :root {
- *    --select-light-trigger-background: hsl(var(--white));
- *    --select-light-trigger-border: hsl(var(--contrast-100));
- *    --select-light-trigger-border-hover: hsl(var(--contrast-300));
- *    --select-light-trigger-border-error: hsl(var(--error));
- *    --select-light-trigger-text: hsl(var(--foreground));
- *    --select-light-trigger-focus: hsl(var(--primary));
- *    --select-light-icon: hsl(var(--foreground));
- *    --select-light-content-background: hsl(var(--background));
- *    --select-light-item-background-hover: hsl(var(--contrast-100));
- *    --select-light-item-background-focus: hsl(var(--contrast-100));
- *    --select-light-item-text: hsl(var(--contrast-400));
- *    --select-light-item-text-hover: hsl(var(--foreground));
- *    --select-light-item-text-focus: hsl(var(--foreground));
- *    --select-light-item-checked-text-focus: hsl(var(--foreground));
- *    --select-dark-trigger-background: hsl(var(--black));
- *    --select-dark-trigger-border: hsl(var(--contrast-500));
- *    --select-dark-trigger-border-hover: hsl(var(--contrast-300));
- *    --select-dark-trigger-border-error: hsl(var(--error));
- *    --select-dark-trigger-text: hsl(var(--background));
- *    --select-dark-trigger-focus: hsl(var(--primary));
- *    --select-dark-icon: hsl(var(--background));
- *    --select-dark-content-background: hsl(var(--foreground));
- *    --select-dark-item-background-hover: hsl(var(--contrast-500));
- *    --select-dark-item-background-focus: hsl(var(--contrast-500));
- *    --select-dark-item-text: hsl(var(--contrast-200));
- *    --select-dark-item-text-hover: hsl(var(--background));
- *    --select-dark-item-text-focus: hsl(var(--background));
- *    --select-dark-item-checked-text-focus: hsl(var(--background));
+ *    --select-light-trigger-background: var(--background);
+ *    --select-light-trigger-border: var(--contrast-100);
+ *    --select-light-trigger-border-hover: var(--contrast-300);
+ *    --select-light-trigger-border-error: var(--error);
+ *    --select-light-trigger-text: var(--foreground);
+ *    --select-light-trigger-focus: var(--primary);
+ *    --select-light-icon: var(--foreground);
+ *    --select-light-content-background: var(--background);
+ *    --select-light-content-border: color-mix(in oklab, var(--foreground) 10%, transparent);
+ *    --select-light-item-background-hover: var(--contrast-100);
+ *    --select-light-item-background-focus: var(--contrast-100);
+ *    --select-light-item-text: var(--contrast-400);
+ *    --select-light-item-text-hover: var(--foreground);
+ *    --select-light-item-text-focus: var(--foreground);
+ *    --select-light-item-checked-text-focus: var(--foreground);
+ *    --select-dark-trigger-background: var(--foreground);
+ *    --select-dark-trigger-border: var(--contrast-500);
+ *    --select-dark-trigger-border-hover: var(--contrast-300);
+ *    --select-dark-trigger-border-error: var(--error);
+ *    --select-dark-trigger-text: var(--background);
+ *    --select-dark-trigger-focus: var(--primary);
+ *    --select-dark-icon: var(--background);
+ *    --select-dark-content-background: var(--foreground);
+ *    --select-dark-content-border: color-mix(in oklab, var(--background) 10%, transparent);
+ *    --select-dark-item-background-hover: var(--contrast-500);
+ *    --select-dark-item-background-focus: var(--contrast-500);
+ *    --select-dark-item-text: var(--contrast-200);
+ *    --select-dark-item-text-hover: var(--background);
+ *    --select-dark-item-text-focus: var(--background);
+ *    --select-dark-item-checked-text-focus: var(--background);
  *  }
  * ```
  */
@@ -78,6 +80,7 @@ export function Select({
   onBlur,
   onOptionMouseEnter,
   value,
+  required,
   ...rest
 }: Props) {
   const id = React.useId();
@@ -89,11 +92,14 @@ export function Select({
           className={clsx(hideLabel && 'sr-only', 'mb-2')}
           colorScheme={colorScheme}
           htmlFor={id}
+          required={required}
         >
           {label}
         </Label>
       )}
-      <SelectPrimitive.Root {...rest} name={name} value={value}>
+      {/* Workaround for https://github.com/radix-ui/primitives/issues/3198, remove when fixed */}
+      <input name={name} type="hidden" value={value} />
+      <SelectPrimitive.Root {...rest} name={`${name}_display`} required={required} value={value}>
         <SelectPrimitive.Trigger
           aria-label={label}
           className={clsx(
@@ -126,8 +132,8 @@ export function Select({
               className={clsx(
                 'w-5 transition-transform',
                 {
-                  light: 'text-[var(--select-light-icon,hsl(var(--foreground)))]',
-                  dark: 'text-[var(--select-dark-icon,hsl(var(--background)))]',
+                  light: 'text-(--select-light-icon,var(--foreground))',
+                  dark: 'text-(--select-dark-icon,var(--background))',
                 }[colorScheme],
               )}
               strokeWidth={1.5}
@@ -137,10 +143,11 @@ export function Select({
         <SelectPrimitive.Portal>
           <SelectPrimitive.Content
             className={clsx(
-              'z-50 max-h-80 w-full overflow-y-scroll rounded-xl p-2 shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 @4xl:rounded-3xl @4xl:p-4',
+              'z-50 max-h-80 w-full overflow-y-auto rounded-xl p-2 shadow-xl ring-1 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 @4xl:rounded-3xl @4xl:p-4',
               {
-                light: 'bg-[var(--select-light-content-background,hsl(var(--background)))]',
-                dark: 'bg-[var(--select-dark-content-background,hsl(var(--foreground)))]',
+                light:
+                  'bg-[var(--select-light-content-background,hsl(var(--background)))] ring-[var(--select-light-content-border,hsl(var(--contrast-100)))]',
+                dark: 'bg-[var(--select-dark-content-background,hsl(var(--foreground)))] ring-[var(--select-dark-content-border,hsl(var(--contrast-500)))]',
               }[colorScheme],
             )}
           >
@@ -149,8 +156,8 @@ export function Select({
                 className={clsx(
                   'w-5',
                   {
-                    light: 'text-[var(--select-light-icon,hsl(var(--foreground)))]',
-                    dark: 'text-[var(--select-dark-icon,hsl(var(--background)))]',
+                    light: 'text-(--select-light-icon,var(--foreground))',
+                    dark: 'text-(--select-dark-icon,var(--background))',
                   }[colorScheme],
                 )}
                 strokeWidth={1.5}
@@ -182,8 +189,8 @@ export function Select({
                 className={clsx(
                   'w-5',
                   {
-                    light: 'text-[var(--select-icon,hsl(var(--foreground)))]',
-                    dark: 'text-[var(--select-icon,hsl(var(--background)))]',
+                    light: 'text-(--select-icon,var(--foreground))',
+                    dark: 'text-(--select-icon,var(--background))',
                   }[colorScheme],
                 )}
                 strokeWidth={1.5}

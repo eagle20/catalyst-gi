@@ -1,260 +1,252 @@
 'use client';
 
-import { clsx } from 'clsx';
-import { Star } from 'lucide-react';
-import { useState, useTransition } from 'react';
+import { getFormProps, SubmissionResult, useForm, useInputControl } from '@conform-to/react';
+import { getZodConstraint } from '@conform-to/zod';
+import { useTranslations } from 'next-intl';
+import { startTransition, useActionState, useEffect, useRef, useState } from 'react';
+import { useFormStatus } from 'react-dom';
+import RecaptchaWidget from 'react-google-recaptcha';
 
-interface ReviewFormProps {
+import { FormStatus } from '@/vibes/soul/form/form-status';
+import { Input } from '@/vibes/soul/form/input';
+import { RatingRadioGroup } from '@/vibes/soul/form/rating-radio-group';
+import { Textarea } from '@/vibes/soul/form/textarea';
+import { Stream, Streamable, useStreamable } from '@/vibes/soul/lib/streamable';
+import { Button } from '@/vibes/soul/primitives/button';
+import { Modal } from '@/vibes/soul/primitives/modal';
+import { toast } from '@/vibes/soul/primitives/toaster';
+import { Image } from '~/components/image';
+import { parseWithZodTranslatedErrors } from '~/i18n/utils';
+
+import { reviewFormErrorTranslations, schema } from './schema';
+
+type Action<S, P> = (state: Awaited<S>, payload: P) => S | Promise<S>;
+
+export type SubmitReviewAction = Action<
+  { lastResult: SubmissionResult | null; successMessage?: string },
+  FormData
+>;
+
+interface Props {
   productId: number;
-  onSubmit: (data: ReviewFormData) => Promise<{ status: 'success' | 'error'; message: string }>;
-  requireEmail?: boolean;
-  labels: {
-    title: string;
-    ratingLabel: string;
-    titleLabel: string;
-    titlePlaceholder: string;
-    reviewLabel: string;
-    reviewPlaceholder: string;
-    nameLabel: string;
-    namePlaceholder: string;
-    emailLabel: string;
-    emailPlaceholder: string;
-    submitButton: string;
-    submittingButton: string;
-    cancelButton: string;
-  };
-  onCancel?: () => void;
+  action: SubmitReviewAction;
+  trigger: React.ReactNode;
+  formModalTitle?: string;
+  formSubmitLabel?: string;
+  formCancelLabel?: string;
+  formRatingLabel?: string;
+  formTitleLabel?: string;
+  formReviewLabel?: string;
+  formNameLabel?: string;
+  formEmailLabel?: string;
+  streamableImages: Streamable<{
+    images: Array<{ src: string; alt: string }>;
+    pageInfo?: { hasNextPage: boolean; endCursor: string | null };
+  }>;
+  streamableProduct: Streamable<{ name: string }>;
+  streamableUser: Streamable<{ email: string; name: string }>;
+  recaptchaSiteKey?: string;
 }
 
-export interface ReviewFormData {
-  productEntityId: number;
-  author: string;
-  title: string;
-  text: string;
-  rating: number;
-  email?: string;
-}
-
-export function ReviewForm({
+export const ReviewForm = ({
   productId,
-  onSubmit,
-  requireEmail = false,
-  labels,
-  onCancel,
-}: ReviewFormProps) {
-  const [isPending, startTransition] = useTransition();
-  const [rating, setRating] = useState(0);
-  const [hoveredRating, setHoveredRating] = useState(0);
-  const [formData, setFormData] = useState({
-    author: '',
-    title: '',
-    text: '',
-    email: '',
+  action,
+  trigger,
+  formModalTitle = 'Write a review',
+  formSubmitLabel = 'Submit',
+  formCancelLabel = 'Cancel',
+  formRatingLabel = 'Rating',
+  formTitleLabel = 'Title',
+  formReviewLabel = 'Review',
+  formNameLabel = 'Name',
+  formEmailLabel = 'Email',
+  streamableProduct,
+  streamableImages,
+  streamableUser,
+  recaptchaSiteKey,
+}: Props) => {
+  const t = useTranslations('Product.Reviews.Form');
+  const errorTranslations = reviewFormErrorTranslations(t);
+  const [isOpen, setIsOpen] = useState(false);
+  const [{ lastResult, successMessage }, formAction] = useActionState(action, {
+    lastResult: null,
   });
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage(null);
+  const user = useStreamable(streamableUser);
 
-    // Client-side validation
-    if (rating === 0) {
-      setMessage({ type: 'error', text: 'Please select a rating' });
+  const [form, fields] = useForm({
+    lastResult,
+    constraint: getZodConstraint(schema),
+    shouldValidate: 'onSubmit',
+    shouldRevalidate: 'onInput',
+    defaultValue: {
+      email: user.email,
+      author: user.name,
+    },
+    onValidate({ formData }) {
+      return parseWithZodTranslatedErrors(formData, { schema, errorTranslations });
+    },
+    onSubmit(event, { formData }) {
+      event.preventDefault();
 
-      return;
-    }
-
-    if (!formData.author.trim()) {
-      setMessage({ type: 'error', text: 'Please enter your name' });
-
-      return;
-    }
-
-    if (!formData.title.trim()) {
-      setMessage({ type: 'error', text: 'Please enter a review title' });
-
-      return;
-    }
-
-    if (!formData.text.trim()) {
-      setMessage({ type: 'error', text: 'Please enter your review' });
-
-      return;
-    }
-
-    if (requireEmail && !formData.email.trim()) {
-      setMessage({ type: 'error', text: 'Please enter your email' });
-
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await onSubmit({
-        productEntityId: productId,
-        author: formData.author,
-        title: formData.title,
-        text: formData.text,
-        rating,
-        ...(formData.email && { email: formData.email }),
+      startTransition(() => {
+        formAction(formData);
       });
+    },
+  });
 
-      setMessage({ type: result.status, text: result.message });
+  const ratingControl = useInputControl(fields.rating);
+  const titleControl = useInputControl(fields.title);
+  const textControl = useInputControl(fields.text);
+  const authorControl = useInputControl(fields.author);
+  const emailControl = useInputControl(fields.email);
 
-      if (result.status === 'success') {
-        // Reset form on success
-        setRating(0);
-        setFormData({ author: '', title: '', text: '', email: '' });
+  const isEmailDisabled = user.email !== '';
+  const isAuthorDisabled = user.name !== '';
 
-        // Close form after 2 seconds
-        if (onCancel) {
-          setTimeout(() => {
-            onCancel();
-          }, 2000);
-        }
-      }
-    });
-  };
+  useEffect(() => {
+    if (lastResult?.status === 'success' && successMessage) {
+      toast.success(successMessage);
+      setIsOpen(false);
+      formRef.current?.reset();
+    }
+  }, [lastResult, successMessage]);
 
   return (
-    <div className="rounded-xl border border-contrast-100 bg-background p-6 @xl:p-8">
-      <h3 className="mb-6 text-xl font-medium">{labels.title}</h3>
+    <Modal
+      className="w-full md:min-w-[768px]"
+      isOpen={isOpen}
+      setOpen={setIsOpen}
+      title={formModalTitle}
+      trigger={trigger}
+    >
+      <div className="flex flex-col gap-6 md:flex-row md:gap-8">
+        <div className="shrink-0 md:w-48">
+          <Stream
+            fallback={
+              <div className="animate-pulse">
+                <div className="mb-4 aspect-square w-full max-w-[200px] rounded-md bg-contrast-100 md:max-w-none" />
+                <div className="h-6 w-32 rounded-md bg-contrast-100" />
+              </div>
+            }
+            value={Streamable.all([streamableProduct, streamableImages])}
+          >
+            {([product, imagesData]) => {
+              const firstImage = imagesData.images[0];
 
-      <form onSubmit={handleSubmit}>
-        {/* Rating Input */}
-        <div className="mb-6">
-          <label className="mb-2 block text-sm font-medium text-foreground">
-            {labels.ratingLabel}
-          </label>
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                type="button"
-                className="transition-transform hover:scale-110"
-                onClick={() => setRating(star)}
-                onMouseEnter={() => setHoveredRating(star)}
-                onMouseLeave={() => setHoveredRating(0)}
-                aria-label={`Rate ${star} out of 5 stars`}
-              >
-                <Star
-                  className={clsx(
-                    'h-8 w-8 transition-colors',
-                    star <= (hoveredRating || rating)
-                      ? 'fill-yellow-400 text-yellow-400'
-                      : 'fill-none text-contrast-300',
+              return (
+                <>
+                  {firstImage && (
+                    <div className="relative mb-4 aspect-square w-full max-w-[200px] overflow-hidden rounded-md md:w-full md:max-w-none">
+                      <Image
+                        alt={firstImage.alt}
+                        className="object-cover"
+                        fill
+                        sizes="(min-width: 768px) 192px, 200px"
+                        src={firstImage.src}
+                      />
+                    </div>
                   )}
-                />
-              </button>
-            ))}
-          </div>
+                  <h3 className="text-lg font-semibold">{product.name}</h3>
+                </>
+              );
+            }}
+          </Stream>
         </div>
-
-        {/* Review Title */}
-        <div className="mb-6">
-          <label htmlFor="review-title" className="mb-2 block text-sm font-medium text-foreground">
-            {labels.titleLabel}
-          </label>
-          <input
-            id="review-title"
-            type="text"
-            className="w-full rounded-lg border border-contrast-200 bg-background px-4 py-3 text-foreground transition-colors focus:border-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
-            placeholder={labels.titlePlaceholder}
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            disabled={isPending}
-            required
-          />
-        </div>
-
-        {/* Review Text */}
-        <div className="mb-6">
-          <label htmlFor="review-text" className="mb-2 block text-sm font-medium text-foreground">
-            {labels.reviewLabel}
-          </label>
-          <textarea
-            id="review-text"
-            rows={5}
-            className="w-full rounded-lg border border-contrast-200 bg-background px-4 py-3 text-foreground transition-colors focus:border-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
-            placeholder={labels.reviewPlaceholder}
-            value={formData.text}
-            onChange={(e) => setFormData({ ...formData, text: e.target.value })}
-            disabled={isPending}
-            required
-          />
-        </div>
-
-        {/* Author Name */}
-        <div className="mb-6">
-          <label htmlFor="review-author" className="mb-2 block text-sm font-medium text-foreground">
-            {labels.nameLabel}
-          </label>
-          <input
-            id="review-author"
-            type="text"
-            className="w-full rounded-lg border border-contrast-200 bg-background px-4 py-3 text-foreground transition-colors focus:border-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
-            placeholder={labels.namePlaceholder}
-            value={formData.author}
-            onChange={(e) => setFormData({ ...formData, author: e.target.value })}
-            disabled={isPending}
-            required
-          />
-        </div>
-
-        {/* Email (optional or required based on store settings) */}
-        {requireEmail && (
-          <div className="mb-6">
-            <label htmlFor="review-email" className="mb-2 block text-sm font-medium text-foreground">
-              {labels.emailLabel}
-            </label>
-            <input
-              id="review-email"
-              type="email"
-              className="w-full rounded-lg border border-contrast-200 bg-background px-4 py-3 text-foreground transition-colors focus:border-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
-              placeholder={labels.emailPlaceholder}
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              disabled={isPending}
-              required
+        <div className="min-w-0 flex-1">
+          <form
+            {...getFormProps(form)}
+            action={formAction}
+            className="flex w-full flex-col gap-5"
+            ref={formRef}
+          >
+            <input name="productEntityId" type="hidden" value={productId} />
+            <RatingRadioGroup
+              errors={fields.rating.errors}
+              label={formRatingLabel}
+              max={5}
+              name={fields.rating.name}
+              onBlur={ratingControl.blur}
+              onFocus={ratingControl.focus}
+              onValueChange={ratingControl.change}
+              required={fields.rating.required}
+              value={typeof ratingControl.value === 'string' ? ratingControl.value : ''}
             />
-          </div>
-        )}
-
-        {/* Message Display */}
-        {message && (
-          <div
-            className={clsx(
-              'mb-6 rounded-lg p-4',
-              message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800',
-            )}
-          >
-            {message.text}
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={isPending}
-            className={clsx(
-              'rounded-full border border-foreground bg-foreground px-8 py-3 font-medium text-background transition-colors hover:bg-background hover:text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20',
-              isPending && 'cursor-not-allowed opacity-50',
-            )}
-          >
-            {isPending ? labels.submittingButton : labels.submitButton}
-          </button>
-          {onCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              disabled={isPending}
-              className="rounded-full border border-contrast-200 px-8 py-3 font-medium text-foreground transition-colors hover:bg-contrast-100 focus:outline-none focus:ring-2 focus:ring-foreground/20"
-            >
-              {labels.cancelButton}
-            </button>
-          )}
+            <Input
+              errors={fields.title.errors}
+              label={formTitleLabel}
+              name={fields.title.name}
+              onBlur={titleControl.blur}
+              onChange={(e) => titleControl.change(e.currentTarget.value)}
+              onFocus={titleControl.focus}
+              required={fields.title.required}
+              type="text"
+              value={typeof titleControl.value === 'string' ? titleControl.value : ''}
+            />
+            <Textarea
+              errors={fields.text.errors}
+              label={formReviewLabel}
+              name={fields.text.name}
+              onBlur={textControl.blur}
+              onChange={(e) => textControl.change(e.currentTarget.value)}
+              onFocus={textControl.focus}
+              required={fields.text.required}
+              value={typeof textControl.value === 'string' ? textControl.value : ''}
+            />
+            <Input
+              errors={fields.author.errors}
+              label={formNameLabel}
+              name={fields.author.name}
+              onBlur={authorControl.blur}
+              onChange={(e) => authorControl.change(e.currentTarget.value)}
+              onFocus={authorControl.focus}
+              readOnly={isAuthorDisabled}
+              required={fields.author.required}
+              type="text"
+              value={typeof authorControl.value === 'string' ? authorControl.value : ''}
+            />
+            <Input
+              errors={fields.email.errors}
+              label={formEmailLabel}
+              name={fields.email.name}
+              onBlur={emailControl.blur}
+              onChange={(e) => emailControl.change(e.currentTarget.value)}
+              onFocus={emailControl.focus}
+              readOnly={isEmailDisabled}
+              required={fields.email.required}
+              type="email"
+              value={typeof emailControl.value === 'string' ? emailControl.value : ''}
+            />
+            {form.errors?.map((error, index) => (
+              <FormStatus key={index} type="error">
+                {error}
+              </FormStatus>
+            ))}
+            {recaptchaSiteKey ? (
+              <div>
+                <RecaptchaWidget sitekey={recaptchaSiteKey} />
+              </div>
+            ) : null}
+            <div className="mt-auto flex justify-end gap-3">
+              <Button onClick={() => setIsOpen(false)} size="small" type="button" variant="ghost">
+                {formCancelLabel}
+              </Button>
+              <SubmitButton>{formSubmitLabel}</SubmitButton>
+            </div>
+          </form>
         </div>
-      </form>
-    </div>
+      </div>
+    </Modal>
+  );
+};
+
+function SubmitButton({ children }: { children: React.ReactNode }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button loading={pending} size="small" type="submit" variant="secondary">
+      {children}
+    </Button>
   );
 }

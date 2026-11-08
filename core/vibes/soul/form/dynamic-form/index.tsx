@@ -11,8 +11,18 @@ import {
   useInputControl,
 } from '@conform-to/react';
 import { getZodConstraint, parseWithZod } from '@conform-to/zod';
-import { MouseEvent, ReactNode, startTransition, useActionState } from 'react';
+import { useTranslations } from 'next-intl';
+import {
+  FormEvent,
+  MouseEvent,
+  ReactNode,
+  startTransition,
+  useActionState,
+  useEffect,
+  useState,
+} from 'react';
 import { useFormStatus } from 'react-dom';
+import RecaptchaWidget from 'react-google-recaptcha';
 import { z } from 'zod';
 
 import { ButtonRadioGroup } from '@/vibes/soul/form/button-radio-group';
@@ -29,16 +39,33 @@ import { SwatchRadioGroup } from '@/vibes/soul/form/swatch-radio-group';
 import { Textarea } from '@/vibes/soul/form/textarea';
 import { Button, ButtonProps } from '@/vibes/soul/primitives/button';
 
-import { Field, FieldGroup, schema } from './schema';
+import {
+  Field,
+  FieldGroup,
+  FormErrorTranslationMap,
+  PasswordComplexitySettings,
+  schema,
+} from './schema';
+import { removeOptionsFromFields } from './utils';
 
-type Action<S, P> = (state: Awaited<S>, payload: P) => S | Promise<S>;
-
-interface State<F extends Field> {
+export interface DynamicFormActionArgs<F extends Field> {
   fields: Array<F | FieldGroup<F>>;
-  lastResult: SubmissionResult | null;
+  passwordComplexity?: PasswordComplexitySettings | null;
+  countriesWithoutStates?: string[];
 }
 
-export type DynamicFormAction<F extends Field> = Action<State<F>, FormData>;
+type Action<F extends Field, S, P> = (
+  args: DynamicFormActionArgs<F>,
+  state: Awaited<S>,
+  payload: P,
+) => S | Promise<S>;
+
+interface State {
+  lastResult: SubmissionResult | null;
+  successMessage?: ReactNode;
+}
+
+export type DynamicFormAction<F extends Field> = Action<F, State, FormData>;
 
 export interface DynamicFormProps<F extends Field> {
   fields: Array<F | FieldGroup<F>>;
@@ -49,23 +76,54 @@ export interface DynamicFormProps<F extends Field> {
   submitName?: string;
   submitValue?: string;
   onCancel?: (e: MouseEvent<HTMLButtonElement>) => void;
+  onChange?: (e: FormEvent<HTMLFormElement>) => void;
+  onSuccess?: (lastResult: SubmissionResult, successMessage: ReactNode) => void;
+  passwordComplexity?: PasswordComplexitySettings | null;
+  errorTranslations?: FormErrorTranslationMap;
+  recaptchaSiteKey?: string;
+  countriesWithoutStates?: string[];
 }
 
 export function DynamicForm<F extends Field>({
   action,
-  fields: defaultFields,
+  fields,
   buttonSize = 'medium',
   cancelLabel = 'Cancel',
   submitLabel = 'Submit',
   submitName,
   submitValue,
   onCancel,
+  onChange,
+  onSuccess,
+  passwordComplexity,
+  errorTranslations,
+  recaptchaSiteKey,
+  countriesWithoutStates,
 }: DynamicFormProps<F>) {
-  const [{ lastResult, fields }, formAction] = useActionState(action, {
-    fields: defaultFields,
+  const t = useTranslations('Form');
+  // Remove options from fields before passing to action to reduce payload size
+  // Options are only needed for rendering, not for processing form submissions
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  const fieldsWithoutOptions = removeOptionsFromFields(fields) as Array<F | FieldGroup<F>>;
+  const actionWithFields = action.bind(null, {
+    fields: fieldsWithoutOptions,
+    passwordComplexity,
+    countriesWithoutStates,
+  });
+
+  const [{ lastResult, successMessage }, formAction] = useActionState(actionWithFields, {
     lastResult: null,
   });
-  const dynamicSchema = schema(fields);
+
+  const [currentCountry, setCurrentCountry] = useState<string | undefined>(undefined);
+
+  const dynamicSchema = schema(
+    fields,
+    passwordComplexity,
+    errorTranslations,
+    countriesWithoutStates,
+    currentCountry,
+  );
   const defaultValue = fields
     .flatMap((f) => (Array.isArray(f) ? f : [f]))
     .reduce<z.infer<typeof dynamicSchema>>(
@@ -75,11 +133,33 @@ export function DynamicForm<F extends Field>({
       }),
       {},
     );
+
   const [form, formFields] = useForm({
     lastResult,
     constraint: getZodConstraint(dynamicSchema),
     onValidate({ formData }) {
-      return parseWithZod(formData, { schema: dynamicSchema });
+      return parseWithZod(formData, {
+        schema: dynamicSchema,
+        errorMap: (issue) => {
+          if (
+            !errorTranslations &&
+            issue.code === z.ZodIssueCode.invalid_string &&
+            issue.validation === 'regex'
+          ) {
+            return { message: t('Errors.invalidFormat') };
+          }
+
+          if (!errorTranslations) {
+            return { message: issue.message ?? t('Errors.invalidInput') };
+          }
+
+          const field = issue.path[0];
+          const fieldKey = typeof field === 'string' ? field : '';
+          const errorMessage = errorTranslations[fieldKey]?.[issue.code];
+
+          return { message: errorMessage ?? issue.message ?? t('Errors.invalidInput') };
+        },
+      });
     },
     defaultValue,
     shouldValidate: 'onSubmit',
@@ -93,15 +173,36 @@ export function DynamicForm<F extends Field>({
     },
   });
 
+  useEffect(() => {
+    if (lastResult && lastResult.status === 'success' && successMessage) {
+      onSuccess?.(lastResult, successMessage);
+    }
+  }, [lastResult, successMessage, onSuccess]);
+
+  const countryValue = formFields.countryCode?.value;
+
+  useEffect(() => {
+    setCurrentCountry(typeof countryValue === 'string' ? countryValue : undefined);
+  }, [countryValue]);
+
+  const isCurrentCountryStateless =
+    countriesWithoutStates != null &&
+    typeof countryValue === 'string' &&
+    countriesWithoutStates.includes(countryValue);
+  const shouldHideStateField = (fieldName: string) =>
+    fieldName === 'stateOrProvince' && isCurrentCountryStateless;
+
   return (
     <FormProvider context={form.context}>
-      <form {...getFormProps(form)} action={formAction}>
+      <form {...getFormProps(form)} action={formAction} onChange={onChange}>
         <div className="space-y-6">
           {fields.map((field, index) => {
             if (Array.isArray(field)) {
               return (
-                <div className="flex gap-4" key={index}>
+                <div className="flex flex-col gap-4 @sm:flex-row" key={index}>
                   {field.map((f) => {
+                    if (shouldHideStateField(f.name)) return null;
+
                     const groupFormField = formFields[f.name];
 
                     if (!groupFormField) return null;
@@ -118,12 +219,15 @@ export function DynamicForm<F extends Field>({
               );
             }
 
+            if (shouldHideStateField(field.name)) return null;
+
             const formField = formFields[field.name];
 
             if (formField == null) return null;
 
             return <DynamicFormField field={field} formField={formField} key={formField.id} />;
           })}
+          {recaptchaSiteKey ? <RecaptchaWidget sitekey={recaptchaSiteKey} /> : null}
           <div className="flex gap-1 pt-3">
             {onCancel && (
               <Button
@@ -170,7 +274,7 @@ function SubmitButton({
   );
 }
 
-function DynamicFormField({
+export function DynamicFormField({
   field,
   formField,
 }: {
@@ -185,20 +289,23 @@ function DynamicFormField({
         <NumberInput
           {...getInputProps(formField, { type: 'number' })}
           decrementLabel={field.decrementLabel}
+          defaultValue={field.defaultValue}
           errors={formField.errors}
           incrementLabel={field.incrementLabel}
           key={field.name}
           label={field.label}
+          placeholder={field.placeholder}
         />
       );
 
     case 'text':
       return (
         <Input
-          {...getInputProps(formField, { type: 'text' })}
+          {...getInputProps(formField, { type: 'text', pattern: field.pattern })}
           errors={formField.errors}
           key={field.name}
           label={field.label}
+          placeholder={field.placeholder}
         />
       );
 
@@ -209,6 +316,7 @@ function DynamicFormField({
           errors={formField.errors}
           key={field.name}
           label={field.label}
+          placeholder={field.placeholder}
         />
       );
 
@@ -220,6 +328,7 @@ function DynamicFormField({
           errors={formField.errors}
           key={field.name}
           label={field.label}
+          placeholder={field.placeholder}
         />
       );
 
@@ -230,12 +339,14 @@ function DynamicFormField({
           errors={formField.errors}
           key={field.name}
           label={field.label}
+          placeholder={field.placeholder}
         />
       );
 
     case 'checkbox':
       return (
         <Checkbox
+          defaultValue={field.defaultValue}
           errors={formField.errors}
           key={field.name}
           label={field.label}
@@ -243,7 +354,7 @@ function DynamicFormField({
           onBlur={controls.blur}
           onCheckedChange={(value) => controls.change(String(value))}
           onFocus={controls.focus}
-          required={formField.required}
+          required={field.required}
           value={controls.value}
         />
       );
@@ -257,6 +368,7 @@ function DynamicFormField({
           name={formField.name}
           onValueChange={controls.change}
           options={field.options}
+          required={field.required}
           value={Array.isArray(controls.value) ? controls.value : []}
         />
       );
@@ -272,6 +384,7 @@ function DynamicFormField({
           onFocus={controls.focus}
           onValueChange={controls.change}
           options={field.options}
+          placeholder={field.placeholder}
           required={formField.required}
           value={typeof controls.value === 'string' ? controls.value : ''}
         />
@@ -347,6 +460,7 @@ function DynamicFormField({
     case 'date':
       return (
         <DatePicker
+          defaultValue={field.defaultValue}
           disabledDays={
             field.minDate != null && field.maxDate != null
               ? {
@@ -368,5 +482,8 @@ function DynamicFormField({
           selected={typeof controls.value === 'string' ? new Date(controls.value) : undefined}
         />
       );
+
+    case 'hidden':
+      return <input {...getInputProps(formField, { type: 'hidden' })} key={field.name} />;
   }
 }

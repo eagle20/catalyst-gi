@@ -6,7 +6,7 @@ import { client } from '~/client';
 import { graphql } from '~/client/graphql';
 import { TAGS } from '~/client/tags';
 
-import { OrderItemFragment } from '../fragment';
+import { OrderGiftCertificateItemFragment, OrderItemFragment } from '../fragment';
 
 const CustomerOrderDetails = graphql(
   `
@@ -59,6 +59,28 @@ const CustomerOrderDetails = graphql(
             postalCode
             country
           }
+          payments {
+            edges {
+              node {
+                paymentMethodId
+                paymentMethodName
+                detail {
+                  __typename
+                  ... on CreditCardPaymentInstrument {
+                    brand
+                    last4
+                  }
+                  ... on GiftCertificatePaymentInstrument {
+                    code
+                  }
+                }
+                amount {
+                  value
+                  currencyCode
+                }
+              }
+            }
+          }
           consignments {
             shipping {
               edges {
@@ -109,19 +131,31 @@ const CustomerOrderDetails = graphql(
                 }
               }
             }
+            email {
+              giftCertificates {
+                edges {
+                  node {
+                    recipientEmail
+                    lineItems {
+                      edges {
+                        node {
+                          ...OrderGiftCertificateItemFragment
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     }
   `,
-  [OrderItemFragment],
+  [OrderItemFragment, OrderGiftCertificateItemFragment],
 );
 
-interface CustomerOrderDetailsArgs {
-  id: number;
-}
-
-export const getCustomerOrderDetails = cache(async ({ id }: CustomerOrderDetailsArgs) => {
+export const getCustomerOrderDetails = cache(async (id: number) => {
   const customerAccessToken = await getSessionCustomerAccessToken();
 
   const response = await client.fetch({
@@ -133,7 +167,7 @@ export const getCustomerOrderDetails = cache(async ({ id }: CustomerOrderDetails
     },
     fetchOptions: { cache: 'no-store', next: { tags: [TAGS.customer] } },
     customerAccessToken,
-    errorPolicy: 'ignore',
+    errorPolicy: 'auth',
   });
 
   const order = response.data.site.order;
@@ -154,6 +188,20 @@ export const getCustomerOrderDetails = cache(async ({ id }: CustomerOrderDetails
             shipments: removeEdgesAndNodes(consignment.shipments),
           };
         }),
+      email:
+        order.consignments?.email &&
+        removeEdgesAndNodes(order.consignments.email.giftCertificates).map(
+          ({ recipientEmail, lineItems }) => {
+            return {
+              email: recipientEmail,
+              lineItems: removeEdgesAndNodes(lineItems).map(({ entityId, name, salePrice }) => ({
+                entityId,
+                name,
+                salePrice,
+              })),
+            };
+          },
+        ),
     },
   };
 });

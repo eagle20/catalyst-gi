@@ -1,102 +1,83 @@
 'use client';
 
 import { clsx } from 'clsx';
+import { EmblaCarouselType, EngineType } from 'embla-carousel';
 import useEmblaCarousel from 'embla-carousel-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { startTransition, useCallback, useEffect, useRef, useState } from 'react';
 
+import * as Skeleton from '@/vibes/soul/primitives/skeleton';
 import { Image } from '~/components/image';
 
-type MediaItem =
-  | { type: 'image'; src: string; alt: string }
-  | { type: 'video'; url: string; title: string };
+export type ProductGalleryLoadMoreAction = (
+  productId: number,
+  cursor: string,
+  limit?: number,
+) => Promise<{
+  images: Array<{ src: string; alt: string }>;
+  pageInfo: { hasNextPage: boolean; endCursor: string | null };
+}>;
 
-function getYouTubeVideoId(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-
-    if (parsed.hostname === 'youtu.be') {
-      return parsed.pathname.slice(1);
-    }
-
-    if (parsed.hostname.includes('youtube.com')) {
-      // Handle /watch?v=ID
-      const v = parsed.searchParams.get('v');
-
-      if (v) return v;
-
-      // Handle /embed/ID
-      const embedMatch = parsed.pathname.match(/\/embed\/([^/?]+)/);
-
-      if (embedMatch) return embedMatch[1];
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-interface Props {
+export interface ProductGalleryProps {
   images: Array<{ alt: string; src: string }>;
-  videos?: Array<{ title: string; url: string }>;
   className?: string;
   thumbnailLabel?: string;
-  productName: string;
+  aspectRatio?:
+    | '1:1'
+    | '4:5'
+    | '5:4'
+    | '3:4'
+    | '4:3'
+    | '2:3'
+    | '3:2'
+    | '16:9'
+    | '9:16'
+    | '5:6'
+    | '6:5';
+  fit?: 'contain' | 'cover';
+  pageInfo?: { hasNextPage: boolean; endCursor: string | null };
+  productId?: number;
+  loadMoreAction?: ProductGalleryLoadMoreAction;
 }
 
+// eslint-disable-next-line valid-jsdoc
+/**
+ * This component supports various CSS variables for theming. Here's a comprehensive list, along
+ * with their default values:
+ *
+ * ```css
+ * :root {
+ *   --product-gallery-focus: hsl(var(--primary));
+ *   --product-gallery-image-background: hsl(var(--contrast-100));
+ *   --product-gallery-image-border: hsl(var(--contrast-100));
+ *   --product-gallery-image-border-active: hsl(var(--foreground));
+ *   --product-gallery-load-more: hsl(var(--foreground));
+ * }
+ * ```
+ */
 export function ProductGallery({
-  images,
-  videos = [],
+  images: initialImages,
   className,
   thumbnailLabel = 'View image number',
-  productName,
-}: Props) {
-  const [previewImage, setPreviewImage] = useState(0);
-  const [emblaRef, emblaApi] = useEmblaCarousel();
+  aspectRatio = '4:5',
+  fit = 'contain',
+  pageInfo: initialPageInfo,
+  productId,
+  loadMoreAction,
+}: ProductGalleryProps) {
+  const t = useTranslations('Product.ProductDetails');
+
+  const [images, setImages] = useState(initialImages);
+  const [pageInfo, setPageInfo] = useState(initialPageInfo);
+  const [hasMoreToLoad, setHasMoreToLoad] = useState(initialPageInfo?.hasNextPage ?? false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState('');
+
+  // GI: hover to zoom on the main image
   const [isZoomed, setIsZoomed] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const imageContainerRef = useRef<HTMLDivElement>(null);
-  const [playingVideoIndex, setPlayingVideoIndex] = useState<number | null>(null);
-
-  const mediaItems: MediaItem[] = useMemo(() => {
-    const items: MediaItem[] = images.map((img) => ({
-      type: 'image' as const,
-      src: img.src,
-      alt: img.alt,
-    }));
-
-    for (const video of videos) {
-      if (getYouTubeVideoId(video.url)) {
-        items.push({ type: 'video' as const, url: video.url, title: video.title });
-      }
-    }
-
-    return items;
-  }, [images, videos]);
-
-  const activeItem = mediaItems[previewImage];
-  const isVideoActive = activeItem?.type === 'video';
-
-  useEffect(() => {
-    if (!emblaApi) return;
-
-    const onSelect = () => {
-      setPreviewImage(emblaApi.selectedScrollSnap());
-      setPlayingVideoIndex(null);
-    };
-
-    emblaApi.on('select', onSelect);
-
-    return () => {
-      emblaApi.off('select', onSelect);
-    };
-  }, [emblaApi]);
-
-  const selectImage = (index: number) => {
-    setPreviewImage(index);
-    setPlayingVideoIndex(null);
-    if (emblaApi) emblaApi.scrollTo(index);
-  };
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!imageContainerRef.current) return;
@@ -108,153 +89,265 @@ export function ProductGallery({
     setMousePosition({ x, y });
   }, []);
 
+  const scrollListenerRef = useRef<() => void>(() => undefined);
+  const listenForScrollRef = useRef(true);
+  const hasMoreToLoadRef = useRef(hasMoreToLoad);
+
+  const [emblaRef, emblaApi] = useEmblaCarousel();
+  const [emblaThumbsRef, emblaThumbsApi] = useEmblaCarousel({
+    containScroll: 'keepSnaps',
+    dragFree: true,
+  });
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    hasMoreToLoadRef.current = hasMoreToLoad;
+  }, [hasMoreToLoad]);
+
+  const onThumbClick = useCallback(
+    (index: number) => {
+      if (!emblaApi || !emblaThumbsApi) return;
+      emblaApi.goTo(index);
+    },
+    [emblaApi, emblaThumbsApi],
+  );
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi || !emblaThumbsApi) return;
+    setSelectedIndex(emblaApi.selectedSnap());
+
+    emblaThumbsApi.goTo(emblaApi.selectedSnap());
+  }, [emblaApi, emblaThumbsApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    onSelect();
+    emblaApi.on('select', onSelect);
+
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, onSelect]);
+
+  const onSlideChanges = useCallback((carouselApi: EmblaCarouselType) => {
+    const reloadEmbla = (): void => {
+      const oldEngine = carouselApi.internalEngine();
+
+      carouselApi.reInit();
+
+      const newEngine = carouselApi.internalEngine();
+      const copyEngineModules: Array<keyof EngineType> = [
+        'scrollBody',
+        'location',
+        'offsetLocation',
+        'previousLocation',
+        'target',
+      ];
+
+      copyEngineModules.forEach((engineModule) => {
+        Object.assign(newEngine[engineModule], oldEngine[engineModule]);
+      });
+
+      newEngine.translate.to(oldEngine.location.get());
+
+      const { index } = newEngine.scrollTarget.byDistance(0, false);
+
+      newEngine.indexCurrent.set(index);
+      newEngine.animation.start();
+
+      listenForScrollRef.current = true;
+    };
+
+    const reloadAfterPointerUp = (): void => {
+      carouselApi.off('pointerup', reloadAfterPointerUp);
+      reloadEmbla();
+    };
+
+    const engine = carouselApi.internalEngine();
+
+    if (hasMoreToLoadRef.current && engine.dragHandler.pointerDown()) {
+      const boundsActive = engine.limit.pastMaxBound(engine.target.get());
+
+      engine.scrollBounds.toggleActive(boundsActive);
+      carouselApi.on('pointerup', reloadAfterPointerUp);
+    } else {
+      reloadEmbla();
+    }
+  }, []);
+
+  const loadMore = useCallback(
+    (thumbsApi: EmblaCarouselType) => {
+      const endCursor = pageInfo?.endCursor;
+
+      if (!loadMoreAction || !productId || !endCursor || isLoading) return;
+
+      listenForScrollRef.current = false;
+      setIsLoading(true);
+      setLoadingStatus(t('loadingMoreImages'));
+
+      startTransition(async () => {
+        const result = await loadMoreAction(productId, endCursor);
+
+        if (!result.pageInfo.hasNextPage) {
+          setHasMoreToLoad(false);
+          thumbsApi.off('scroll', scrollListenerRef.current);
+        }
+
+        setImages((prev) => [...prev, ...result.images]);
+        setPageInfo(result.pageInfo);
+        setIsLoading(false);
+        setLoadingStatus(t('imagesLoaded', { count: result.images.length }));
+      });
+    },
+    [loadMoreAction, productId, pageInfo?.endCursor, isLoading, t],
+  );
+
+  const onThumbsScroll = useCallback(
+    (thumbsApi: EmblaCarouselType) => {
+      if (!listenForScrollRef.current) return;
+
+      const slideCount = thumbsApi.slideNodes().length;
+      const lastSlideIndex = slideCount - 1;
+      const secondLastSlideIndex = slideCount - 2;
+      const slidesInView = thumbsApi.slidesInView();
+
+      // Trigger when last or second-to-last thumbnail is in view
+      const shouldLoadMore =
+        slidesInView.includes(lastSlideIndex) || slidesInView.includes(secondLastSlideIndex);
+
+      if (shouldLoadMore) {
+        loadMore(thumbsApi);
+      }
+    },
+    [loadMore],
+  );
+
+  const addThumbsScrollListener = useCallback(
+    (thumbsApi: EmblaCarouselType) => {
+      scrollListenerRef.current = () => onThumbsScroll(thumbsApi);
+      thumbsApi.on('scroll', scrollListenerRef.current);
+    },
+    [onThumbsScroll],
+  );
+
+  useEffect(() => {
+    if (!emblaThumbsApi) return;
+
+    addThumbsScrollListener(emblaThumbsApi);
+
+    const onResize = () => emblaThumbsApi.reInit();
+
+    window.addEventListener('resize', onResize);
+    emblaThumbsApi.on('destroy', () => window.removeEventListener('resize', onResize));
+    emblaThumbsApi.on('slideschanged', onSlideChanges);
+
+    return () => {
+      emblaThumbsApi.off('scroll', scrollListenerRef.current);
+      emblaThumbsApi.off('slideschanged', onSlideChanges);
+    };
+  }, [emblaThumbsApi, addThumbsScrollListener, onSlideChanges]);
+
   return (
-    <div className={clsx('sticky top-4 flex flex-col gap-2 @2xl:flex-row', className)}>
-      <div
-        className="w-full overflow-hidden rounded-xl @xl:rounded-2xl @2xl:order-2"
-        ref={emblaRef}
-      >
-        <div className="flex">
-          {mediaItems.map((item, idx) => {
-            if (item.type === 'video') {
-              const videoId = getYouTubeVideoId(item.url);
-              const isPlaying = playingVideoIndex === idx;
-
-              return (
-                <div
-                  aria-label={item.title || `${productName} video`}
-                  className="relative aspect-square w-full shrink-0 grow-0 basis-full bg-black"
-                  key={idx}
-                >
-                  {isPlaying ? (
-                    <iframe
-                      allow="accelerometer; autoplay; encrypted-media; gyroscope"
-                      className="absolute inset-0 h-full w-full"
-                      src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`}
-                      title={item.title || `${productName} video`}
-                    />
-                  ) : (
-                    <button
-                      className="group absolute inset-0 flex cursor-pointer items-center justify-center"
-                      onClick={() => setPlayingVideoIndex(idx)}
-                      type="button"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        alt={item.title || `${productName} video`}
-                        className="absolute inset-0 h-full w-full object-contain"
-                        src={`https://img.youtube.com/vi/${videoId}/sddefault.jpg`}
-                      />
-                      <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-black/70 transition-transform group-hover:scale-110">
-                        <svg
-                          className="ml-1 h-8 w-8 text-white"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                      </div>
-                    </button>
-                  )}
-                </div>
-              );
-            }
-
-            return (
-              <div
-                aria-label={`${item.alt || `${productName} image ${idx + 1}`} - Hover to zoom`}
-                className="relative aspect-square w-full shrink-0 grow-0 basis-full cursor-zoom-in"
-                key={idx}
-                onMouseEnter={() => setIsZoomed(true)}
-                onMouseLeave={() => setIsZoomed(false)}
-                onMouseMove={handleMouseMove}
-                ref={idx === previewImage ? imageContainerRef : null}
-                role="img"
-              >
-                <Image
-                  alt={item.alt || `${productName} image ${idx + 1}`}
-                  className={clsx(
-                    'object-contain transition-transform duration-200',
-                    isZoomed && idx === previewImage && !isVideoActive ? 'scale-150' : 'scale-100',
-                  )}
-                  fill
-                  priority={idx === 0}
-                  sizes="(min-width: 42rem) 50vw, 100vw"
-                  src={item.src}
-                  style={
-                    isZoomed && idx === previewImage && !isVideoActive
-                      ? {
-                          transformOrigin: `${mousePosition.x}% ${mousePosition.y}%`,
-                        }
-                      : undefined
-                  }
-                />
-              </div>
-            );
-          })}
-        </div>
+    <div className={clsx('sticky top-4 flex flex-col gap-2', className)}>
+      <div aria-live="polite" className="sr-only" role="status">
+        {loadingStatus}
       </div>
-      <div className="flex max-w-full shrink-0 flex-row gap-2 overflow-x-auto @2xl:order-1 @2xl:flex-col">
-        {mediaItems.map((item, index) => {
-          if (item.type === 'video') {
-            const videoId = getYouTubeVideoId(item.url);
-
-            return (
-              <button
-                aria-label={`View video: ${item.title || `${productName} video`}`}
-                className={clsx(
-                  'relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border transition-all duration-300 hover:opacity-100 @md:h-16 @md:w-16',
-                  index === previewImage
-                    ? 'border-foreground opacity-100'
-                    : 'border-transparent opacity-50',
-                )}
-                key={index}
-                onClick={() => selectImage(index)}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  alt={item.title || `${productName} video`}
-                  className="absolute inset-0 h-full w-full bg-contrast-100 object-cover"
-                  src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-                />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-black/70">
-                    <svg
-                      className="ml-0.5 h-3 w-3 text-white"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                </div>
-              </button>
-            );
-          }
-
-          return (
-            <button
-              aria-label={`${thumbnailLabel} ${index + 1}`}
+      <div className="w-full overflow-hidden rounded-xl @xl:rounded-2xl" ref={emblaRef}>
+        <div className="flex">
+          {images.map((image, idx) => (
+            <div
               className={clsx(
-                'relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border transition-all duration-300 hover:opacity-100 @md:h-16 @md:w-16',
-                index === previewImage
-                  ? 'border-foreground opacity-100'
-                  : 'border-transparent opacity-50',
+                'relative w-full shrink-0 grow-0 basis-full',
+                {
+                  '5:6': 'aspect-[5/6]',
+                  '3:4': 'aspect-[3/4]',
+                  '4:5': 'aspect-[4/5]',
+                  '3:2': 'aspect-[3/2]',
+                  '2:3': 'aspect-[2/3]',
+                  '16:9': 'aspect-[16/9]',
+                  '9:16': 'aspect-[9/16]',
+                  '6:5': 'aspect-[6/5]',
+                  '5:4': 'aspect-[5/4]',
+                  '4:3': 'aspect-[4/3]',
+                  '1:1': 'aspect-square',
+                }[aspectRatio],
+                'cursor-zoom-in',
               )}
-              key={index}
-              onClick={() => selectImage(index)}
+              key={idx}
+              onMouseEnter={() => setIsZoomed(true)}
+              onMouseLeave={() => setIsZoomed(false)}
+              onMouseMove={handleMouseMove}
+              ref={idx === selectedIndex ? imageContainerRef : null}
             >
               <Image
-                alt={item.alt || `${productName} image ${index + 1}`}
-                className="bg-contrast-100 object-contain"
+                alt={image.alt}
+                className={clsx(
+                  'bg-[var(--product-gallery-image-background,hsl(var(--contrast-100)))] transition-transform duration-200',
+                  {
+                    contain: 'object-contain',
+                    cover: 'object-cover',
+                  }[fit],
+                  isZoomed && idx === selectedIndex ? 'scale-150' : 'scale-100',
+                )}
                 fill
-                priority={index === 0}
-                sizes="(min-width: 28rem) 4rem, 3rem"
-                src={item.src}
+                preload={idx === 0}
+                sizes="(min-width: 42rem) 50vw, 100vw"
+                src={image.src}
+                style={
+                  isZoomed && idx === selectedIndex
+                    ? { transformOrigin: `${mousePosition.x}% ${mousePosition.y}%` }
+                    : undefined
+                }
               />
-            </button>
-          );
-        })}
+
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex max-w-full shrink-0 flex-col gap-2">
+        <div className="overflow-hidden" ref={emblaThumbsRef}>
+          <div className="flex flex-row gap-2 p-1">
+            {images.map((image, index) => (
+              <button
+                aria-label={`${thumbnailLabel} ${index + 1}`}
+                className={clsx(
+                  'relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--product-gallery-focus,hsl(var(--primary)))] focus-visible:ring-offset-2 @md:h-16 @md:w-16',
+                  index === selectedIndex
+                    ? 'border-[var(--product-gallery-image-border-active,hsl(var(--foreground)))]'
+                    : 'border-transparent',
+                )}
+                key={index}
+                onClick={() => onThumbClick(index)}
+                type="button"
+              >
+                <div
+                  className={clsx(
+                    index === selectedIndex ? 'opacity-100' : 'opacity-50',
+                    'transition-all duration-300 hover:opacity-100',
+                  )}
+                >
+                  <Image
+                    alt={image.alt}
+                    className="bg-[var(--product-gallery-image-background,hsl(var(--contrast-100)))] object-cover"
+                    fill
+                    sizes="(min-width: 28rem) 4rem, 3rem"
+                    src={image.src}
+                  />
+                </div>
+              </button>
+            ))}
+            {hasMoreToLoad && (
+              <div className="flex animate-pulse gap-2">
+                <Skeleton.Box className="h-12 w-12 shrink-0 rounded-lg @md:h-16 @md:w-16" />
+                <Skeleton.Box className="h-12 w-12 shrink-0 rounded-lg @md:h-16 @md:w-16" />
+                <Skeleton.Box className="h-12 w-12 shrink-0 rounded-lg @md:h-16 @md:w-16" />
+                <Skeleton.Box className="h-12 w-12 shrink-0 rounded-lg @md:h-16 @md:w-16" />
+                <Skeleton.Box className="h-12 w-12 shrink-0 rounded-lg @md:h-16 @md:w-16" />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

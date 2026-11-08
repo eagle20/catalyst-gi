@@ -30,7 +30,12 @@ interface CompareDrawerContext {
   maxItems?: number;
 }
 
-export const CompareDrawerContext = createContext<CompareDrawerContext | undefined>(undefined);
+export const CompareDrawerContext = createContext<CompareDrawerContext>({
+  optimisticItems: [],
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  setOptimisticItems: () => {},
+  maxItems: 0,
+});
 
 export function CompareDrawerProvider({
   children,
@@ -85,13 +90,7 @@ export function CompareDrawerProvider({
 }
 
 export function useCompareDrawer() {
-  const context = useContext(CompareDrawerContext);
-
-  if (context === undefined) {
-    throw new Error('useCompareDrawer must be used within a CompareDrawerProvider');
-  }
-
-  return context;
+  return useContext(CompareDrawerContext);
 }
 
 function getInitials(name: string): string {
@@ -155,7 +154,7 @@ export function CompareDrawer({
   return (
     optimisticItems.length > 0 && (
       <Portal.Root asChild>
-        <div className="sticky bottom-0 z-10 w-full border-t bg-[var(--compare-drawer-background,hsl(var(--background)))] px-3 py-4 @container @md:py-5 @xl:px-6 @5xl:px-10">
+        <div className="sticky bottom-0 z-10 w-full border-t border-[var(--compare-drawer-card-border,hsl(var(--contrast-100)))] bg-[var(--compare-drawer-background,hsl(var(--background)))] px-3 py-4 @container @md:py-5 @xl:px-6 @5xl:px-10">
           <div className="mx-auto flex w-full max-w-7xl flex-col items-start justify-end gap-x-3 gap-y-4 @md:flex-row">
             <div className="flex flex-1 flex-wrap justify-end gap-4">
               {optimisticItems.map((item) => (

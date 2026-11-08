@@ -2,8 +2,9 @@ import { clsx } from 'clsx';
 import { ChevronRight } from 'lucide-react';
 
 import { Stream, Streamable } from '@/vibes/soul/lib/streamable';
-import { AnimatedLink } from '@/vibes/soul/primitives/animated-link';
+import { AnimatedUnderline } from '@/vibes/soul/primitives/animated-underline';
 import * as Skeleton from '@/vibes/soul/primitives/skeleton';
+import { Link } from '~/components/link';
 
 export interface Breadcrumb {
   label: string;
@@ -47,13 +48,13 @@ export function Breadcrumbs({ breadcrumbs: streamableBreadcrumbs, className }: B
               {breadcrumbs.map(({ label, href }, index) => {
                 if (index < breadcrumbs.length - 1) {
                   return (
-                    <li className="inline-flex items-center gap-x-1.5" key={href}>
-                      <a
-                        className="font-[family-name:var(--breadcrumbs-font-family,var(--font-family-body))] font-bold text-[var(--breadcrumbs-primary-text,hsl(var(--foreground)))] [background:linear-gradient(0deg,var(--breadcrumbs-hover,hsl(var(--primary))),var(--breadcrumbs-hover,hsl(var(--primary))))_no-repeat_left_bottom_/_0_2px]"
-                        href={href}
-                      >
-                        {label}
-                      </a>
+                    <li className="inline-flex items-center gap-x-1.5" key={index}>
+                      <Link className="group/underline focus:outline-none" href={href}>
+                        {/* GI: bold breadcrumb links */}
+                        <AnimatedUnderline className="font-[family-name:var(--breadcrumbs-font-family,var(--font-family-body))] font-bold text-[var(--breadcrumbs-primary-text,hsl(var(--foreground)))] [background:linear-gradient(0deg,var(--breadcrumbs-hover,hsl(var(--primary))),var(--breadcrumbs-hover,hsl(var(--primary))))_no-repeat_left_bottom_/_0_2px]">
+                          {label}
+                        </AnimatedUnderline>
+                      </Link>
                       <ChevronRight
                         aria-hidden="true"
                         className="text-[var(--breadcrumbs-icon,hsl(var(--contrast-500)))]"
@@ -67,7 +68,7 @@ export function Breadcrumbs({ breadcrumbs: streamableBreadcrumbs, className }: B
                 return (
                   <li
                     className="inline-flex items-center font-[family-name:var(--breadcrumbs-font-family,var(--font-family-body))] text-[var(--breadcrumbs-secondary-text,hsl(var(--contrast-500)))]"
-                    key={href}
+                    key={index}
                   >
                     <span aria-current="page" aria-disabled="true" role="link">
                       {label}

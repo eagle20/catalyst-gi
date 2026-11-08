@@ -1,5 +1,9 @@
 import { BigCommerceAPIError } from './api-error';
+import { BigCommerceAuthError } from './gql-auth-error';
 import { BigCommerceGQLError } from './gql-error';
+import { InvalidStorefrontTokenError } from './invalid-storefront-token-error';
+import { parseGraphQLError } from './lib/error';
+import { looksLikeJwt } from './lib/storefront-token';
 import { DocumentDecoration } from './types';
 import { getOperationInfo } from './utils/getOperationName';
 import { normalizeQuery } from './utils/normalizeQuery';
@@ -14,7 +18,8 @@ export const adminApiHostname: string =
 interface Config<FetcherRequestInit extends RequestInit = RequestInit> {
   storeHash: string;
   storefrontToken: string;
-  xAuthToken: string;
+  // GI: BigCommerce admin API token, used by fetchPromotions/fetchPromotionCodes.
+  xAuthToken?: string;
   channelId?: string;
   platform?: string;
   backendUserAgentExtensions?: string;
@@ -23,6 +28,10 @@ interface Config<FetcherRequestInit extends RequestInit = RequestInit> {
   beforeRequest?: (
     fetchOptions?: FetcherRequestInit,
   ) => Promise<Partial<FetcherRequestInit> | undefined> | Partial<FetcherRequestInit> | undefined;
+  onError?: (
+    error: BigCommerceGQLError,
+    queryType: 'query' | 'mutation' | 'subscription',
+  ) => Promise<void> | void;
 }
 
 interface BigCommerceResponseError {
@@ -39,6 +48,83 @@ interface BigCommerceResponse<T> {
   errors?: BigCommerceResponseError[];
 }
 
+type GraphQLErrorPolicy = 'none' | 'all' | 'auth' | 'ignore';
+
+const RETRY_DELAYS_MS = [100, 300];
+const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+
+// undici reports dropped connections and network failures as a TypeError
+// ("fetch failed", or "terminated" when the body read is cut off).
+function isTransientError(error: unknown) {
+  if (error instanceof BigCommerceAPIError) {
+    return RETRYABLE_STATUSES.has(error.status);
+  }
+
+  return error instanceof TypeError;
+}
+
+// Rejects with the abort reason as soon as the request is cancelled, instead of waiting out the delay.
+function backoff(ms: number, signal: AbortSignal | null | undefined) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+
+    function onAbort() {
+      clearTimeout(timer);
+
+      const reason: unknown = signal?.reason;
+
+      reject(reason instanceof Error ? reason : new DOMException('Aborted', 'AbortError'));
+    }
+
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function describeTransientError(error: unknown) {
+  if (error instanceof BigCommerceAPIError) {
+    return `HTTP ${error.status}`;
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  const cause: unknown = error instanceof Error ? error.cause : undefined;
+  const code =
+    cause && typeof cause === 'object' && 'code' in cause && typeof cause.code === 'string'
+      ? cause.code
+      : undefined;
+
+  return code ? `${message} (${code})` : message;
+}
+
+async function withRetries<T>(
+  maxAttempts: number,
+  signal: AbortSignal | null | undefined,
+  operationLabel: string,
+  attempt: () => Promise<T>,
+): Promise<T> {
+  for (let attemptNumber = 1; ; attemptNumber += 1) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      return await attempt();
+    } catch (error) {
+      if (attemptNumber >= maxAttempts || signal?.aborted || !isTransientError(error)) {
+        throw error;
+      }
+
+      // Recovered failures would otherwise leave no trace of how often the API is failing.
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[BigCommerce] Retrying ${operationLabel} after ${describeTransientError(error)} (attempt ${attemptNumber + 1} of ${maxAttempts})`,
+      );
+
+      // eslint-disable-next-line no-await-in-loop
+      await backoff(RETRY_DELAYS_MS[attemptNumber - 1] ?? 0, signal);
+    }
+  }
+}
+
 class Client<FetcherRequestInit extends RequestInit = RequestInit> {
   private backendUserAgent: string;
   private readonly defaultChannelId: string;
@@ -46,6 +132,10 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
   private beforeRequest?: (
     fetchOptions?: FetcherRequestInit,
   ) => Promise<Partial<FetcherRequestInit> | undefined> | Partial<FetcherRequestInit> | undefined;
+  private onError?: (
+    error: BigCommerceGQLError,
+    queryType: 'query' | 'mutation' | 'subscription',
+  ) => Promise<void> | void;
 
   private trustedProxySecret = process.env.BIGCOMMERCE_TRUSTED_PROXY_SECRET;
 
@@ -64,6 +154,7 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
       };
 
     this.beforeRequest = config.beforeRequest;
+    this.onError = config.onError;
   }
 
   // Overload for documents that require variables
@@ -73,7 +164,8 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
     customerAccessToken?: string;
     fetchOptions?: FetcherRequestInit;
     channelId?: string;
-    errorPolicy?: 'none' | 'all' | 'ignore';
+    errorPolicy?: GraphQLErrorPolicy;
+    validateCustomerAccessToken?: boolean;
   }): Promise<BigCommerceResponse<TResult>>;
 
   // Overload for documents that do not require variables
@@ -83,7 +175,8 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
     customerAccessToken?: string;
     fetchOptions?: FetcherRequestInit;
     channelId?: string;
-    errorPolicy?: 'none' | 'all' | 'ignore';
+    errorPolicy?: GraphQLErrorPolicy;
+    validateCustomerAccessToken?: boolean;
   }): Promise<BigCommerceResponse<TResult>>;
 
   async fetch<TResult, TVariables>({
@@ -93,54 +186,108 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
     fetchOptions = {} as FetcherRequestInit,
     channelId,
     errorPolicy = 'none',
+    validateCustomerAccessToken = true,
   }: {
     document: DocumentDecoration<TResult, TVariables>;
     variables?: TVariables;
     customerAccessToken?: string;
     fetchOptions?: FetcherRequestInit;
     channelId?: string;
-    errorPolicy?: 'none' | 'all' | 'ignore';
+    errorPolicy?: GraphQLErrorPolicy;
+    validateCustomerAccessToken?: boolean;
   }): Promise<BigCommerceResponse<TResult>> {
     const { headers = {}, ...rest } = fetchOptions;
     const query = normalizeQuery(document);
     const log = this.requestLogger(query);
+    const operationInfo = getOperationInfo(query);
 
-    const graphqlUrl = await this.getGraphQLEndpoint(channelId);
+    const graphqlUrl = await this.getGraphQLEndpoint(
+      channelId,
+      operationInfo.name,
+      operationInfo.type,
+    );
     const { headers: additionalFetchHeaders = {}, ...additionalFetchOptions } =
       (await this.beforeRequest?.(fetchOptions)) ?? {};
 
-    const response = await fetch(graphqlUrl, {
+    // Build headers via a Headers object so that case-insensitive overrides work as expected.
+    const requestHeaders = new Headers({
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${this.config.storefrontToken}`,
+      'User-Agent': this.backendUserAgent,
+    });
+
+    if (customerAccessToken) {
+      requestHeaders.set('X-Bc-Customer-Access-Token', customerAccessToken);
+    }
+
+    if (validateCustomerAccessToken) {
+      requestHeaders.set('X-Bc-Error-On-Invalid-Customer-Access-Token', 'true');
+    }
+
+    if (this.trustedProxySecret) {
+      requestHeaders.set('X-BC-Trusted-Proxy-Secret', this.trustedProxySecret);
+    }
+
+    new Headers(additionalFetchHeaders).forEach((value, key) => {
+      requestHeaders.set(key, value);
+    });
+
+    new Headers(headers).forEach((value, key) => {
+      requestHeaders.set(key, value);
+    });
+
+    const requestInit: RequestInit = {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.config.storefrontToken}`,
-        'User-Agent': this.backendUserAgent,
-        ...(customerAccessToken && { 'X-Bc-Customer-Access-Token': customerAccessToken }),
-        ...(this.trustedProxySecret && { 'X-BC-Trusted-Proxy-Secret': this.trustedProxySecret }),
-        ...Object.fromEntries(new Headers(additionalFetchHeaders).entries()),
-        ...Object.fromEntries(new Headers(headers).entries()),
-      },
+      headers: requestHeaders,
       body: JSON.stringify({
         query,
         ...(variables && { variables }),
       }),
       ...additionalFetchOptions,
       ...rest,
+    };
+
+    // Mutations aren't idempotent, so only queries are retried.
+    const maxAttempts = operationInfo.type === 'query' ? RETRY_DELAYS_MS.length + 1 : 1;
+
+    const operationLabel = `${operationInfo.type} ${operationInfo.name ?? 'anonymous'}`;
+
+    const result = await withRetries(maxAttempts, requestInit.signal, operationLabel, async () => {
+      const response = await fetch(graphqlUrl, requestInit);
+
+      if (!response.ok) {
+        if (response.status === 401 && !looksLikeJwt(this.config.storefrontToken)) {
+          throw new InvalidStorefrontTokenError(response.status);
+        }
+
+        throw await BigCommerceAPIError.createFromResponse(response);
+      }
+
+      log(response);
+
+      // A connection dropped mid-response fails here, so the body read is part of the attempt.
+      return (await response.json()) as BigCommerceResponse<TResult>;
     });
-
-    if (!response.ok) {
-      throw await BigCommerceAPIError.createFromResponse(response);
-    }
-
-    log(response);
-
-    const result = (await response.json()) as BigCommerceResponse<TResult>;
 
     const { errors, ...data } = result;
 
     // If errorPolicy is 'none', we throw an error if there are any errors
     if (errorPolicy === 'none' && errors) {
-      throw BigCommerceGQLError.createFromResult(errors);
+      const error = parseGraphQLError(errors);
+
+      await this.onError?.(error, operationInfo.type);
+
+      throw error;
+    }
+
+    if (errorPolicy === 'auth' && errors) {
+      const error = parseGraphQLError(errors);
+
+      if (error instanceof BigCommerceAuthError) {
+        await this.onError?.(error, operationInfo.type);
+
+        throw error;
+      }
     }
 
     // If errorPolicy is 'ignore', we return the data and ignore the errors
@@ -152,27 +299,7 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
     return result;
   }
 
-  async fetchShippingZones() {
-    const response = await fetch(
-      `https://${adminApiHostname}/stores/${this.config.storeHash}/v2/shipping/zones`,
-      {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'X-Auth-Token': this.config.xAuthToken,
-          'User-Agent': this.backendUserAgent,
-        },
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Unable to get Shipping Zones: ${response.statusText}`);
-    }
-
-    return response.json();
-  }
-
+  // GI: BigCommerce admin API (needs xAuthToken) for promotions on category/search/product pages.
   async fetchPromotions() {
     const url = `https://${adminApiHostname}/stores/${this.config.storeHash}/v3/promotions?status=ENABLED`;
 
@@ -181,7 +308,7 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        'X-Auth-Token': this.config.xAuthToken,
+        'X-Auth-Token': this.config.xAuthToken ?? '',
         'User-Agent': this.backendUserAgent,
       },
     });
@@ -201,7 +328,7 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        'X-Auth-Token': this.config.xAuthToken,
+        'X-Auth-Token': this.config.xAuthToken ?? '',
         'User-Agent': this.backendUserAgent,
       },
     });
@@ -239,8 +366,22 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
     return `https://store-${this.config.storeHash}-${resolvedChannelId}.${graphqlApiDomain}`;
   }
 
-  private async getGraphQLEndpoint(channelId?: string) {
-    return `${await this.getCanonicalUrl(channelId)}/graphql`;
+  private async getGraphQLEndpoint(
+    channelId?: string,
+    operationName?: string,
+    operationType?: string,
+  ) {
+    const baseUrl = new URL(`${await this.getCanonicalUrl(channelId)}/graphql`);
+
+    if (operationName) {
+      baseUrl.searchParams.set('operation', operationName);
+    }
+
+    if (operationType) {
+      baseUrl.searchParams.set('type', operationType);
+    }
+
+    return baseUrl.toString();
   }
 
   private requestLogger(document: string) {
@@ -252,11 +393,11 @@ class Client<FetcherRequestInit extends RequestInit = RequestInit> {
 
     const { name, type } = getOperationInfo(document);
 
-    const timeStart = Date.now();
+    const timeStart = performance.now();
 
     return (response: Response) => {
-      const timeEnd = Date.now();
-      const duration = timeEnd - timeStart;
+      const timeEnd = performance.now();
+      const duration = (timeEnd - timeStart).toFixed(2);
 
       const complexity = response.headers.get('x-bc-graphql-complexity');
 

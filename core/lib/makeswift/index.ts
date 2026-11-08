@@ -1,2 +1,2 @@
 export { getPageMeta, Page } from './page';
-export { client, getPageSnapshot } from './client';
+export { client, getMakeswiftPageMetadata, getPageSnapshot } from './client';

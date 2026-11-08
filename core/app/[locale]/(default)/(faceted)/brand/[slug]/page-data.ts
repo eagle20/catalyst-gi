@@ -1,7 +1,7 @@
 import { cache } from 'react';
 
 import { client } from '~/client';
-import { graphql, VariablesOf } from '~/client/graphql';
+import { graphql } from '~/client/graphql';
 import { revalidate } from '~/client/revalidate-target';
 
 const BrandPageQuery = graphql(`
@@ -17,23 +17,36 @@ const BrandPageQuery = graphql(`
         }
       }
       settings {
+        inventory {
+          defaultOutOfStockMessage
+          showOutOfStockMessage
+          showBackorderMessage
+        }
         storefront {
           catalog {
             productComparisonsEnabled
           }
+        }
+        display {
+          showProductRating
+        }
+        reviews {
+          enabled
+        }
+        tax {
+          plp
         }
       }
     }
   }
 `);
 
-type Variables = VariablesOf<typeof BrandPageQuery>;
-
-export const getBrandPageData = cache(async (variables: Variables) => {
+export const getBrandPageData = cache(async (entityId: number, customerAccessToken?: string) => {
   const response = await client.fetch({
     document: BrandPageQuery,
-    variables,
-    fetchOptions: { next: { revalidate } },
+    variables: { entityId },
+    customerAccessToken,
+    fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
   });
 
   return response.data.site;

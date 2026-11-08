@@ -3,7 +3,6 @@ import { cache } from 'react';
 import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
-import { revalidate } from '~/client/revalidate-target';
 import { TAGS } from '~/client/tags';
 import { WishlistPaginatedItemsFragment } from '~/components/wishlist/fragment';
 import { getPreferredCurrencyCode } from '~/lib/currency';
@@ -27,6 +26,13 @@ const WishlistDetailsQuery = graphql(
           }
         }
       }
+      site {
+        settings {
+          tax {
+            plp
+          }
+        }
+      }
     }
   `,
   [WishlistPaginatedItemsFragment],
@@ -47,7 +53,7 @@ export const getCustomerWishlist = cache(async (entityId: number, pagination: Pa
     document: WishlistDetailsQuery,
     variables: { ...paginationArgs, currencyCode, entityId },
     customerAccessToken,
-    fetchOptions: { next: { revalidate, tags: [TAGS.customer] } },
+    fetchOptions: { cache: 'no-store', next: { tags: [TAGS.customer] } },
   });
 
   const wishlist = response.data.customer?.wishlists.edges?.[0]?.node;
@@ -56,5 +62,5 @@ export const getCustomerWishlist = cache(async (entityId: number, pagination: Pa
     return null;
   }
 
-  return wishlist;
+  return { wishlist, taxDisplay: response.data.site.settings?.tax?.plp };
 });

@@ -1,0 +1,672 @@
+import { Command } from 'commander';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterAll, afterEach, beforeAll, describe, expect, MockInstance, test, vi } from 'vitest';
+
+import { promptForCommerceHostingProject, setupCommerceHosting } from '../lib/commerce-hosting';
+import { detectPackageManager } from '../lib/detect-package-manager';
+import { extractCatalyst } from '../lib/extract-catalyst';
+import { initGitRepo } from '../lib/init-git-repo';
+import { installDependencies } from '../lib/install-dependencies';
+import { consola } from '../lib/logger';
+import { login, LoginAbortedError } from '../lib/login';
+import { mkTempDir } from '../lib/mk-temp-dir';
+import { hasProjectsAccess } from '../lib/project';
+import { rewriteCorePackage } from '../lib/rewrite-core-package';
+import { setupCoreProject } from '../lib/setup-core-project';
+import { writeEnv } from '../lib/write-env';
+import { program } from '../program';
+
+import { create } from './create';
+
+// Mock all side-effecting modules so the action runs end-to-end without
+// actually cloning, installing, writing files, or hitting the network.
+vi.mock('child_process', () => ({ execSync: vi.fn() }));
+
+vi.mock('@inquirer/prompts', () => ({
+  checkbox: vi.fn(),
+  input: vi.fn(),
+  select: vi.fn(),
+}));
+
+const { MockLoginAbortedError } = vi.hoisted(() => ({
+  MockLoginAbortedError: class extends Error {
+    constructor() {
+      super('Login aborted by user.');
+      this.name = 'LoginAbortedError';
+    }
+  },
+}));
+
+vi.mock('../lib/login', () => ({
+  login: vi.fn().mockResolvedValue({
+    storeHash: 'login-store-hash',
+    accessToken: 'login-access-token',
+  }),
+  LoginAbortedError: MockLoginAbortedError,
+}));
+
+vi.mock('../lib/extract-catalyst', () => ({
+  extractCatalyst: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../lib/rewrite-core-package', () => ({
+  rewriteCorePackage: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../lib/detect-package-manager', () => ({ detectPackageManager: vi.fn(() => 'pnpm') }));
+vi.mock('../lib/init-git-repo', () => ({ initGitRepo: vi.fn() }));
+vi.mock('../lib/setup-core-project', () => ({ setupCoreProject: vi.fn() }));
+vi.mock('../lib/install-dependencies', () => ({
+  installDependencies: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../lib/write-env', () => ({ writeEnv: vi.fn() }));
+
+vi.mock('../lib/commerce-hosting', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/commerce-hosting')>();
+
+  return {
+    ...actual,
+    setupCommerceHosting: vi.fn(),
+    promptForCommerceHostingProject: vi.fn().mockResolvedValue({
+      uuid: 'commerce-project-uuid',
+      name: 'commerce-project',
+    }),
+  };
+});
+
+vi.mock('../lib/project', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/project')>();
+
+  return {
+    ...actual,
+    hasProjectsAccess: vi.fn().mockResolvedValue(true),
+  };
+});
+
+vi.mock('../lib/localization', () => ({
+  getAvailableLocales: vi.fn().mockResolvedValue([
+    { name: 'English', value: 'en' },
+    { name: 'Spanish', value: 'es' },
+  ]),
+}));
+
+const { mockIdentify } = vi.hoisted(() => ({ mockIdentify: vi.fn() }));
+
+vi.mock('../lib/telemetry', () => {
+  const instance = {
+    identify: mockIdentify,
+    isEnabled: vi.fn(() => true),
+    track: vi.fn(),
+    correlationId: 'test-session-uuid',
+    commandName: 'create',
+    durationMs: vi.fn().mockReturnValue(0),
+    analytics: { closeAndFlush: vi.fn().mockResolvedValue(undefined) },
+  };
+
+  return {
+    Telemetry: vi.fn().mockImplementation(() => instance),
+    getTelemetry: vi.fn(() => instance),
+    resetTelemetry: vi.fn(),
+  };
+});
+
+let exitMock: MockInstance;
+let tmpDir: string;
+let cleanup: () => Promise<void>;
+let testCounter = 0;
+
+const storeHash = 'flag-store-hash';
+const accessToken = 'flag-access-token';
+
+// Each test gets a unique --project-name so the computed projectDir
+// (`${tmpDir}/${name}`) doesn't collide with prior tests' directories
+// when extractCatalyst's mock creates them.
+const uniqueProjectName = () => `test-project-${(testCounter += 1)}`;
+
+beforeAll(async () => {
+  consola.mockTypes(() => vi.fn());
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  exitMock = vi.spyOn(process, 'exit').mockImplementation(() => null as never);
+
+  [tmpDir, cleanup] = await mkTempDir();
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+afterAll(async () => {
+  vi.restoreAllMocks();
+  exitMock.mockRestore();
+
+  await cleanup();
+});
+
+test('properly configured Command instance', () => {
+  expect(create).toBeInstanceOf(Command);
+  expect(create.name()).toBe('create');
+  expect(create.description()).toBe(
+    'Scaffold and connect a Catalyst storefront to your BigCommerce store.',
+  );
+});
+
+describe('happy paths', () => {
+  test('scaffolds with full creds + flag-provided channel info (no commerce hosting)', async () => {
+    const projectName = uniqueProjectName();
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'create',
+      '--project-name',
+      projectName,
+      '--project-dir',
+      tmpDir,
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--channel-id',
+      '42',
+      '--storefront-token',
+      'flag-storefront-token',
+    ]);
+
+    expect(login).not.toHaveBeenCalled();
+    expect(mockIdentify).toHaveBeenCalledWith(storeHash);
+    expect(extractCatalyst).toHaveBeenCalled();
+    expect(rewriteCorePackage).toHaveBeenCalled();
+    expect(detectPackageManager).toHaveBeenCalled();
+    expect(setupCoreProject).toHaveBeenCalled();
+    expect(setupCommerceHosting).not.toHaveBeenCalled();
+    expect(installDependencies).toHaveBeenCalled();
+    expect(initGitRepo).toHaveBeenCalled();
+    expect(writeEnv).toHaveBeenCalledWith(
+      join(tmpDir, projectName),
+      expect.objectContaining({
+        BIGCOMMERCE_STORE_HASH: storeHash,
+        BIGCOMMERCE_CHANNEL_ID: '42',
+        BIGCOMMERCE_STOREFRONT_TOKEN: 'flag-storefront-token',
+      }),
+    );
+
+    // `.env.local` is BIGCOMMERCE_* only. `objectContaining` above would happily
+    // pass if a CATALYST_* credential crept back in, so assert none is written.
+    const [, writtenEnv] = vi.mocked(writeEnv).mock.calls[0];
+
+    expect(Object.keys(writtenEnv).filter((key) => key.startsWith('CATALYST_'))).toEqual([]);
+  });
+
+  test('--hosting bigcommerce sets up Storefront Hosting and writes BIGCOMMERCE_ACCESS_TOKEN', async () => {
+    const projectName = uniqueProjectName();
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'create',
+      '--project-name',
+      projectName,
+      '--project-dir',
+      tmpDir,
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--channel-id',
+      '42',
+      '--storefront-token',
+      'flag-storefront-token',
+      '--hosting',
+      'bigcommerce',
+    ]);
+
+    expect(hasProjectsAccess).toHaveBeenCalledWith(storeHash, accessToken, 'api.bigcommerce.com');
+    expect(promptForCommerceHostingProject).toHaveBeenCalled();
+    expect(setupCommerceHosting).toHaveBeenCalledWith({
+      projectDir: join(tmpDir, projectName),
+      projectUuid: 'commerce-project-uuid',
+      storeHash,
+      accessToken,
+    });
+    expect(writeEnv).toHaveBeenCalledWith(
+      join(tmpDir, projectName),
+      expect.objectContaining({ BIGCOMMERCE_ACCESS_TOKEN: accessToken }),
+    );
+  });
+
+  test('--hosting commerce still sets up Storefront Hosting, with a deprecation warning', async () => {
+    const projectName = uniqueProjectName();
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'create',
+      '--project-name',
+      projectName,
+      '--project-dir',
+      tmpDir,
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--channel-id',
+      '42',
+      '--storefront-token',
+      'flag-storefront-token',
+      '--hosting',
+      'commerce',
+    ]);
+
+    expect(consola.warn).toHaveBeenCalledWith(
+      '`--hosting commerce` is deprecated. Use `--hosting bigcommerce` instead.',
+    );
+    expect(setupCommerceHosting).toHaveBeenCalled();
+  });
+
+  test('login is invoked when creds are missing — channel info alone is insufficient', async () => {
+    // Regression test for edge case #1: previously, providing channel info via
+    // flags caused the login gate to be skipped, leaving BIGCOMMERCE_STORE_HASH
+    // unset and the storefront unable to start.
+    const projectName = uniqueProjectName();
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'create',
+      '--project-name',
+      projectName,
+      '--project-dir',
+      tmpDir,
+      '--channel-id',
+      '42',
+      '--storefront-token',
+      'flag-storefront-token',
+    ]);
+
+    expect(login).toHaveBeenCalled();
+    expect(writeEnv).toHaveBeenCalledWith(
+      join(tmpDir, projectName),
+      expect.objectContaining({
+        BIGCOMMERCE_STORE_HASH: 'login-store-hash',
+        BIGCOMMERCE_CHANNEL_ID: '42',
+        BIGCOMMERCE_STOREFRONT_TOKEN: 'flag-storefront-token',
+      }),
+    );
+  });
+
+  test('warns when --use-existing is passed without --hosting bigcommerce', async () => {
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'create',
+      '--project-name',
+      uniqueProjectName(),
+      '--project-dir',
+      tmpDir,
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--channel-id',
+      '42',
+      '--storefront-token',
+      'flag-storefront-token',
+      '--use-existing',
+    ]);
+
+    expect(consola.warn).toHaveBeenCalledWith(
+      '--use-existing has no effect without --hosting bigcommerce. Ignoring.',
+    );
+  });
+});
+
+// Regression tests for LTRAC-1324: credentials gathered during `create` have to
+// land in the scaffolded project's `.bigcommerce/project.json`, because that's
+// the only source `resolveCredentials` consults. Previously this was written
+// only on the `--hosting commerce` path, so a default scaffold left `catalyst
+// deploy` failing with "Missing credentials" and `catalyst projects create`
+// re-prompting for login.
+describe('credential persistence', () => {
+  const readProjectJson = (projectName: string): unknown =>
+    JSON.parse(readFileSync(join(tmpDir, projectName, '.bigcommerce', 'project.json'), 'utf-8'));
+
+  test('persists flag-provided creds to project.json on a default (self-hosted) scaffold', async () => {
+    const projectName = uniqueProjectName();
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'create',
+      '--project-name',
+      projectName,
+      '--project-dir',
+      tmpDir,
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--channel-id',
+      '42',
+      '--storefront-token',
+      'flag-storefront-token',
+    ]);
+
+    expect(setupCommerceHosting).not.toHaveBeenCalled();
+    expect(readProjectJson(projectName)).toMatchObject({ storeHash, accessToken });
+  });
+
+  test('persists device-login creds to project.json when no cred flags are passed', async () => {
+    const projectName = uniqueProjectName();
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'create',
+      '--project-name',
+      projectName,
+      '--project-dir',
+      tmpDir,
+      '--channel-id',
+      '42',
+      '--storefront-token',
+      'flag-storefront-token',
+    ]);
+
+    expect(login).toHaveBeenCalled();
+    expect(readProjectJson(projectName)).toMatchObject({
+      storeHash: 'login-store-hash',
+      accessToken: 'login-access-token',
+    });
+  });
+
+  test('preserves projectUuid written by commerce-hosting setup', async () => {
+    const projectName = uniqueProjectName();
+    // Must be a real UUID — the project.json schema enforces `format: 'uuid'`,
+    // and this test is the only one that lets Conf read the written file back.
+    const projectUuid = '43eba682-0c48-11f1-9bd5-827a48b0ce1e';
+
+    vi.mocked(promptForCommerceHostingProject).mockResolvedValueOnce({
+      uuid: projectUuid,
+      name: 'commerce-project',
+      deployment_hostnames: [],
+    });
+
+    // Stand in for the real helper, which overwrites project.json wholesale.
+    // The credential write has to merge into that rather than clobber it.
+    vi.mocked(setupCommerceHosting).mockImplementationOnce(({ projectDir, projectUuid: uuid }) => {
+      mkdirSync(join(projectDir, '.bigcommerce'), { recursive: true });
+      writeFileSync(
+        join(projectDir, '.bigcommerce', 'project.json'),
+        JSON.stringify({ projectUuid: uuid, framework: 'catalyst' }),
+      );
+
+      return Promise.resolve();
+    });
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'create',
+      '--project-name',
+      projectName,
+      '--project-dir',
+      tmpDir,
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--channel-id',
+      '42',
+      '--storefront-token',
+      'flag-storefront-token',
+      '--hosting',
+      'bigcommerce',
+    ]);
+
+    expect(readProjectJson(projectName)).toMatchObject({ projectUuid, storeHash, accessToken });
+  });
+});
+
+describe('parser validation', () => {
+  test('--channel-id with non-numeric value throws InvalidArgumentError', async () => {
+    await expect(
+      program.parseAsync([
+        'node',
+        'catalyst',
+        'create',
+        '--project-name',
+        uniqueProjectName(),
+        '--project-dir',
+        tmpDir,
+        '--channel-id',
+        'abc',
+      ]),
+    ).rejects.toThrow(/not a valid channel ID/);
+  });
+
+  test('--env without = throws InvalidArgumentError', async () => {
+    await expect(
+      program.parseAsync([
+        'node',
+        'catalyst',
+        'create',
+        '--project-name',
+        uniqueProjectName(),
+        '--project-dir',
+        tmpDir,
+        '--env',
+        'BAD_VALUE',
+      ]),
+    ).rejects.toThrow(/Expected KEY=VALUE/);
+  });
+
+  test('--env with KEY=VAL=UE preserves the full value past the first =', async () => {
+    const projectName = uniqueProjectName();
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'create',
+      '--project-name',
+      projectName,
+      '--project-dir',
+      tmpDir,
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--channel-id',
+      '42',
+      '--storefront-token',
+      'flag-storefront-token',
+      '--env',
+      'CONNECTION_STRING=postgres://user:pass@host/db?ssl=true',
+    ]);
+
+    expect(writeEnv).toHaveBeenCalledWith(
+      join(tmpDir, projectName),
+      expect.objectContaining({
+        CONNECTION_STRING: 'postgres://user:pass@host/db?ssl=true',
+      }),
+    );
+  });
+});
+
+describe('ordering invariants', () => {
+  test('writeEnv runs before install, and git init runs after install', async () => {
+    // Env vars must be written before install (postinstall scripts may read
+    // them), and the git repo is initialized only after the project is complete.
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'create',
+      '--project-name',
+      uniqueProjectName(),
+      '--project-dir',
+      tmpDir,
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--channel-id',
+      '42',
+      '--storefront-token',
+      'flag-storefront-token',
+    ]);
+
+    const [writeEnvOrder] = vi.mocked(writeEnv).mock.invocationCallOrder;
+    const [installOrder] = vi.mocked(installDependencies).mock.invocationCallOrder;
+    const [gitInitOrder] = vi.mocked(initGitRepo).mock.invocationCallOrder;
+
+    expect(writeEnvOrder).toBeLessThan(installOrder);
+    expect(installOrder).toBeLessThan(gitInitOrder);
+  });
+});
+
+describe('failure handling', () => {
+  test('mid-flow failure surfaces cleanup warning when projectDir exists', async () => {
+    // Regression test for edge case #5. extractCatalyst's mock creates the dir
+    // so the cleanup-warning's pathExistsSync check passes; installDependencies
+    // then throws to simulate a mid-flow failure.
+    const projectName = uniqueProjectName();
+    const projectDir = join(tmpDir, projectName);
+
+    vi.mocked(extractCatalyst).mockImplementationOnce(() => {
+      mkdirSync(projectDir, { recursive: true });
+
+      return Promise.resolve();
+    });
+    vi.mocked(installDependencies).mockRejectedValueOnce(new Error('install failed'));
+
+    await expect(
+      program.parseAsync([
+        'node',
+        'catalyst',
+        'create',
+        '--project-name',
+        projectName,
+        '--project-dir',
+        tmpDir,
+        '--store-hash',
+        storeHash,
+        '--access-token',
+        accessToken,
+        '--channel-id',
+        '42',
+        '--storefront-token',
+        'flag-storefront-token',
+      ]),
+    ).rejects.toThrow('install failed');
+
+    expect(consola.warn).toHaveBeenCalledWith(
+      expect.stringContaining(`'${projectDir}' may be in a partial state`),
+    );
+  });
+
+  test('mid-flow failure does not log cleanup warning if projectDir does not exist', async () => {
+    // extractCatalyst is mocked to reject WITHOUT creating the dir, so
+    // pathExistsSync returns false and the cleanup warning is suppressed.
+    vi.mocked(extractCatalyst).mockRejectedValueOnce(
+      new Error('extract failed before creating directory'),
+    );
+
+    await expect(
+      program.parseAsync([
+        'node',
+        'catalyst',
+        'create',
+        '--project-name',
+        uniqueProjectName(),
+        '--project-dir',
+        tmpDir,
+        '--store-hash',
+        storeHash,
+        '--access-token',
+        accessToken,
+        '--channel-id',
+        '42',
+        '--storefront-token',
+        'flag-storefront-token',
+      ]),
+    ).rejects.toThrow('extract failed before creating directory');
+
+    expect(consola.warn).not.toHaveBeenCalledWith(expect.stringContaining('partial state'));
+  });
+
+  test('exits cleanly when the user aborts the interactive login', async () => {
+    vi.mocked(login).mockRejectedValueOnce(new LoginAbortedError());
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'create',
+      '--project-name',
+      uniqueProjectName(),
+      '--project-dir',
+      tmpDir,
+    ]);
+
+    expect(consola.info).toHaveBeenCalledWith(
+      'Login aborted. Re-run `catalyst create` when you have your credentials ready.',
+    );
+    expect(exitMock).toHaveBeenCalledWith(0);
+    expect(extractCatalyst).not.toHaveBeenCalled();
+  });
+
+  test('propagates non-LoginAbortedError login failures', async () => {
+    vi.mocked(login).mockRejectedValueOnce(new Error('network down'));
+
+    await expect(
+      program.parseAsync([
+        'node',
+        'catalyst',
+        'create',
+        '--project-name',
+        uniqueProjectName(),
+        '--project-dir',
+        tmpDir,
+      ]),
+    ).rejects.toThrow('network down');
+
+    expect(extractCatalyst).not.toHaveBeenCalled();
+  });
+});
+
+describe('--hosting bigcommerce preconditions', () => {
+  test('exits with error when hasProjectsAccess returns false', async () => {
+    vi.mocked(hasProjectsAccess).mockResolvedValueOnce(false);
+
+    // The promptForCommerceHostingProject mock would normally return a project,
+    // but after process.exit (mocked) the action falls through. Make it throw
+    // so we can verify the precondition fired before reaching the prompt.
+    vi.mocked(promptForCommerceHostingProject).mockRejectedValueOnce(
+      new Error('should not have prompted after access denied'),
+    );
+
+    await expect(
+      program.parseAsync([
+        'node',
+        'catalyst',
+        'create',
+        '--project-name',
+        uniqueProjectName(),
+        '--project-dir',
+        tmpDir,
+        '--store-hash',
+        storeHash,
+        '--access-token',
+        accessToken,
+        '--channel-id',
+        '42',
+        '--storefront-token',
+        'flag-storefront-token',
+        '--hosting',
+        'bigcommerce',
+      ]),
+    ).rejects.toThrow(/should not have prompted/);
+
+    expect(consola.error).toHaveBeenCalledWith(
+      expect.stringContaining('does not have access to the Infrastructure Projects API'),
+    );
+    expect(exitMock).toHaveBeenCalledWith(1);
+  });
+});

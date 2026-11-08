@@ -12,11 +12,11 @@ import {
 } from '@makeswift/runtime/controls';
 
 import { runtime } from '~/lib/makeswift/runtime';
+import { priceToStrings } from '~/lib/makeswift/utils/price-strings';
 import { ProductCardSkeleton } from '~/vibes/soul/primitives/product-card';
 
 import { searchProducts } from '../../utils/search-products';
 import { useProductsByIds } from '../../utils/fetch-products';
-import { Price } from '@/vibes/soul/primitives/price-label';
 import clsx from 'clsx';
 import { FeaturedProductCard } from '@/vibes/soul/primitives/featured-product-card-git';
 import { searchCategories } from '../../utils/search-categories';
@@ -155,7 +155,7 @@ function MakeswiftFeaturedProductsGridGIT({
         )}
       >
         {products.map(async (product, index) => {
-          const { price, salePrice } = handlePrice(product.price);
+          const { price, salePrice } = priceToStrings(product.price);
 
           return (
             <FeaturedProductCard
@@ -167,9 +167,9 @@ function MakeswiftFeaturedProductsGridGIT({
               rating={product.rating as number}
               // @ts-ignore
               reviewCount={product.reviewCount as number}
-              description={product.description}
+              description={typeof product.description === 'string' ? product.description : undefined}
               price={price}
-              categories={product.categories}
+              categories={product.categories ?? []}
               salePrice={salePrice}
               titleExcerptLength={titleExcerptLength}
               descriptionExcerptLength={descriptionExcerptLength}
@@ -184,34 +184,6 @@ function MakeswiftFeaturedProductsGridGIT({
     </div>
   );
 }
-
-const handlePrice = (productPrice: Price | undefined) => {
-  let price;
-  let salePrice: string | undefined = undefined;
-  if (!productPrice) {
-    price = '0';
-  } else if (typeof productPrice === 'string') {
-    price = productPrice;
-  } else if (
-    typeof productPrice === 'object' &&
-    productPrice !== null &&
-    'minValue' in productPrice
-  ) {
-    price = `${productPrice.minValue} - ${productPrice.maxValue}`;
-  } else if (
-    typeof productPrice === 'object' &&
-    productPrice !== null &&
-    'previousValue' in productPrice
-  ) {
-    price = productPrice.previousValue;
-    salePrice = productPrice.currentValue;
-  }
-
-  return {
-    price,
-    salePrice: salePrice ? salePrice.toString() : undefined,
-  };
-};
 
 runtime.registerComponent(MakeswiftFeaturedProductsGridGIT, {
   type: 'catalog-product-featured-git',

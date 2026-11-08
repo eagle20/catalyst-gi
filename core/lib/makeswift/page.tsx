@@ -1,8 +1,9 @@
-import { Page as MakeswiftPage, type MakeswiftPageDocument } from '@makeswift/runtime/next';
+import { type MakeswiftPageDocument } from '@makeswift/runtime/next';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 
 import { getPageSnapshot } from './client';
+import { MakeswiftPageShim } from './makeswift-page-shim';
 
 // Mirrors the priority the SDK's own PageHead uses internally (base localized page
 // wins over the top-level document field) — reading document.meta.title directly
@@ -39,7 +40,7 @@ export const MAKESWIFT_METADATA = {
 } as const;
 
 export async function Page({ path, locale }: { path: string; locale: string }) {
-  const snapshot = await getPageSnapshot(path, locale);
+  const snapshot = await getPageSnapshot({ path, locale });
 
   if (snapshot == null) {
     // This is a temporary solution to fix the issue where non-published pages are not editable in the builder.
@@ -48,5 +49,5 @@ export async function Page({ path, locale }: { path: string; locale: string }) {
     return notFound();
   }
 
-  return <MakeswiftPage metadata={MAKESWIFT_METADATA} snapshot={snapshot} />;
+  return <MakeswiftPageShim metadata={MAKESWIFT_METADATA} snapshot={snapshot} />;
 }

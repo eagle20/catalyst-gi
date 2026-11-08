@@ -1,19 +1,17 @@
-import { notFound } from 'next/navigation';
+import axios from 'axios';
 import { cache } from 'react';
 
-import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
+import { getProductPromotions } from '~/client/management/get-product-promotions';
+import { getGiftProducts } from '~/client/queries/get-gift-products';
 import { PricingFragment } from '~/client/fragments/pricing';
 import { graphql, VariablesOf } from '~/client/graphql';
 import { revalidate } from '~/client/revalidate-target';
 import { FeaturedProductsCarouselFragment } from '~/components/featured-products-carousel/fragment';
-import { getPreferredCurrencyCode } from '~/lib/currency';
+import { ProductVariantsInventoryFragment } from '~/components/product-variants-inventory/fragment';
 
 import { ProductSchemaFragment } from './_components/product-schema/fragment';
 import { ProductViewedFragment } from './_components/product-viewed/fragment';
-import axios from 'axios';
-import { getProductPromotions } from '~/client/management/get-product-promotions';
-import { getGiftProducts } from '~/client/queries/get-gift-products';
 
 const MultipleChoiceFieldFragment = graphql(`
   fragment MultipleChoiceFieldFragment on MultipleChoiceOption {
@@ -21,7 +19,7 @@ const MultipleChoiceFieldFragment = graphql(`
     displayName
     displayStyle
     isRequired
-    values(first: 10) {
+    values(first: 50) {
       edges {
         node {
           entityId
@@ -106,36 +104,17 @@ const DateFieldFragment = graphql(`
   }
 `);
 
-const AddToCartButtonFragment = graphql(`
-  fragment AddToCartButtonFragment on Product {
-    inventory {
-      isInStock
-    }
-    availabilityV2 {
-      status
-    }
-  }
-`);
-
-export const ProductFormFragment = graphql(
+export const ProductOptionsFragment = graphql(
   `
-    fragment ProductFormFragment on Product {
+    fragment ProductOptionsFragment on Product {
       entityId
-      variants {
-        edges {
-          node {
-            entityId
-          }
-        }
-      }
-      productOptions(first: 10) {
+      productOptions(first: 50) {
         edges {
           node {
             __typename
             entityId
             displayName
             isRequired
-            isVariantOption
             ...MultipleChoiceFieldFragment
             ...CheckboxFieldFragment
             ...NumberFieldFragment
@@ -145,7 +124,6 @@ export const ProductFormFragment = graphql(
           }
         }
       }
-      ...AddToCartButtonFragment
     }
   `,
   [
@@ -155,91 +133,158 @@ export const ProductFormFragment = graphql(
     TextFieldFragment,
     MultiLineTextFieldFragment,
     DateFieldFragment,
-    AddToCartButtonFragment,
   ],
 );
 
-const ProductDetailsFragment = graphql(
-  `
-    fragment ProductDetailsFragment on Product {
-      entityId
-      name
-      description
-      path
-      images {
-        edges {
-          node {
-            altText
-            url: urlTemplate(lossy: true)
-            isDefault
-          }
-        }
-      }
-      videos {
-        edges {
-          node {
-            title
-            url
-          }
-        }
-      }
-      defaultImage {
-        altText
-        url: urlTemplate(lossy: true)
-      }
-      brand {
+const ProductPageMetadataQuery = graphql(`
+  query ProductPageMetadataQuery($entityId: Int!) {
+    site {
+      product(entityId: $entityId) {
         name
-      }
-      reviewSummary {
-        averageRating
-      }
-      description
-      sku
-      weight {
-        value
-        unit
-      }
-      condition
-      customFields {
-        edges {
-          node {
-            entityId
-            name
-            value
-          }
+        path
+        defaultImage {
+          altText
+          url(width: 1200, lossy: true)
         }
-      }
-      warranty
-      qnaMetafields: metafields(namespace: "seo_qa", keys: ["qa_data"]) {
-        edges {
-          node {
-            key
-            value
-          }
+        seo {
+          pageTitle
+          metaDescription
+          metaKeywords
         }
+        path
+        plainTextDescription(characterLimit: 1200)
       }
-      documentsMetafields: metafields(namespace: "product_content", keys: ["documents"]) {
-        edges {
-          node {
-            key
-            value
-          }
-        }
-      }
-      ...PricingFragment
-      ...ProductFormFragment
     }
-  `,
-  [PricingFragment, ProductFormFragment],
+  }
+`);
+
+export const getProductPageMetadata = cache(
+  async (entityId: number, customerAccessToken?: string) => {
+    const { data } = await client.fetch({
+      document: ProductPageMetadataQuery,
+      variables: { entityId },
+      customerAccessToken,
+      fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
+    });
+
+    return data.site.product;
+  },
 );
 
-const ProductPageQuery = graphql(
+const ProductQuery = graphql(
   `
-    query ProductPageQuery(
+    query ProductQuery($entityId: Int!) {
+      site {
+        settings {
+          reviews {
+            enabled
+          }
+          display {
+            showProductRating
+          }
+          tax {
+            pdp
+          }
+        }
+        product(entityId: $entityId) {
+          entityId
+          name
+          description
+          path
+          brand {
+            name
+            # GI: brand page link on the product title
+            path
+          }
+          reviewSummary {
+            averageRating
+            numberOfReviews
+          }
+          description
+          featuredPromotions {
+            edges {
+              node {
+                entityId
+                text
+              }
+            }
+          }
+          ...ProductOptionsFragment
+        }
+      }
+    }
+  `,
+  [ProductOptionsFragment],
+);
+
+export const getProduct = cache(async (entityId: number, customerAccessToken?: string) => {
+  const { data } = await client.fetch({
+    document: ProductQuery,
+    variables: { entityId },
+    customerAccessToken,
+    fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
+  });
+
+  return data.site;
+});
+
+const StreamableProductVariantInventoryBySkuQuery = graphql(`
+  query ProductVariantBySkuQuery($productId: Int!, $sku: String!) {
+    site {
+      product(entityId: $productId) {
+        variants(skus: [$sku]) {
+          edges {
+            node {
+              id
+              entityId
+              sku
+              inventory {
+                aggregated {
+                  availableToSell
+                  warningLevel
+                  availableOnHand
+                  availableForBackorder
+                  unlimitedBackorder
+                }
+                byLocation {
+                  edges {
+                    node {
+                      locationEntityId
+                      backorderMessage
+                    }
+                  }
+                }
+                isInStock
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`);
+
+type VariantInventoryVariables = VariablesOf<typeof StreamableProductVariantInventoryBySkuQuery>;
+
+export const getStreamableProductVariantInventory = cache(
+  async (variables: VariantInventoryVariables, customerAccessToken?: string) => {
+    const { data } = await client.fetch({
+      document: StreamableProductVariantInventoryBySkuQuery,
+      variables,
+      customerAccessToken,
+      fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate: 60 } },
+    });
+
+    return data.site.product?.variants;
+  },
+);
+
+const StreamableProductQuery = graphql(
+  `
+    query StreamableProductQuery(
       $entityId: Int!
       $optionValueIds: [OptionValueId!]
       $useDefaultOptionSelections: Boolean
-      $currencyCode: currencyCode
     ) {
       site {
         product(
@@ -247,18 +292,70 @@ const ProductPageQuery = graphql(
           optionValueIds: $optionValueIds
           useDefaultOptionSelections: $useDefaultOptionSelections
         ) {
-          ...ProductDetailsFragment
-          ...ProductViewedFragment
-          ...ProductSchemaFragment
-          name
-          defaultImage {
-            url: urlTemplate(lossy: true)
-            altText
+          entityId
+          images(first: 12) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            edges {
+              node {
+                altText
+                url: urlTemplate(lossy: true)
+                isDefault
+              }
+            }
           }
-          seo {
-            pageTitle
-            metaDescription
-            metaKeywords
+          defaultImage {
+            altText
+            url: urlTemplate(lossy: true)
+          }
+          # Product videos. The Storefront GraphQL API only returns the video
+          # title and url (a YouTube watch URL); the dedicated PDP Videos section
+          # renders them via lite-youtube-embed. 25 covers realistic product
+          # video counts without needing pagination.
+          videos(first: 25) {
+            edges {
+              node {
+                title
+                url
+              }
+            }
+          }
+          sku
+          weight {
+            value
+            unit
+          }
+          condition
+          customFields {
+            edges {
+              node {
+                entityId
+                name
+                value
+              }
+            }
+          }
+          minPurchaseQuantity
+          maxPurchaseQuantity
+          warranty
+          # GI: product Q&A and downloadable documents (metafields), and category breadcrumbs
+          qnaMetafields: metafields(namespace: "seo_qa", keys: ["qa_data"]) {
+            edges {
+              node {
+                key
+                value
+              }
+            }
+          }
+          documentsMetafields: metafields(namespace: "product_content", keys: ["documents"]) {
+            edges {
+              node {
+                key
+                value
+              }
+            }
           }
           categories {
             edges {
@@ -272,6 +369,112 @@ const ProductPageQuery = graphql(
                     }
                   }
                 }
+              }
+            }
+          }
+          ...ProductViewedFragment
+          ...ProductSchemaFragment
+        }
+      }
+    }
+  `,
+  [ProductViewedFragment, ProductSchemaFragment],
+);
+
+type Variables = VariablesOf<typeof StreamableProductQuery>;
+
+export const getStreamableProduct = cache(
+  async (variables: Variables, customerAccessToken?: string) => {
+    const { data } = await client.fetch({
+      document: StreamableProductQuery,
+      variables,
+      customerAccessToken,
+      fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
+    });
+
+    return data.site.product;
+  },
+);
+
+const StreamableProductInventoryQuery = graphql(
+  `
+    query StreamableProductInventoryQuery(
+      $entityId: Int!
+      $optionValueIds: [OptionValueId!]
+      $useDefaultOptionSelections: Boolean
+    ) {
+      site {
+        product(
+          entityId: $entityId
+          optionValueIds: $optionValueIds
+          useDefaultOptionSelections: $useDefaultOptionSelections
+        ) {
+          sku
+          inventory {
+            hasVariantInventory
+            isInStock
+            aggregated {
+              availableToSell
+              warningLevel
+              availableOnHand
+              availableForBackorder
+              unlimitedBackorder
+            }
+          }
+          availabilityV2 {
+            status
+          }
+          ...ProductVariantsInventoryFragment
+        }
+      }
+    }
+  `,
+  [ProductVariantsInventoryFragment],
+);
+
+type ProductInventoryVariables = VariablesOf<typeof StreamableProductInventoryQuery>;
+
+export const getStreamableProductInventory = cache(
+  async (variables: ProductInventoryVariables, customerAccessToken?: string) => {
+    const { data } = await client.fetch({
+      document: StreamableProductInventoryQuery,
+      variables,
+      customerAccessToken,
+      fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate: 60 } },
+    });
+
+    return data.site.product;
+  },
+);
+
+// Fields that require currencyCode as a query variable
+// Separated from the rest to cache separately
+const ProductPricingAndRelatedProductsQuery = graphql(
+  `
+    query ProductPricingAndRelatedProductsQuery(
+      $entityId: Int!
+      $optionValueIds: [OptionValueId!]
+      $useDefaultOptionSelections: Boolean
+      $currencyCode: currencyCode
+    ) {
+      site {
+        product(
+          entityId: $entityId
+          optionValueIds: $optionValueIds
+          useDefaultOptionSelections: $useDefaultOptionSelections
+        ) {
+          ...PricingFragment
+          relatedProducts(first: 8) {
+            edges {
+              node {
+                ...FeaturedProductsCarouselFragment
+              }
+            }
+          }
+          # GI: products from the first category, used when there are no related products
+          categories {
+            edges {
+              node {
                 products(first: 8) {
                   edges {
                     node {
@@ -282,101 +485,58 @@ const ProductPageQuery = graphql(
               }
             }
           }
-          relatedProducts(first: 8) {
-            edges {
-              node {
-                ...FeaturedProductsCarouselFragment
-              }
-            }
-          }
+
         }
       }
     }
   `,
-  [
-    ProductDetailsFragment,
-    ProductViewedFragment,
-    ProductSchemaFragment,
-    FeaturedProductsCarouselFragment,
-  ],
+  [PricingFragment, FeaturedProductsCarouselFragment],
 );
 
-type Variables = VariablesOf<typeof ProductPageQuery>;
+export const getProductPricingAndRelatedProducts = cache(
+  async (variables: Variables, customerAccessToken?: string) => {
+    const { data } = await client.fetch({
+      document: ProductPricingAndRelatedProductsQuery,
+      variables,
+      customerAccessToken,
+      fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
+    });
 
-export const getProductData = cache(async (variables: Variables) => {
-  const customerAccessToken = await getSessionCustomerAccessToken();
-  const currencyCode = await getPreferredCurrencyCode();
+    return data.site.product;
+  },
+);
 
+const InventorySettingsQuery = graphql(`
+  query InventorySettingsQuery {
+    site {
+      settings {
+        inventory {
+          defaultOutOfStockMessage
+          showOutOfStockMessage
+          stockLevelDisplay
+          showBackorderAvailabilityPrompt
+          backorderAvailabilityPrompt
+          showQuantityOnBackorder
+          showBackorderMessage
+        }
+      }
+    }
+  }
+`);
+
+export const getStreamableInventorySettingsQuery = cache(async (customerAccessToken?: string) => {
   const { data } = await client.fetch({
-    document: ProductPageQuery,
-    variables: { ...variables, currencyCode },
+    document: InventorySettingsQuery,
     customerAccessToken,
     fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
   });
 
-  const product = data.site.product;
-
-  if (!product) {
-    return notFound();
-  }
-
-  const productRest = await getProductDataRest(product.sku);
-
-  // Fetch promotions for this product
-  let promotions = null;
-  let giftProducts = null;
-
-  if (product?.entityId) {
-    try {
-      console.log('📦 [page-data] Fetching promotions for product:', product.entityId, product.sku);
-      promotions = await getProductPromotions(product.entityId);
-      console.log('📦 [page-data] Promotions fetched:', promotions ? promotions.length : 0, promotions);
-
-      // If there are gift promotions, fetch the gift product details
-      if (promotions && promotions.length > 0) {
-        const giftProductIds = promotions.flatMap((promo) =>
-          promo.giftItems
-            .filter((item) => item.productId)
-            .map((item) => item.productId as number),
-        );
-
-        console.log('📦 [page-data] Fetching gift products:', giftProductIds);
-
-        if (giftProductIds.length > 0) {
-          giftProducts = await getGiftProducts(giftProductIds);
-          console.log('📦 [page-data] Gift products fetched:', giftProducts?.length);
-        }
-      }
-    } catch (error) {
-      console.error('❌ [page-data] Error loading promotions:', error);
-      // Continue without promotions if there's an error
-      promotions = null;
-      giftProducts = null;
-    }
-  }
-
-  console.log('📦 [page-data] Final data:', {
-    productId: product.entityId,
-    sku: product.sku,
-    hasPromotions: promotions !== null,
-    promotionCount: promotions?.length || 0,
-    hasGiftProducts: giftProducts !== null,
-    giftProductCount: giftProducts?.length || 0
-  });
-
-  return {
-    ...product,
-    inventory_tracking: productRest ? (productRest.inventory_tracking as string) : null,
-    inventory_level:
-      productRest && typeof productRest.inventory_level === 'number'
-        ? { value: productRest.inventory_level }
-        : null,
-    promotions,
-    giftProducts,
-  };
+  return data.site.settings?.inventory;
 });
 
-export const getProductDataRest = async (sku: string) => {
+// GI: inventory tracking and level come from the BigCommerce REST catalog (the Storefront API
+// doesn't expose inventory_tracking).
+export const getProductDataRest = cache(async (sku: string) => {
   try {
     const response = await axios.get(
       `https://api.bigcommerce.com/stores/${process.env.BIGCOMMERCE_STORE_HASH}/v3/catalog/products?sku=${encodeURIComponent(sku)}`,
@@ -395,7 +555,33 @@ export const getProductDataRest = async (sku: string) => {
 
     return product;
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error fetching product data from BigCommerce API:', error);
+
     return null;
   }
-};
+});
+
+// GI: gift (free tool) promotions for a product and the gift products they offer.
+export const getProductPromotionData = cache(async (entityId: number) => {
+  try {
+    const promotions = await getProductPromotions(entityId);
+
+    if (!promotions || promotions.length === 0) {
+      return { promotions, giftProducts: null };
+    }
+
+    const giftProductIds = promotions.flatMap((promo) =>
+      promo.giftItems.filter((item) => item.productId).map((item) => item.productId as number),
+    );
+
+    const giftProducts = giftProductIds.length > 0 ? await getGiftProducts(giftProductIds) : null;
+
+    return { promotions, giftProducts };
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[page-data] Error loading promotions:', error);
+
+    return { promotions: null, giftProducts: null };
+  }
+});

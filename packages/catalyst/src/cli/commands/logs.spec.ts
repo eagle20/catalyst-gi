@@ -1,0 +1,1656 @@
+import { Command } from 'commander';
+import Conf from 'conf';
+import { http, HttpResponse } from 'msw';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  MockInstance,
+  test,
+  vi,
+} from 'vitest';
+
+import { server } from '../../../tests/mocks/node';
+import { consola } from '../lib/logger';
+import { mkTempDir } from '../lib/mk-temp-dir';
+import { getProjectConfig, ProjectConfigSchema } from '../lib/project-config';
+import { program } from '../program';
+
+import { logs, parseSSEEvent, tailLogs } from './logs';
+
+let exitMock: MockInstance;
+let stdoutWriteMock: MockInstance;
+
+let tmpDir: string;
+let cleanup: () => Promise<void>;
+let config: Conf<ProjectConfigSchema>;
+
+const projectUuid = '6b202364-10f3-11f1-8bc7-fe9b9d8b14ab';
+const storeHash = 'test-store';
+const accessToken = 'test-token';
+const apiHost = 'api.bigcommerce.com';
+
+const encoder = new TextEncoder();
+
+const validLogEvent = {
+  uuid: '0f258256-0a83-4704-a456-03e99b4445c2',
+  project_uuid: projectUuid,
+  request: { method: 'GET', url: 'https://example.com/test', status_code: 200 },
+  logs: [{ timestamp: '2026-03-11T22:05:28.870Z', level: 'info', messages: ['hello world'] }],
+  exceptions: [],
+  timestamp: '2026-03-11T22:05:28.870Z',
+};
+
+const createSSEStream = (events: string[], closeDelay = 10) =>
+  new ReadableStream({
+    start(controller) {
+      events.forEach((event) => {
+        controller.enqueue(encoder.encode(event));
+      });
+      setTimeout(() => controller.close(), closeDelay);
+    },
+  });
+
+// Creates a handler that serves SSE events on the first request,
+// then returns 404 on subsequent requests to break the reconnect loop.
+const createOneShotLogHandler = (events: string[], closeDelay = 10) => {
+  let called = false;
+
+  return http.get(
+    'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid/tail',
+    () => {
+      if (called) {
+        return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
+      }
+
+      called = true;
+
+      return new HttpResponse(createSSEStream(events, closeDelay), {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      });
+    },
+  );
+};
+
+const callTailLogs = async (format: Parameters<typeof tailLogs>[4], events?: string[]) => {
+  const sseEvents = events ?? [`data: ${JSON.stringify(validLogEvent)}\n\n`];
+
+  server.use(createOneShotLogHandler(sseEvents));
+
+  await tailLogs(projectUuid, storeHash, accessToken, apiHost, format).catch(() => {
+    // Expected: tailLogs throws when the one-shot handler returns 404 on reconnect
+  });
+};
+
+beforeAll(async () => {
+  consola.mockTypes(() => vi.fn());
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  exitMock = vi.spyOn(process, 'exit').mockImplementation(() => null as never);
+  stdoutWriteMock = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+  [tmpDir, cleanup] = await mkTempDir();
+
+  vi.spyOn(process, 'cwd').mockReturnValue(tmpDir);
+
+  config = getProjectConfig();
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.unstubAllEnvs();
+  config.delete('storeHash');
+  config.delete('accessToken');
+  config.delete('projectUuid');
+});
+
+afterAll(async () => {
+  await cleanup();
+});
+
+describe('command configuration', () => {
+  test('logs is a properly configured Command with tail and query subcommands', () => {
+    expect(logs).toBeInstanceOf(Command);
+    expect(logs.name()).toBe('logs');
+    expect(logs.description()).toBe('View logs from your deployed application.');
+
+    const subcommands = logs.commands.map((c) => c.name());
+
+    expect(subcommands).toContain('tail');
+    expect(subcommands).toContain('query');
+  });
+
+  test('tail subcommand has correct options', () => {
+    const tail = logs.commands.find((c) => c.name() === 'tail');
+
+    expect(tail).toBeDefined();
+    expect(tail?.options).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ flags: '--store-hash <hash>' }),
+        expect.objectContaining({ flags: '--access-token <token>' }),
+        expect.objectContaining({ flags: '--api-host <host>' }),
+        expect.objectContaining({ flags: '--project-uuid <uuid>' }),
+        expect.objectContaining({ flags: '--format <format>', defaultValue: 'default' }),
+      ]),
+    );
+  });
+
+  test('query subcommand has correct options', () => {
+    const query = logs.commands.find((c) => c.name() === 'query');
+
+    expect(query).toBeDefined();
+    expect(query?.options).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ flags: '--store-hash <hash>' }),
+        expect.objectContaining({ flags: '--access-token <token>' }),
+        expect.objectContaining({ flags: '--api-host <host>' }),
+        expect.objectContaining({ flags: '--project-uuid <uuid>' }),
+        expect.objectContaining({ flags: '--limit <count>' }),
+        expect.objectContaining({ flags: '--after <cursor>' }),
+        expect.objectContaining({ flags: '--before <cursor>' }),
+        expect.objectContaining({ flags: '--format <format>', defaultValue: 'default' }),
+      ]),
+    );
+  });
+});
+
+describe('parseSSEEvent', () => {
+  test('extracts data from a single data line', () => {
+    expect(parseSSEEvent('data: {"foo":"bar"}')).toBe('{"foo":"bar"}');
+  });
+
+  test('joins multiple data lines with newlines', () => {
+    expect(parseSSEEvent('data: line1\ndata: line2')).toBe('line1\nline2');
+  });
+
+  test('ignores non-data SSE fields', () => {
+    expect(parseSSEEvent('event: message\ndata: {"foo":"bar"}\nid: 123')).toBe('{"foo":"bar"}');
+  });
+
+  test('ignores SSE comments', () => {
+    expect(parseSSEEvent(': this is a comment\ndata: {"foo":"bar"}')).toBe('{"foo":"bar"}');
+  });
+
+  test('returns null for events with no data lines', () => {
+    expect(parseSSEEvent('event: ping')).toBeNull();
+    expect(parseSSEEvent(': comment only')).toBeNull();
+    expect(parseSSEEvent('')).toBeNull();
+  });
+
+  test('returns null for heartbeat events with empty data', () => {
+    expect(parseSSEEvent('data: ')).toBeNull();
+    expect(parseSSEEvent('data:')).toBeNull();
+  });
+});
+
+describe('format: default', () => {
+  test('logs timestamp, level, and message', async () => {
+    await callTailLogs('default');
+
+    expect(consola.info).toHaveBeenCalledWith('Tailing logs...');
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('[2026-03-11T22:05:28.870Z]'));
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('hello world'));
+  });
+});
+
+describe('format: json', () => {
+  test('writes raw JSON to stdout', async () => {
+    await callTailLogs('json');
+
+    expect(stdoutWriteMock).toHaveBeenCalledWith(
+      expect.stringContaining('"uuid":"0f258256-0a83-4704-a456-03e99b4445c2"'),
+    );
+  });
+});
+
+describe('format: pretty', () => {
+  test('logs pretty-printed JSON', async () => {
+    await callTailLogs('pretty');
+
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('"uuid"'));
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('"hello world"'));
+  });
+
+  test('preserves unknown fields via loose schema', async () => {
+    const eventWithExtra = { ...validLogEvent, extra_field: 'should be preserved' };
+
+    await callTailLogs('pretty', [`data: ${JSON.stringify(eventWithExtra)}\n\n`]);
+
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('should be preserved'));
+  });
+});
+
+describe('format: short', () => {
+  test('logs only the message', async () => {
+    await callTailLogs('short');
+
+    expect(consola.log).toHaveBeenCalledWith('hello world');
+  });
+});
+
+describe('format: request', () => {
+  test('logs timestamp, request info, level, and message', async () => {
+    await callTailLogs('request');
+
+    expect(consola.log).toHaveBeenCalledWith(
+      expect.stringContaining('GET https://example.com/test'),
+    );
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('(200)'));
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('hello world'));
+  });
+
+  test('orders the line as timestamp, request, level, message', async () => {
+    await callTailLogs('request');
+
+    const line =
+      vi
+        .mocked(consola.log)
+        .mock.calls.map(([arg]) => String(arg))
+        .find((text) => text.includes('hello world')) ?? '';
+
+    expect(line).toContain('hello world');
+    expect(line.indexOf('(200)')).toBeLessThan(line.indexOf('INFO'));
+    expect(line.indexOf('INFO')).toBeLessThan(line.indexOf('hello world'));
+  });
+
+  // Both cases render identically: with no message there is no level to show,
+  // so the line is just the request. Asserted by equality — the level is the
+  // only colorized segment, so these lines carry no ANSI codes to match around.
+  const bareRequestLine = '[2026-03-11T22:05:28.870Z] GET https://example.com/test (200)';
+
+  test('logs the request when the event has no log entries', async () => {
+    const event = { ...validLogEvent, logs: [] };
+
+    await callTailLogs('request', [`data: ${JSON.stringify(event)}\n\n`]);
+
+    expect(consola.log).toHaveBeenCalledWith(bareRequestLine);
+  });
+
+  test('omits the level and trailing separator when an entry has no messages', async () => {
+    const event = { ...validLogEvent, logs: [{ ...validLogEvent.logs[0], messages: [] }] };
+
+    await callTailLogs('request', [`data: ${JSON.stringify(event)}\n\n`]);
+
+    expect(consola.log).toHaveBeenCalledWith(bareRequestLine);
+  });
+
+  test.each(['default', 'short'] as const)(
+    'omits events with no log messages from the %s format',
+    async (format) => {
+      const event = { ...validLogEvent, logs: [] };
+
+      await callTailLogs(format, [`data: ${JSON.stringify(event)}\n\n`]);
+
+      expect(consola.log).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe('log event processing', () => {
+  test.each([
+    ['info', 'INFO'],
+    ['warn', 'WARN'],
+    ['error', 'ERROR'],
+    ['debug', 'DEBUG'],
+  ])('formats %s level as %s', async (level, expected) => {
+    const event = { ...validLogEvent, logs: [{ ...validLogEvent.logs[0], level }] };
+
+    await callTailLogs('default', [`data: ${JSON.stringify(event)}\n\n`]);
+
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining(expected));
+  });
+
+  test('logs exceptions from the event', async () => {
+    const event = {
+      ...validLogEvent,
+      exceptions: [{ message: 'something broke', stack: 'Error: something broke' }],
+    };
+
+    await callTailLogs('default', [`data: ${JSON.stringify(event)}\n\n`]);
+
+    expect(consola.error).toHaveBeenCalledWith(
+      expect.stringContaining('EXCEPTION'),
+      expect.objectContaining({ message: 'something broke' }),
+    );
+  });
+
+  test('serializes non-string messages as JSON', async () => {
+    const event = {
+      ...validLogEvent,
+      logs: [{ ...validLogEvent.logs[0], messages: [{ nested: 'object' }, 42] }],
+    };
+
+    await callTailLogs('default', [`data: ${JSON.stringify(event)}\n\n`]);
+
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('{"nested":"object"}'));
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('42'));
+  });
+
+  test('multiple events in a single chunk are all processed', async () => {
+    const event1 = {
+      ...validLogEvent,
+      logs: [{ ...validLogEvent.logs[0], messages: ['first'] }],
+    };
+    const event2 = {
+      ...validLogEvent,
+      uuid: 'a3c5e0f1-6b0e-4c1e-9d6a-2f1b7c8d9e0a',
+      logs: [{ ...validLogEvent.logs[0], messages: ['second'] }],
+    };
+
+    await callTailLogs('default', [
+      `data: ${JSON.stringify(event1)}\n\ndata: ${JSON.stringify(event2)}\n\n`,
+    ]);
+
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('first'));
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('second'));
+  });
+});
+
+describe('error handling', () => {
+  test('silently ignores heartbeat events', async () => {
+    await callTailLogs('default', [`data: \n\ndata: ${JSON.stringify(validLogEvent)}\n\n`]);
+
+    expect(consola.warn).not.toHaveBeenCalled();
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('hello world'));
+  });
+
+  test('warns on invalid JSON in stream', async () => {
+    await callTailLogs('default', [`data: {not valid json}\n\n`]);
+
+    expect(consola.warn).toHaveBeenCalledWith(expect.stringContaining('Failed to parse log event'));
+  });
+
+  test('warns on valid JSON that does not match schema', async () => {
+    await callTailLogs('default', [`data: {"valid":"json","but":"wrong schema"}\n\n`]);
+
+    expect(consola.warn).toHaveBeenCalledWith(expect.stringContaining('Failed to parse log event'));
+  });
+
+  test('throws on fatal 4xx status codes', async () => {
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid/tail',
+        () => new HttpResponse(null, { status: 404, statusText: 'Not Found' }),
+      ),
+    );
+
+    await expect(tailLogs(projectUuid, storeHash, accessToken, apiHost, 'default')).rejects.toThrow(
+      'Failed to open log stream: The request was rejected. Check your input — your access token may be missing a required scope, or the resource may not exist.',
+    );
+  });
+
+  test('throws a re-auth error on fatal 401 unauthorized', async () => {
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid/tail',
+        () => new HttpResponse(null, { status: 401, statusText: 'Unauthorized' }),
+      ),
+    );
+
+    await expect(tailLogs(projectUuid, storeHash, accessToken, apiHost, 'default')).rejects.toThrow(
+      'catalyst auth login',
+    );
+  });
+});
+
+describe('retry and reconnect', () => {
+  test('retries on 5xx errors and throws after max retries', async () => {
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid/tail',
+        () => new HttpResponse(null, { status: 502, statusText: 'Bad Gateway' }),
+      ),
+    );
+
+    await expect(tailLogs(projectUuid, storeHash, accessToken, apiHost, 'default')).rejects.toThrow(
+      'Failed to connect to log stream after 5 retries.',
+    );
+
+    // 4 warnings logged for attempts 1-4, then throw on attempt 5
+    expect(consola.warn).toHaveBeenCalledTimes(4);
+  });
+
+  test('logs retry attempt number in warning messages', async () => {
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid/tail',
+        () => new HttpResponse(null, { status: 503, statusText: 'Service Unavailable' }),
+      ),
+    );
+
+    await expect(
+      tailLogs(projectUuid, storeHash, accessToken, apiHost, 'default'),
+    ).rejects.toThrow();
+
+    expect(consola.warn).toHaveBeenCalledWith(
+      expect.stringContaining('attempt 1/5'),
+      expect.anything(),
+    );
+    expect(consola.warn).toHaveBeenCalledWith(
+      expect.stringContaining('attempt 4/5'),
+      expect.anything(),
+    );
+  });
+
+  test('resets retry counter after a successful connection', async () => {
+    let requestCount = 0;
+
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid/tail',
+        () => {
+          requestCount += 1;
+
+          // First 3 requests: 502 errors (builds up retries to 3)
+          if (requestCount <= 3) {
+            return new HttpResponse(null, { status: 502, statusText: 'Bad Gateway' });
+          }
+
+          // 4th request: successful stream (resets retries to 0)
+          if (requestCount === 4) {
+            return new HttpResponse(
+              createSSEStream([`data: ${JSON.stringify(validLogEvent)}\n\n`]),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'text/event-stream' },
+              },
+            );
+          }
+
+          // 5th+ requests: 502 again until retries are exhausted a second time
+          return new HttpResponse(null, { status: 502, statusText: 'Bad Gateway' });
+        },
+      ),
+    );
+
+    await expect(tailLogs(projectUuid, storeHash, accessToken, apiHost, 'default')).rejects.toThrow(
+      'Failed to connect to log stream after 5 retries.',
+    );
+
+    // 3 warnings before success + 4 warnings after success (throw on 5th retry)
+    expect(consola.warn).toHaveBeenCalledTimes(7);
+  });
+
+  test('server disconnect does not increment retry counter', async () => {
+    let requestCount = 0;
+
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid/tail',
+        () => {
+          requestCount += 1;
+
+          // Return a stream that immediately errors to simulate server disconnect
+          if (requestCount <= 3) {
+            const stream = new ReadableStream({
+              start(controller) {
+                controller.error(new TypeError('terminated'));
+              },
+            });
+
+            return new HttpResponse(stream, {
+              status: 200,
+              headers: { 'Content-Type': 'text/event-stream' },
+            });
+          }
+
+          // After 3 server disconnects, return 404 to break the loop
+          return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
+        },
+      ),
+    );
+
+    await expect(tailLogs(projectUuid, storeHash, accessToken, apiHost, 'default')).rejects.toThrow(
+      'Failed to open log stream: The request was rejected. Check your input — your access token may be missing a required scope, or the resource may not exist.',
+    );
+
+    // Server disconnect warnings should NOT contain "attempt X/5"
+    expect(consola.warn).toHaveBeenCalledTimes(3);
+    expect(consola.warn).toHaveBeenCalledWith('Log stream closed by server, reconnecting...');
+  });
+
+  test(
+    'reconnects when the stream stalls without emitting any data',
+    { timeout: 3000 },
+    async () => {
+      let requestCount = 0;
+      const ttlMs = 200;
+
+      // Stream that stays open but never enqueues â simulates an API proxy
+      // half-closing the socket: bytes stop arriving but no FIN or error is
+      // surfaced, so reader.read() would otherwise block forever.
+      const createStalledStream = () =>
+        new ReadableStream({
+          start() {
+            // intentionally empty
+          },
+        });
+
+      server.use(
+        http.get(
+          'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid/tail',
+          () => {
+            requestCount += 1;
+
+            if (requestCount <= 2) {
+              return new HttpResponse(createStalledStream(), {
+                status: 200,
+                headers: { 'Content-Type': 'text/event-stream' },
+              });
+            }
+
+            return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
+          },
+        ),
+      );
+
+      await expect(
+        tailLogs(projectUuid, storeHash, accessToken, apiHost, 'default', ttlMs),
+      ).rejects.toThrow(
+        'Failed to open log stream: The request was rejected. Check your input — your access token may be missing a required scope, or the resource may not exist.',
+      );
+
+      expect(requestCount).toBe(3);
+      expect(consola.warn).toHaveBeenCalledWith('Log stream idle, reconnecting...');
+    },
+  );
+
+  test('reconnects when connection TTL is reached', { timeout: 3000 }, async () => {
+    let requestCount = 0;
+    const ttlMs = 200;
+
+    // Creates a stream that sends data every 30ms via setInterval and never closes.
+    // The cancel callback cleans up the interval so reader.cancel() resolves.
+    const createOpenEndedStream = () => {
+      let intervalId: ReturnType<typeof setInterval>;
+
+      return new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(validLogEvent)}\n\n`));
+          intervalId = setInterval(() => {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(validLogEvent)}\n\n`));
+          }, 30);
+        },
+        cancel() {
+          clearInterval(intervalId);
+        },
+      });
+    };
+
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid/tail',
+        () => {
+          requestCount += 1;
+
+          if (requestCount <= 2) {
+            return new HttpResponse(createOpenEndedStream(), {
+              status: 200,
+              headers: { 'Content-Type': 'text/event-stream' },
+            });
+          }
+
+          // 3rd request: return 404 to break the reconnect loop
+          return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
+        },
+      ),
+    );
+
+    await expect(
+      tailLogs(projectUuid, storeHash, accessToken, apiHost, 'default', ttlMs),
+    ).rejects.toThrow(
+      'Failed to open log stream: The request was rejected. Check your input — your access token may be missing a required scope, or the resource may not exist.',
+    );
+
+    // Should have connected 3 times: 2 TTL-triggered reconnects + final 404
+    expect(requestCount).toBe(3);
+
+    // Events from both successful connections should have been processed
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('hello world'));
+  });
+});
+
+describe('connection rotation', () => {
+  const tailUrl = 'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid/tail';
+  const notFoundError =
+    'Failed to open log stream: The request was rejected. Check your input — your access token may be missing a required scope, or the resource may not exist.';
+
+  const sse = (message: string, uuid: string) =>
+    encoder.encode(
+      `data: ${JSON.stringify({
+        ...validLogEvent,
+        uuid,
+        logs: [{ ...validLogEvent.logs[0], messages: [message] }],
+      })}\n\n`,
+    );
+
+  const loggedLines = () => vi.mocked(consola.log).mock.calls.map(([line]) => String(line));
+
+  test(
+    'keeps reading the current stream while the next one opens on TTL',
+    { timeout: 3000 },
+    async () => {
+      const ttlMs = 200;
+      let requestCount = 0;
+      let firstStream: ReadableStreamDefaultController<Uint8Array> | undefined;
+
+      server.use(
+        http.get(tailUrl, async () => {
+          requestCount += 1;
+
+          if (requestCount === 1) {
+            return new HttpResponse(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  firstStream = controller;
+                  controller.enqueue(sse('before rotation', 'event-1'));
+                },
+              }),
+              { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+            );
+          }
+
+          if (requestCount === 2) {
+            // Emitted on the old stream while the new one is still opening.
+            // Closing the old stream first would lose it.
+            firstStream?.enqueue(sse('during handoff', 'event-2'));
+            await new Promise((resolve) => setTimeout(resolve, 20));
+
+            return new HttpResponse(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  controller.enqueue(sse('after rotation', 'event-3'));
+                },
+              }),
+              { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+            );
+          }
+
+          return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
+        }),
+      );
+
+      await expect(
+        tailLogs(projectUuid, storeHash, accessToken, apiHost, 'short', ttlMs),
+      ).rejects.toThrow(notFoundError);
+
+      expect(loggedLines()).toEqual(['before rotation', 'during handoff', 'after rotation']);
+    },
+  );
+
+  test(
+    'switches to the next stream when the current one errors during the handoff',
+    { timeout: 3000 },
+    async () => {
+      const ttlMs = 200;
+      const unhandledRejection = vi.fn();
+      let requestCount = 0;
+      let firstStream: ReadableStreamDefaultController<Uint8Array> | undefined;
+
+      process.on('unhandledRejection', unhandledRejection);
+
+      server.use(
+        http.get(tailUrl, async () => {
+          requestCount += 1;
+
+          if (requestCount === 1) {
+            return new HttpResponse(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  firstStream = controller;
+                  controller.enqueue(sse('before rotation', 'event-1'));
+                },
+              }),
+              { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+            );
+          }
+
+          if (requestCount === 2) {
+            firstStream?.error(new Error('connection reset'));
+            await new Promise((resolve) => setTimeout(resolve, 20));
+
+            return new HttpResponse(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  controller.enqueue(sse('after rotation', 'event-2'));
+                },
+              }),
+              { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+            );
+          }
+
+          return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
+        }),
+      );
+
+      try {
+        await expect(
+          tailLogs(projectUuid, storeHash, accessToken, apiHost, 'short', ttlMs),
+        ).rejects.toThrow(notFoundError);
+        // Let a stray rejection from cancelling the errored stream surface.
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      } finally {
+        process.off('unhandledRejection', unhandledRejection);
+      }
+
+      expect(unhandledRejection).not.toHaveBeenCalled();
+      expect(loggedLines()).toEqual(['before rotation', 'after rotation']);
+    },
+  );
+
+  // Records reader cancels alongside requests, so tests can check the current
+  // stream is only closed once its replacement is settled.
+  const trackCancels = (order: string[]) => {
+    const { cancel } = ReadableStreamDefaultReader.prototype;
+
+    return vi
+      .spyOn(ReadableStreamDefaultReader.prototype, 'cancel')
+      .mockImplementation(function trackedCancel(
+        this: ReadableStreamDefaultReader,
+        reason?: unknown,
+      ) {
+        order.push('cancel');
+
+        return cancel.call(this, reason);
+      });
+  };
+
+  test(
+    'keeps reading the current stream while a failed replacement is retried',
+    { timeout: 3000 },
+    async () => {
+      const ttlMs = 200;
+      const order: string[] = [];
+      let requestCount = 0;
+      let firstStream: ReadableStreamDefaultController<Uint8Array> | undefined;
+      const cancelSpy = trackCancels(order);
+
+      server.use(
+        http.get(tailUrl, async () => {
+          requestCount += 1;
+          order.push(`request ${requestCount}`);
+
+          if (requestCount === 1) {
+            return new HttpResponse(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  firstStream = controller;
+                  controller.enqueue(sse('before rotation', 'event-1'));
+                },
+              }),
+              { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+            );
+          }
+
+          if (requestCount === 2) {
+            firstStream?.enqueue(sse('during retry', 'event-2'));
+
+            return new HttpResponse(null, { status: 503, statusText: 'Service Unavailable' });
+          }
+
+          if (requestCount === 3) {
+            firstStream?.enqueue(sse('during handoff', 'event-3'));
+            await new Promise((resolve) => setTimeout(resolve, 20));
+
+            return new HttpResponse(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  controller.enqueue(sse('after rotation', 'event-4'));
+                },
+              }),
+              { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+            );
+          }
+
+          return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
+        }),
+      );
+
+      try {
+        await expect(
+          tailLogs(projectUuid, storeHash, accessToken, apiHost, 'short', ttlMs),
+        ).rejects.toThrow(notFoundError);
+      } finally {
+        cancelSpy.mockRestore();
+      }
+
+      expect(order.slice(0, 4)).toEqual(['request 1', 'request 2', 'request 3', 'cancel']);
+      expect(consola.warn).toHaveBeenCalledWith(
+        'Log stream disconnected, reconnecting (attempt 1/5)...',
+        expect.anything(),
+      );
+      expect(loggedLines()).toEqual([
+        'before rotation',
+        'during retry',
+        'during handoff',
+        'after rotation',
+      ]);
+    },
+  );
+
+  test(
+    'closes the current stream and throws when the replacement fails fatally',
+    { timeout: 3000 },
+    async () => {
+      const ttlMs = 200;
+      const order: string[] = [];
+      let requestCount = 0;
+      const cancelSpy = trackCancels(order);
+
+      server.use(
+        http.get(tailUrl, () => {
+          requestCount += 1;
+          order.push(`request ${requestCount}`);
+
+          if (requestCount === 1) {
+            return new HttpResponse(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  controller.enqueue(sse('before rotation', 'event-1'));
+                },
+              }),
+              { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+            );
+          }
+
+          return new HttpResponse(null, { status: 401, statusText: 'Unauthorized' });
+        }),
+      );
+
+      try {
+        await expect(
+          tailLogs(projectUuid, storeHash, accessToken, apiHost, 'short', ttlMs),
+        ).rejects.toThrow('catalyst auth login');
+      } finally {
+        cancelSpy.mockRestore();
+      }
+
+      expect(order).toEqual(['request 1', 'request 2', 'cancel']);
+      expect(loggedLines()).toEqual(['before rotation']);
+    },
+  );
+
+  test(
+    'keeps reading a quiet stream while the next one opens on TTL',
+    { timeout: 3000 },
+    async () => {
+      const ttlMs = 200;
+      let requestCount = 0;
+      let firstStream: ReadableStreamDefaultController<Uint8Array> | undefined;
+
+      server.use(
+        http.get(tailUrl, async () => {
+          requestCount += 1;
+
+          if (requestCount === 1) {
+            return new HttpResponse(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  firstStream = controller;
+                },
+              }),
+              { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+            );
+          }
+
+          if (requestCount === 2) {
+            firstStream?.enqueue(sse('first event', 'event-1'));
+            await new Promise((resolve) => setTimeout(resolve, 20));
+
+            return new HttpResponse(
+              new ReadableStream<Uint8Array>({
+                start(controller) {
+                  controller.enqueue(sse('after rotation', 'event-2'));
+                },
+              }),
+              { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+            );
+          }
+
+          return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
+        }),
+      );
+
+      await expect(
+        tailLogs(projectUuid, storeHash, accessToken, apiHost, 'short', ttlMs),
+      ).rejects.toThrow(notFoundError);
+
+      expect(consola.warn).toHaveBeenCalledWith('Log stream idle, reconnecting...');
+      expect(loggedLines()).toEqual(['first event', 'after rotation']);
+    },
+  );
+
+  test('prints a bounded replay only once after a busy handoff', { timeout: 3000 }, async () => {
+    const ttlMs = 200;
+    // More events than the dedupe window, then the tail worker's replay of
+    // its newest 100 on the new connection.
+    const handoffEvents = Array.from({ length: 1100 }, (_, i) => `event-${i}`);
+    const replay = handoffEvents.slice(-100);
+    let requestCount = 0;
+    let firstStream: ReadableStreamDefaultController<Uint8Array> | undefined;
+
+    server.use(
+      http.get(tailUrl, async () => {
+        requestCount += 1;
+
+        if (requestCount === 1) {
+          return new HttpResponse(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                firstStream = controller;
+                controller.enqueue(sse('before rotation', 'event-start'));
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+          );
+        }
+
+        if (requestCount === 2) {
+          handoffEvents.forEach((id) => firstStream?.enqueue(sse(id, id)));
+          await new Promise((resolve) => setTimeout(resolve, 20));
+
+          return new HttpResponse(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                replay.forEach((id) => controller.enqueue(sse(id, id)));
+                controller.enqueue(sse('after rotation', 'event-end'));
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+          );
+        }
+
+        return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
+      }),
+    );
+
+    await expect(
+      tailLogs(projectUuid, storeHash, accessToken, apiHost, 'short', ttlMs),
+    ).rejects.toThrow(notFoundError);
+
+    expect(loggedLines()).toEqual(['before rotation', ...handoffEvents, 'after rotation']);
+  });
+
+  test('prints events replayed on reconnect only once', async () => {
+    let requestCount = 0;
+
+    server.use(
+      http.get(tailUrl, () => {
+        requestCount += 1;
+
+        const chunks =
+          requestCount === 1
+            ? [sse('first', 'event-1'), sse('second', 'event-2')]
+            : // The tail worker replays its recent events to a new connection.
+              [sse('first', 'event-1'), sse('second', 'event-2'), sse('third', 'event-3')];
+
+        if (requestCount > 2) {
+          return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
+        }
+
+        return new HttpResponse(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              chunks.forEach((chunk) => controller.enqueue(chunk));
+              setTimeout(() => controller.close(), 10);
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+        );
+      }),
+    );
+
+    await expect(tailLogs(projectUuid, storeHash, accessToken, apiHost, 'short')).rejects.toThrow(
+      notFoundError,
+    );
+
+    expect(loggedLines()).toEqual(['first', 'second', 'third']);
+  });
+
+  test('prints replayed events only once in json format', async () => {
+    const event = `data: ${JSON.stringify(validLogEvent)}\n\n`;
+
+    await callTailLogs('json', [event, event]);
+
+    expect(stdoutWriteMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('credential resolution', () => {
+  test('falls back to project.json for storeHash and accessToken', async () => {
+    config.set('storeHash', storeHash);
+    config.set('accessToken', accessToken);
+
+    server.use(createOneShotLogHandler([`data: ${JSON.stringify(validLogEvent)}\n\n`]));
+
+    await program.parseAsync(['node', 'catalyst', 'logs', 'tail', '--project-uuid', projectUuid]);
+
+    expect(consola.info).toHaveBeenCalledWith('Tailing logs...');
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('hello world'));
+  });
+
+  test('exits with error when no credentials are provided', async () => {
+    const savedStoreHash = process.env.CATALYST_STORE_HASH;
+    const savedAccessToken = process.env.CATALYST_ACCESS_TOKEN;
+
+    delete process.env.CATALYST_STORE_HASH;
+    delete process.env.CATALYST_ACCESS_TOKEN;
+
+    await program.parseAsync(['node', 'catalyst', 'logs', 'tail', '--project-uuid', projectUuid]);
+
+    if (savedStoreHash !== undefined) process.env.CATALYST_STORE_HASH = savedStoreHash;
+    if (savedAccessToken !== undefined) process.env.CATALYST_ACCESS_TOKEN = savedAccessToken;
+
+    expect(consola.error).toHaveBeenCalledWith('Missing credentials.');
+    expect(consola.info).toHaveBeenCalledWith(
+      'Run `catalyst auth login`, or provide --store-hash and --access-token flags (or set CATALYST_STORE_HASH and CATALYST_ACCESS_TOKEN environment variables).',
+    );
+    expect(exitMock).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('query subcommand', () => {
+  const start = '2026-06-01T00:00:00Z';
+  const end = '2026-06-02T00:00:00Z';
+
+  beforeEach(() => {
+    // The vitest process itself runs under pnpm, which would leak a
+    // `pnpm catalyst` prefix into the pagination hints. Tests assert the bare
+    // binary unless they stub a specific package-manager user agent.
+    vi.stubEnv('npm_config_user_agent', '');
+  });
+
+  const queryArgs = (extra: string[] = []) => [
+    'node',
+    'catalyst',
+    'logs',
+    'query',
+    '--store-hash',
+    storeHash,
+    '--access-token',
+    accessToken,
+    '--project-uuid',
+    projectUuid,
+    '--start',
+    start,
+    '--end',
+    end,
+    ...extra,
+  ];
+
+  test('prints formatted log lines and a count footer', async () => {
+    await program.parseAsync(queryArgs());
+
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('/cart'));
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('[TypeError]'));
+    expect(consola.info).toHaveBeenCalledWith('1 entry shown (oldest first, times in UTC).');
+    expect(consola.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('More results available'),
+    );
+  });
+
+  test('prints entries oldest-first', async () => {
+    server.use(
+      http.get('https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid', () =>
+        HttpResponse.json({
+          data: [
+            { id: '2', timestamp: '2026-06-01T13:00:00Z', level: 'info', messages: ['newer'] },
+            { id: '1', timestamp: '2026-06-01T12:00:00Z', level: 'info', messages: ['older'] },
+          ],
+          meta: {
+            cursor_pagination: {
+              has_next_page: false,
+              has_prev_page: false,
+              start_cursor: '2',
+              end_cursor: '1',
+            },
+          },
+        }),
+      ),
+    );
+
+    await program.parseAsync(queryArgs());
+
+    const logged = vi.mocked(consola.log).mock.calls.map(([line]) => String(line));
+    const olderIndex = logged.findIndex((line) => line.includes('older'));
+    const newerIndex = logged.findIndex((line) => line.includes('newer'));
+
+    expect(olderIndex).toBeGreaterThanOrEqual(0);
+    expect(olderIndex).toBeLessThan(newerIndex);
+  });
+
+  test('--since queries a relative window ending now', async () => {
+    let captured: URLSearchParams | undefined;
+
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid',
+        ({ request }) => {
+          captured = new URL(request.url).searchParams;
+
+          return HttpResponse.json({
+            data: [],
+            meta: {
+              cursor_pagination: {
+                has_next_page: false,
+                has_prev_page: false,
+                start_cursor: null,
+                end_cursor: null,
+              },
+            },
+          });
+        },
+      ),
+    );
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'logs',
+      'query',
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--project-uuid',
+      projectUuid,
+      '--since',
+      '1h',
+    ]);
+
+    const sentStart = Date.parse(captured?.get('start') ?? '');
+    const sentEnd = Date.parse(captured?.get('end') ?? '');
+
+    expect(sentEnd - sentStart).toBe(60 * 60 * 1000);
+    expect(Math.abs(Date.now() - sentEnd)).toBeLessThan(60 * 1000);
+  });
+
+  test('reads project UUID from project.json when --project-uuid is omitted', async () => {
+    config.set('projectUuid', projectUuid);
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'logs',
+      'query',
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--start',
+      start,
+      '--end',
+      end,
+    ]);
+
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('/cart'));
+  });
+
+  test('outputs one raw JSON entry per line with --format json', async () => {
+    await program.parseAsync(queryArgs(['--format', 'json']));
+
+    // NDJSON to stdout, no footer chrome; pagination meta arrives as a final
+    // JSON line so scripts can page without re-running interactively.
+    expect(stdoutWriteMock).toHaveBeenCalledWith(expect.stringContaining('"is_exception":true'));
+    expect(stdoutWriteMock).toHaveBeenLastCalledWith(
+      `${JSON.stringify({
+        meta: {
+          cursor_pagination: {
+            has_next_page: false,
+            has_prev_page: false,
+            start_cursor: 'cursor_start',
+            end_cursor: 'cursor_end',
+          },
+        },
+      })}\n`,
+    );
+    expect(consola.info).not.toHaveBeenCalledWith(expect.stringContaining('entry shown'));
+  });
+
+  test('omits the trailing meta line with --format json when the backend omits meta', async () => {
+    server.use(
+      http.get('https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid', () =>
+        HttpResponse.json({
+          data: [{ id: '9', timestamp: '2026-06-01T12:00:00Z', level: 'info', messages: ['hi'] }],
+        }),
+      ),
+    );
+
+    await program.parseAsync(queryArgs(['--format', 'json']));
+
+    expect(stdoutWriteMock).not.toHaveBeenCalledWith(expect.stringContaining('cursor_pagination'));
+  });
+
+  test('includes request details with --format request', async () => {
+    await program.parseAsync(queryArgs(['--format', 'request']));
+
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('GET /cart (500)'));
+  });
+
+  const captureQueryParams = () => {
+    const captured: { params?: URLSearchParams } = {};
+
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid',
+        ({ request }) => {
+          captured.params = new URL(request.url).searchParams;
+
+          return HttpResponse.json({ data: [] });
+        },
+      ),
+    );
+
+    return captured;
+  };
+
+  test.each(['default', 'short'] as const)(
+    'requests only log entries from the API with the %s format',
+    async (format) => {
+      const captured = captureQueryParams();
+
+      await program.parseAsync(queryArgs(['--format', format]));
+
+      expect(captured.params?.get('entry_type')).toBe('log');
+    },
+  );
+
+  test.each(['request', 'json', 'pretty'] as const)(
+    'does not filter by entry_type with the %s format',
+    async (format) => {
+      const captured = captureQueryParams();
+
+      await program.parseAsync(queryArgs(['--format', format]));
+
+      expect(captured.params?.get('entry_type')).toBeNull();
+    },
+  );
+
+  // Rows an older API would return: no entry_type field, and the request
+  // row's message is exactly "<method> <url>".
+  const oldApiRequestRow = {
+    id: 'r1',
+    timestamp: '2026-06-01T12:00:00Z',
+    level: 'info',
+    messages: ['GET https://store.example/foo'],
+    request: { method: 'GET', url: 'https://store.example/foo', status_code: 200 },
+  };
+  const oldApiAppRow = {
+    id: 'a1',
+    timestamp: '2026-06-01T12:00:01Z',
+    level: 'info',
+    messages: ['checkout started'],
+    request: { method: 'GET', url: 'https://store.example/foo', status_code: 200 },
+  };
+
+  test('hides heuristic-matched request rows client-side against an older API', async () => {
+    server.use(
+      http.get('https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid', () =>
+        HttpResponse.json({ data: [oldApiAppRow, oldApiRequestRow] }),
+      ),
+    );
+
+    await program.parseAsync(queryArgs());
+
+    expect(consola.log).toHaveBeenCalledWith(expect.stringContaining('checkout started'));
+    expect(consola.log).not.toHaveBeenCalledWith(
+      expect.stringContaining('GET https://store.example/foo'),
+    );
+    expect(consola.info).toHaveBeenCalledWith(
+      '1 entry shown, 1 request row hidden (oldest first, times in UTC). Use --format request to see request rows.',
+    );
+  });
+
+  test('reports when no entries are found', async () => {
+    server.use(
+      http.get('https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid', () =>
+        HttpResponse.json({
+          data: [],
+          meta: {
+            cursor_pagination: {
+              has_next_page: false,
+              has_prev_page: false,
+              start_cursor: null,
+              end_cursor: null,
+            },
+          },
+        }),
+      ),
+    );
+
+    await program.parseAsync(queryArgs());
+
+    expect(consola.info).toHaveBeenCalledWith(
+      'No log entries found for the given window and filters.',
+    );
+  });
+
+  test('forwards filters as query params', async () => {
+    let captured: URLSearchParams | undefined;
+
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid',
+        ({ request }) => {
+          captured = new URL(request.url).searchParams;
+
+          return HttpResponse.json({
+            data: [],
+            meta: {
+              cursor_pagination: {
+                has_next_page: false,
+                has_prev_page: false,
+                start_cursor: null,
+                end_cursor: null,
+              },
+            },
+          });
+        },
+      ),
+    );
+
+    await program.parseAsync(
+      queryArgs([
+        '--method',
+        'GET',
+        '--status-code',
+        '500',
+        '--url-like',
+        '/cart',
+        '--level-min',
+        'warn',
+      ]),
+    );
+
+    expect(captured?.get('method')).toBe('GET');
+    expect(captured?.get('status_code')).toBe('500');
+    expect(captured?.get('url:like')).toBe('/cart');
+    expect(captured?.get('level:min')).toBe('warn');
+    expect(captured?.get('limit')).toBeNull();
+    expect(captured?.get('after')).toBeNull();
+    expect(captured?.get('before')).toBeNull();
+  });
+
+  test('forwards --limit and --after as query params', async () => {
+    let captured: URLSearchParams | undefined;
+
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid',
+        ({ request }) => {
+          captured = new URL(request.url).searchParams;
+
+          return HttpResponse.json({ data: [] });
+        },
+      ),
+    );
+
+    await program.parseAsync(queryArgs(['--limit', '25', '--after', 'cursor_end']));
+
+    expect(captured?.get('limit')).toBe('25');
+    expect(captured?.get('after')).toBe('cursor_end');
+  });
+
+  test('forwards --before as a query param', async () => {
+    let captured: URLSearchParams | undefined;
+
+    server.use(
+      http.get(
+        'https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid',
+        ({ request }) => {
+          captured = new URL(request.url).searchParams;
+
+          return HttpResponse.json({ data: [] });
+        },
+      ),
+    );
+
+    await program.parseAsync(queryArgs(['--before', 'cursor_start']));
+
+    expect(captured?.get('before')).toBe('cursor_start');
+    expect(captured?.get('after')).toBeNull();
+  });
+
+  test('prints a runnable next-page hint when more entries are available', async () => {
+    server.use(
+      http.get('https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid', () =>
+        HttpResponse.json({
+          data: [{ id: '9', timestamp: '2026-06-01T12:00:00Z', level: 'info', messages: ['hi'] }],
+          meta: {
+            cursor_pagination: {
+              start_cursor: '9',
+              end_cursor: '9',
+              links: {
+                next: '?start=2026-06-01T00%3A00%3A00Z&end=2026-06-01T01%3A00%3A00Z&after=9',
+              },
+            },
+          },
+        }),
+      ),
+    );
+
+    await program.parseAsync(queryArgs(['--level-min', 'info', '--limit', '1']));
+
+    const hint = vi
+      .mocked(consola.info)
+      .mock.calls.map(([line]) => String(line))
+      .find((line) => line.includes('More results available'));
+
+    expect(hint).toBeDefined();
+    expect(hint).toMatch(/^More results available\. Next page:\n {2}catalyst logs query /);
+    // The window is pinned to the resolved absolute timestamps.
+    expect(hint).toContain(`--start ${start}`);
+    expect(hint).toContain(`--end ${end}`);
+    expect(hint).toContain('--level-min info');
+    expect(hint).toContain('--limit 1');
+    expect(hint).toContain('--after 9');
+  });
+
+  test('prints a runnable previous-page hint when newer entries are available', async () => {
+    server.use(
+      http.get('https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid', () =>
+        HttpResponse.json({
+          data: [{ id: '5', timestamp: '2026-06-01T11:00:00Z', level: 'info', messages: ['hi'] }],
+          meta: {
+            cursor_pagination: {
+              start_cursor: '5',
+              end_cursor: '5',
+              links: {
+                previous: '?start=2026-06-01T00%3A00%3A00Z&end=2026-06-02T00%3A00%3A00Z&before=5',
+              },
+            },
+          },
+        }),
+      ),
+    );
+
+    await program.parseAsync(queryArgs(['--limit', '1', '--after', '9']));
+
+    const hint = vi
+      .mocked(consola.info)
+      .mock.calls.map(([line]) => String(line))
+      .find((line) => line.includes('Newer results available'));
+
+    expect(hint).toBeDefined();
+    expect(hint).toMatch(/^Newer results available\. Previous page:\n {2}catalyst logs query /);
+    expect(hint).toContain(`--start ${start}`);
+    expect(hint).toContain(`--end ${end}`);
+    expect(hint).toContain('--limit 1');
+    // The hint swaps the consumed --after cursor for the new page's --before.
+    expect(hint).toContain('--before 5');
+    expect(hint).not.toContain('--after');
+  });
+
+  test('prefixes pagination hints with the invoking package manager', async () => {
+    vi.stubEnv('npm_config_user_agent', 'pnpm/10.0.0 npm/? node/v24.14.0 darwin arm64');
+
+    server.use(
+      http.get('https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid', () =>
+        HttpResponse.json({
+          data: [{ id: '9', timestamp: '2026-06-01T12:00:00Z', level: 'info', messages: ['hi'] }],
+          meta: {
+            cursor_pagination: {
+              start_cursor: '9',
+              end_cursor: '9',
+              links: { next: '?after=9' },
+            },
+          },
+        }),
+      ),
+    );
+
+    await program.parseAsync(queryArgs(['--limit', '1']));
+
+    expect(consola.info).toHaveBeenCalledWith(
+      expect.stringContaining('\n  pnpm catalyst logs query '),
+    );
+  });
+
+  test('uses npx in pagination hints when invoked via npm', async () => {
+    vi.stubEnv('npm_config_user_agent', 'npm/10.9.2 node/v24.14.0 darwin arm64 workspaces/false');
+
+    server.use(
+      http.get('https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid', () =>
+        HttpResponse.json({
+          data: [{ id: '9', timestamp: '2026-06-01T12:00:00Z', level: 'info', messages: ['hi'] }],
+          meta: {
+            cursor_pagination: {
+              start_cursor: '9',
+              end_cursor: '9',
+              links: { next: '?after=9' },
+            },
+          },
+        }),
+      ),
+    );
+
+    await program.parseAsync(queryArgs(['--limit', '1']));
+
+    expect(consola.info).toHaveBeenCalledWith(
+      expect.stringContaining('\n  npx catalyst logs query '),
+    );
+  });
+
+  test('prints no hint when the backend omits pagination meta', async () => {
+    server.use(
+      http.get('https://:apiHost/stores/:storeHash/v3/infrastructure/logs/:projectUuid', () =>
+        HttpResponse.json({
+          data: [{ id: '9', timestamp: '2026-06-01T12:00:00Z', level: 'info', messages: ['hi'] }],
+        }),
+      ),
+    );
+
+    await program.parseAsync(queryArgs());
+
+    expect(consola.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('More results available'),
+    );
+  });
+
+  test('rejects --after combined with --before', async () => {
+    await program.parseAsync(queryArgs(['--after', 'a', '--before', 'b'])).catch(() => {
+      // commander throws in test mode; the assertion below covers the outcome
+    });
+
+    expect(exitMock).toHaveBeenCalledWith(1);
+  });
+
+  test('rejects an out-of-range --limit', async () => {
+    await program.parseAsync(queryArgs(['--limit', '501'])).catch(() => {
+      // commander throws in test mode; the assertion below covers the outcome
+    });
+
+    expect(exitMock).toHaveBeenCalledWith(1);
+  });
+
+  test('exits with error when no project UUID can be resolved', async () => {
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'logs',
+      'query',
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--start',
+      start,
+      '--end',
+      end,
+    ]);
+
+    expect(consola.error).toHaveBeenCalledWith(expect.stringContaining('Project UUID is required'));
+    expect(exitMock).toHaveBeenCalledWith(1);
+  });
+
+  test('exits with an error on an invalid time window', async () => {
+    await program.parseAsync(queryArgs(['--end', '2026-05-01T00:00:00Z']));
+
+    expect(consola.error).toHaveBeenCalledWith(
+      expect.stringContaining('--start must be before or equal to --end'),
+    );
+    expect(exitMock).toHaveBeenCalledWith(1);
+  });
+
+  test('exits with missing credentials error when none are provided', async () => {
+    const savedStoreHash = process.env.CATALYST_STORE_HASH;
+    const savedAccessToken = process.env.CATALYST_ACCESS_TOKEN;
+
+    delete process.env.CATALYST_STORE_HASH;
+    delete process.env.CATALYST_ACCESS_TOKEN;
+
+    await program.parseAsync(['node', 'catalyst', 'logs', 'query', '--start', start, '--end', end]);
+
+    if (savedStoreHash !== undefined) process.env.CATALYST_STORE_HASH = savedStoreHash;
+    if (savedAccessToken !== undefined) process.env.CATALYST_ACCESS_TOKEN = savedAccessToken;
+
+    expect(consola.error).toHaveBeenCalledWith('Missing credentials.');
+    expect(exitMock).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('program integration', () => {
+  test('logs tail is the default subcommand', async () => {
+    server.use(createOneShotLogHandler([`data: ${JSON.stringify(validLogEvent)}\n\n`]));
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'logs',
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--project-uuid',
+      projectUuid,
+    ]);
+
+    expect(consola.info).toHaveBeenCalledWith('Tailing logs...');
+    expect(exitMock).toHaveBeenCalledWith(1);
+  });
+
+  test('logs tail with --format json', async () => {
+    server.use(createOneShotLogHandler([`data: ${JSON.stringify(validLogEvent)}\n\n`]));
+
+    await program.parseAsync([
+      'node',
+      'catalyst',
+      'logs',
+      'tail',
+      '--store-hash',
+      storeHash,
+      '--access-token',
+      accessToken,
+      '--project-uuid',
+      projectUuid,
+      '--format',
+      'json',
+    ]);
+
+    expect(consola.info).toHaveBeenCalledWith('Tailing logs...');
+    expect(stdoutWriteMock).toHaveBeenCalled();
+  });
+});

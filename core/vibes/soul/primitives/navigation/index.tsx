@@ -114,13 +114,14 @@ interface Props<S extends SearchResult> {
   portalDashboardUrl?: string;
   cartHref: string;
   links: Streamable<Link[]>;
-  categoryLinks: Link[];
+  // GI: category menu links (set by the Makeswift header)
+  categoryLinks?: Link[];
   linksPosition?: 'center' | 'left' | 'right';
   locales?: Locale[];
   phoneNumber?: string;
   activeLocaleId?: string;
   currencies?: Currency[];
-  activeCurrencyId?: string;
+  activeCurrencyId?: Streamable<string | undefined>;
   currencyAction?: CurrencyAction;
   logo?: Streamable<string | { src: string; alt: string } | null>;
   logoWidth?: number;
@@ -140,6 +141,14 @@ interface Props<S extends SearchResult> {
   openSearchPopupLabel?: string;
   searchLabel?: string;
   mobileMenuTriggerLabel?: string;
+  // Passed by the upstream (1.13) header; our navigation doesn't use them (single locale,
+  // single currency, no gift certificate icon).
+  localeAction?: (locale: string) => Promise<void> | void;
+  searchSubmitLabel?: string;
+  switchCurrencyLabel?: string;
+  giftCertificatesLabel?: string;
+  giftCertificatesHref?: string;
+  giftCertificatesEnabled?: Streamable<boolean>;
 }
 
 const MobileMenuButton = forwardRef<
@@ -288,7 +297,7 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
     cartCount: streamableCartCount,
     accountHref,
     links: streamableLinks,
-    categoryLinks,
+    categoryLinks = [],
     logo: streamableLogo,
     isLoggedIn,
     isB2B,
@@ -651,13 +660,18 @@ export const Navigation = forwardRef(function Navigation<S extends SearchResult>
             ) : null}
             {/* Currency Dropdown */}
             {currencies && currencies.length > 1 && currencyAction ? (
-              <CurrencyForm
-                action={currencyAction}
-                activeCurrencyId={activeCurrencyId}
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-                currencies={currencies as [Currency, ...Currency[]]}
-              />
+              <Stream fallback={null} value={activeCurrencyId}>
+                {(currencyId) => (
+                  <CurrencyForm
+                    action={currencyAction}
+                    activeCurrencyId={currencyId}
+                    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+                    currencies={currencies as [Currency, ...Currency[]]}
+                  />
+                )}
+              </Stream>
             ) : null}
+
           </div>
           <Link
             href={`tel:${phoneNumber}`}

@@ -1,6 +1,6 @@
 'use server';
 
-import { unstable_expireTag } from 'next/cache';
+import { revalidateTag } from 'next/cache';
 import { getTranslations } from 'next-intl/server';
 
 import { getSessionCustomerAccessToken } from '~/auth';
@@ -66,7 +66,7 @@ export async function removeItem({
     await clearCartId();
   }
 
-  unstable_expireTag(TAGS.cart);
+  revalidateTag(TAGS.cart, { expire: 0 });
 
   // Validate and adjust free gifts after item removal (unless skipped to avoid circular calls)
   if (!skipValidation && cart) {

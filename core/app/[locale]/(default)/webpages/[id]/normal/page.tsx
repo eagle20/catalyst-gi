@@ -1,25 +1,29 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { cache } from 'react';
 
 import { Streamable } from '@/vibes/soul/lib/streamable';
 import { Breadcrumb } from '@/vibes/soul/sections/breadcrumbs';
+import { getSessionCustomerAccessToken } from '~/auth';
 import {
   breadcrumbsTransformer,
   truncateBreadcrumbs,
 } from '~/data-transformers/breadcrumbs-transformer';
-import { DEFAULT_SITE_NAME } from '~/lib/seo';
+import { rewriteWysiwygContentUrls } from '~/data-transformers/html-content-transformer';
+import { getMakeswiftPageMetadata } from '~/lib/makeswift';
+import { buildPageUrl, DEFAULT_SITE_NAME } from '~/lib/seo';
 
 import { WebPageContent, WebPage as WebPageData } from '../_components/web-page';
 
 import { getWebpageData } from './page-data';
 
 interface Props {
-  params: Promise<{ id: string }>;
+  params: Promise<{ locale: string; id: string }>;
 }
 
-const getWebPage = cache(async (id: string): Promise<WebPageData> => {
-  const data = await getWebpageData({ id: decodeURIComponent(id) });
+const getWebPage = cache(async (id: string, customerAccessToken?: string): Promise<WebPageData> => {
+  const data = await getWebpageData({ id: decodeURIComponent(id) }, customerAccessToken);
   const webpage = data.node?.__typename === 'NormalPage' ? data.node : null;
 
   if (!webpage) {
@@ -30,18 +34,24 @@ const getWebPage = cache(async (id: string): Promise<WebPageData> => {
 
   return {
     title: webpage.name,
+    path: webpage.path,
     breadcrumbs,
-    content: webpage.htmlBody,
+    content: rewriteWysiwygContentUrls(webpage.htmlBody),
     seo: webpage.seo,
   };
 });
 
-async function getWebPageBreadcrumbs(id: string): Promise<Breadcrumb[]> {
-  const webpage = await getWebPage(id);
-  const [, ...rest] = webpage.breadcrumbs.reverse();
+async function getWebPageBreadcrumbs(
+  id: string,
+  customerAccessToken?: string,
+): Promise<Breadcrumb[]> {
+  const t = await getTranslations('WebPages.Normal');
+
+  const webpage = await getWebPage(id, customerAccessToken);
+  const [, ...rest] = [...webpage.breadcrumbs].reverse();
   const breadcrumbs = [
     {
-      label: 'Home',
+      label: t('home'),
       href: '/',
     },
     ...rest.reverse(),
@@ -55,26 +65,36 @@ async function getWebPageBreadcrumbs(id: string): Promise<Breadcrumb[]> {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
-  const webpage = await getWebPage(id);
+  const { id, locale } = await params;
+  const customerAccessToken = await getSessionCustomerAccessToken();
+  const webpage = await getWebPage(id, customerAccessToken);
+  const makeswiftMetadata = await getMakeswiftPageMetadata({ path: webpage.path, locale });
   const { pageTitle, metaDescription, metaKeywords } = webpage.seo;
 
+  // Get the path from the last breadcrumb
+  const pagePath = webpage.breadcrumbs[webpage.breadcrumbs.length - 1]?.href;
+
+  // GI: SEO-length title/description fallbacks and our Open Graph tags.
   const title =
-    pageTitle && pageTitle.length >= 10 && pageTitle.length <= 60
+    makeswiftMetadata?.title ||
+    (pageTitle && pageTitle.length >= 10 && pageTitle.length <= 60
       ? pageTitle
-      : `${webpage.title} | Information & Details`;
+      : `${webpage.title} | Information & Details`);
   const description =
-    metaDescription && metaDescription.length <= 160
+    makeswiftMetadata?.description ||
+    (metaDescription && metaDescription.length <= 160
       ? metaDescription
-      : `${webpage.title} - Learn more about this page.`;
+      : `${webpage.title} - Learn more about this page.`);
   const siteName = process.env.NEXT_PUBLIC_STORE_NAME || DEFAULT_SITE_NAME;
   const pageUrl = process.env.NEXT_PUBLIC_SITE_URL
     ? `${process.env.NEXT_PUBLIC_SITE_URL}/webpages/${webpage.title}`
     : `https://gitool.com/webpages/${webpage.title}`;
+
   return {
     title,
     description,
-    keywords: metaKeywords ? metaKeywords.split(',') : null,
+    ...(metaKeywords && { keywords: metaKeywords.split(',') }),
+    ...(pagePath && { alternates: { canonical: buildPageUrl(pagePath) } }),
     openGraph: {
       title,
       description,
@@ -91,11 +111,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function WebPage({ params }: Props) {
-  const { id } = await params;
+  const { locale, id } = await params;
+  const customerAccessToken = await getSessionCustomerAccessToken();
+
+  setRequestLocale(locale);
 
   return (
     <>
-      {/* Schema.org WebPage structured data for SEO */}
+      {/* GI: Schema.org WebPage structured data for SEO */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -111,8 +134,8 @@ export default async function WebPage({ params }: Props) {
         }}
       />
       <WebPageContent
-        breadcrumbs={Streamable.from(() => getWebPageBreadcrumbs(id))}
-        webPage={Streamable.from(() => getWebPage(id))}
+        breadcrumbs={Streamable.from(() => getWebPageBreadcrumbs(id, customerAccessToken))}
+        webPage={Streamable.from(() => getWebPage(id, customerAccessToken))}
       />
     </>
   );

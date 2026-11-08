@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { hasLocale } from 'next-intl';
 import { z } from 'zod';
 
 import {
@@ -6,12 +7,24 @@ import {
   getFeaturedProducts,
   getNewestProducts,
 } from '~/client/queries/get-products';
+import { getLocaleRouting } from '~/i18n/locale-config';
 
 export const GET = async (
   request: NextRequest,
   { params }: { params: Promise<{ group: string }> },
 ) => {
   const { group } = await params;
+  const searchParams = request.nextUrl.searchParams;
+  const { locales, defaultLocale } = await getLocaleRouting();
+
+  const locale = searchParams.get('locale') ?? defaultLocale;
+
+  if (!hasLocale(locales, locale)) {
+    return NextResponse.json(
+      { status: 'error', error: 'Invalid locale parameter' },
+      { status: 400 },
+    );
+  }
 
   const querySchema = z.enum(['best-selling', 'featured', 'newest']);
 
@@ -28,15 +41,15 @@ export const GET = async (
 
   switch (parseResult.data) {
     case 'best-selling':
-      result = await getBestSellingProducts();
+      result = await getBestSellingProducts({ locale });
       break;
 
     case 'featured':
-      result = await getFeaturedProducts();
+      result = await getFeaturedProducts({ locale });
       break;
 
     case 'newest':
-      result = await getNewestProducts();
+      result = await getNewestProducts({ locale });
       break;
   }
 

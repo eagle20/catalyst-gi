@@ -11,6 +11,7 @@ import * as Skeleton from '@/vibes/soul/primitives/skeleton';
 
 interface ProductListProps {
   products: Streamable<Product[]>;
+  showRating?: boolean;
   compareProducts?: Streamable<Product[]>;
   className?: string;
   colorScheme?: 'light' | 'dark';
@@ -45,6 +46,7 @@ interface ProductListProps {
  */
 export function ProductList({
   products: streamableProducts,
+  showRating,
   className,
   colorScheme = 'light',
   aspectRatio = '5:6',
@@ -108,6 +110,7 @@ export function ProductList({
                     key={product.id}
                     product={product}
                     showCompare={showCompare}
+                    showRating={showRating}
                   />
                 ))}
               </div>
@@ -133,7 +136,7 @@ export function ProductListSkeleton({
 }: Pick<ProductListProps, 'className' | 'placeholderCount'>) {
   return (
     <Skeleton.Root
-      className={clsx('group-has-[[data-pending]]/product-list:animate-pulse', className)}
+      className={clsx('group-has-data-pending/product-list:animate-pulse', className)}
       pending
     >
       <div className="mx-auto grid grid-cols-1 gap-x-4 gap-y-6 @sm:grid-cols-2 @2xl:grid-cols-3 @2xl:gap-x-5 @2xl:gap-y-8 @5xl:grid-cols-4 @7xl:grid-cols-5">

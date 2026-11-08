@@ -10,6 +10,7 @@
 /test-results/
 /playwright-report/
 /playwright/.cache/
+/.tests
 
 # next.js
 /.next/
@@ -41,8 +42,23 @@ next-env.d.ts
 # generated
 client/generated
 
+# next-intl
+messages/*.d.json.ts
+
 # secrets
 .catalyst
 
 # Build config
 build-config.json
+
+# OpenNext
+.open-next
+.wrangler
+
+# Catalyst CLI config
+.bigcommerce
+
+# Deliberately NOT ignored: `bigcommerce.graphql` and `bigcommerce-graphql.d.ts`,
+# written by `npm run generate`. Commit them, so lint, typecheck and editor
+# tooling work without store credentials. See "GraphQL Schema and Types" in
+# README.md before adding them here.

@@ -2,10 +2,13 @@ import { SwitchSkeleton } from '@/vibes/soul/form/switch';
 import { Streamable } from '@/vibes/soul/lib/streamable';
 import * as Skeleton from '@/vibes/soul/primitives/skeleton';
 import { Wishlist } from '@/vibes/soul/sections/wishlist-details';
+import {
+  WishlistShareButton,
+  WishlistShareButtonSkeleton,
+} from '~/components/wishlist/share-button';
 
 import { WishlistAction, WishlistActionsMenu } from '../../_components/wishlist-actions-menu';
 
-import { WishlistShareButton, WishlistShareButtonSkeleton } from './share-button';
 import { WishlistVisibilitySwitch } from './visibility-switch';
 
 interface Props {
@@ -13,11 +16,13 @@ interface Props {
   isMobileUser: Streamable<boolean>;
   shareLabel: string;
   shareCloseLabel: string;
+  shareCopyLabel: string;
   shareModalTitle: string;
   shareSuccessMessage: string;
   shareCopiedMessage: string;
   shareDisabledTooltip: string;
   menuActions: WishlistAction[];
+  actionsTitle?: string;
 }
 
 export const WishlistActions = ({
@@ -25,11 +30,13 @@ export const WishlistActions = ({
   isMobileUser,
   shareLabel,
   shareCloseLabel,
+  shareCopyLabel,
   shareModalTitle,
   shareSuccessMessage,
   shareCopiedMessage,
   shareDisabledTooltip,
   menuActions,
+  actionsTitle,
 }: Props) => {
   const { publicUrl } = wishlist;
 
@@ -44,6 +51,7 @@ export const WishlistActions = ({
             <WishlistShareButton
               closeLabel={shareCloseLabel}
               copiedMessage={shareCopiedMessage}
+              copyLabel={shareCopyLabel}
               disabledTooltip={shareDisabledTooltip}
               isMobileUser={isMobileUser}
               isPublic={wishlist.visibility.isPublic}
@@ -54,7 +62,7 @@ export const WishlistActions = ({
               wishlistName={wishlist.name}
             />
           )}
-          <WishlistActionsMenu items={menuActions} />
+          <WishlistActionsMenu actionsTitle={actionsTitle} items={menuActions} />
         </div>
       </div>
     </div>

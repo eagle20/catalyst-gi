@@ -17,6 +17,20 @@ export const HeaderFragment = graphql(`
         }
       }
     }
+    currencies(first: 25) {
+      edges {
+        node {
+          code
+          isTransactional
+          isDefault
+        }
+      }
+    }
+  }
+`);
+
+export const HeaderLinksFragment = graphql(`
+  fragment HeaderLinksFragment on Site {
     categoryTree {
       name
       path
@@ -34,19 +48,10 @@ export const HeaderFragment = graphql(`
         }
       }
     }
-    currencies(first: 25) {
-      edges {
-        node {
-          code
-          isTransactional
-          isDefault
-        }
-      }
-    }
   }
 `);
 
-export type Currency = NonNullable<
+type Currency = NonNullable<
   NonNullable<FragmentOf<typeof HeaderFragment>>['currencies']['edges']
 >[number]['node'];
 export type CurrencyCode = Currency['code'];

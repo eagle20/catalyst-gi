@@ -50,7 +50,7 @@ function AccordionItem({
     <AccordionPrimitive.Item
       {...props}
       className={clsx(
-        'focus:outline-2 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[var(--accordion-focus,hsl(var(--primary)))] has-[:focus-visible]:ring-offset-4',
+        'has-focus-visible:ring-2 has-focus-visible:ring-(--accordion-focus,hsl(var(--primary))) has-focus-visible:ring-offset-4 focus:outline-2',
         {
           light: 'ring-offset-[var(--acordion-light-offset,hsl(var(--background)))]',
           dark: 'ring-offset-[var(--acordion-dark-offset,hsl(var(--foreground)))]',

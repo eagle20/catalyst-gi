@@ -5,7 +5,7 @@ const config = {
     './components/**/*.{ts,tsx}',
     './vibes/**/*.{ts,tsx}',
     './makeswift/**/*.{ts,tsx,js,jsx}',
-    '!./node_modules/**', // Exclude everything in node_modules to speed up builds
+    './node_modules/storefront-kit/dist/**/*.{js,mjs}',
   ],
   safelist: [
     {

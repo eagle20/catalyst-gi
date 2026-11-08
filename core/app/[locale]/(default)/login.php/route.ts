@@ -1,9 +1,9 @@
 import { getLocale } from 'next-intl/server';
 
-import { redirect } from '~/i18n/routing';
+import { redirect } from '~/i18n/navigation-server';
 
 export const GET = async () => {
   const locale = await getLocale();
 
-  redirect({ href: '/login', locale });
+  return await redirect({ href: '/login', locale });
 };

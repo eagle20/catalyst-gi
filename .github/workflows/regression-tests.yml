@@ -1,104 +1,227 @@
 name: Regression Tests
 
+# Vercel reports each deployment to GitHub; these audits only run for Vercel.
 on:
   deployment_status:
-    states: ['success']
+    states: ["success"]
 
 env:
-  PLAYWRIGHT_TEST_BASE_URL: ${{ github.event.deployment_status.target_url }}
   VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-  BIGCOMMERCE_ACCESS_TOKEN: ${{ secrets.BIGCOMMERCE_ACCESS_TOKEN }}
-  BIGCOMMERCE_STORE_HASH: ${{ secrets.BIGCOMMERCE_STORE_HASH }}
 
 jobs:
-  generate-lighthouse-audit:
-    name: Lighthouse Audit
-    timeout-minutes: 30
+  find-baseline:
+    name: Find Baseline Deployment
+    if: github.event.deployment_status.creator.login == 'vercel[bot]'
     runs-on: ubuntu-latest
-    if: ${{ contains(fromJson('["Production – catalyst-canary", "Preview – catalyst-canary"]'), github.event.deployment_status.environment) }}
+    permissions:
+      contents: read
+      deployments: read
+    outputs:
+      mode: ${{ steps.detect.outputs.mode }}
+      baseline-url: ${{ steps.detect.outputs.baseline-url }}
+      baseline-label: ${{ steps.detect.outputs.baseline-label }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Compare each deployment against the deployment of the commit it builds
+      # on, so only this change differs: the merge base for a PR, or the
+      # previous commit for a push to the base branch.
+      - name: Find baseline deployment
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENVIRONMENT: ${{ github.event.deployment.environment }}
+          SHA: ${{ github.event.deployment.sha }}
+        run: |
+          output() { echo "$1=$2" >> "$GITHUB_OUTPUT"; }
+          skip() { echo "::notice::$1"; output baseline-url ""; exit 0; }
+
+          PKG_NAME=$(node -p "require('./core/package.json').name")
+
+          case "$PKG_NAME" in
+            "@bigcommerce/catalyst-core")
+              BASE_BRANCH=canary
+              BASE_ENVIRONMENT=Production
+              LIVE_URL=https://canary.catalyst-demo.site/ ;;
+            "@bigcommerce/catalyst-makeswift")
+              BASE_BRANCH=integrations/makeswift
+              BASE_ENVIRONMENT=Preview
+              LIVE_URL=https://canary.makeswift.catalyst-demo.site/ ;;
+            *)
+              skip "No baseline configured for package $PKG_NAME. Skipping audits." ;;
+          esac
+
+          # The merge queue deploys its temporary branch before the commit lands;
+          # the base branch's own deployment of that commit runs the audits.
+          QUEUE_HEADS=$(git ls-remote --heads origin 'gh-readonly-queue/*' | cut -f1)
+
+          if [[ "$ENVIRONMENT" != "$BASE_ENVIRONMENT" ]] && grep -qx "$SHA" <<< "$QUEUE_HEADS"; then
+            skip "Merge queue build. Skipping audits; the $BASE_BRANCH deployment runs them."
+          fi
+
+          MERGE_BASE=$(git merge-base "origin/$BASE_BRANCH" "$SHA")
+
+          if [[ "$MERGE_BASE" == "$SHA" ]]; then
+            # Covers a merge queue build that finishes after its branch is gone;
+            # only compare the branch's own deployment so each commit runs once.
+            if [[ "$ENVIRONMENT" != "$BASE_ENVIRONMENT" ]]; then
+              skip "$ENVIRONMENT deployment of a $BASE_BRANCH commit. Skipping audits."
+            fi
+
+            output mode branch
+            BASELINE_SHA=$(git rev-parse "$SHA^1")
+          else
+            output mode pr
+            BASELINE_SHA=$MERGE_BASE
+          fi
+
+          BASELINE_URL=""
+          BASELINE_PKG=$(git show "$BASELINE_SHA:core/package.json" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).name')
+
+          if [[ "$BASELINE_PKG" == "$PKG_NAME" ]]; then
+            for id in $(gh api "repos/$GITHUB_REPOSITORY/deployments?sha=$BASELINE_SHA&environment=$BASE_ENVIRONMENT" \
+              --jq '.[] | select(.creator.login == "vercel[bot]") | .id'); do
+              URL=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" \
+                --jq '[.[] | select(.state == "success")][0].target_url // empty')
+
+              # Old deployments can be removed by Vercel's retention policy.
+              if [[ -n "$URL" ]] && [[ "$(curl -s -o /dev/null -w '%{http_code}' \
+                -H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS" "$URL")" == "200" ]]; then
+                BASELINE_URL=$URL
+                break
+              fi
+            done
+          fi
+
+          if [[ -n "$BASELINE_URL" ]]; then
+            output baseline-url "$BASELINE_URL"
+            output baseline-label "$BASE_BRANCH at ${BASELINE_SHA:0:9}"
+          elif [[ "$MERGE_BASE" != "$SHA" ]]; then
+            echo "::notice::No deployment found for ${BASELINE_SHA:0:9}. Comparing against $LIVE_URL instead."
+            output baseline-url "$LIVE_URL"
+            output baseline-label "live $BASE_BRANCH"
+          else
+            skip "No deployment found for the previous commit ${BASELINE_SHA:0:9}. Skipping audits."
+          fi
+
+  unlighthouse-audit:
+    name: Unlighthouse Audit ${{ matrix.target }} - ${{ matrix.device }}
+    needs: [find-baseline]
+    if: needs.find-baseline.outputs.baseline-url != ''
+    runs-on: ubuntu-latest
+    concurrency:
+      group: regression-${{ matrix.target }}-${{ github.event.deployment.sha }}-${{ matrix.device }}
+      cancel-in-progress: true
+    strategy:
+      matrix:
+        device: [desktop, mobile]
+        target: [deployment, baseline]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Pull Request Details
-        id: pr_details
+      - name: Install Dependencies
+        run: npm install @unlighthouse/cli puppeteer -g
+
+      - name: Unlighthouse audit on ${{ matrix.device }} (${{ matrix.target }})
+        env:
+          SITE_URL: ${{ matrix.target == 'baseline' && needs.find-baseline.outputs.baseline-url || github.event.deployment_status.target_url }}
+        # Extra headers go to every request the page makes, third parties
+        # included, so the bypass secret is exchanged once for Vercel's bypass
+        # cookie, which the browser only sends to this deployment.
+        # The Vercel Toolbar on preview deployments keeps the network busy, so
+        # desktop pages time out waiting to finish loading.
+        run: |
+          COOKIES=$(curl -s -o /dev/null -D - \
+            "$SITE_URL?x-vercel-protection-bypass=$VERCEL_PROTECTION_BYPASS&x-vercel-set-bypass-cookie=true" \
+            | tr -d '\r' | sed -nE 's/^set-cookie: *([^;]*).*/\1/Ip' | paste -sd ';' -)
+
+          for cookie in ${COOKIES//;/ }; do
+            echo "::add-mask::${cookie#*=}"
+          done
+
+          unlighthouse-ci --site "$SITE_URL" --${{ matrix.device }} --disable-robots-txt \
+            --extra-headers "x-vercel-skip-toolbar=1" \
+            ${COOKIES:+--cookies "$COOKIES"}
+
+      - name: Upload ${{ matrix.device }} ${{ matrix.target }} audit
+        if: failure() || success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unlighthouse-${{ matrix.target }}-${{ matrix.device }}-report
+          path: "./.unlighthouse/"
+          include-hidden-files: "true"
+
+  unlighthouse-compare:
+    name: Unlighthouse Compare & Comment
+    needs: [find-baseline, unlighthouse-audit]
+    if: needs.find-baseline.outputs.baseline-url != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Download all Unlighthouse artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: unlighthouse-*-report
+          path: /tmp/unlighthouse-artifacts
+          merge-multiple: false
+
+      - name: Compare audits
+        env:
+          BASELINE_LABEL: ${{ needs.find-baseline.outputs.baseline-label }}
+        run: |
+          EXPECTED_ROUTES=$(node -e 'import("./unlighthouse.config.ts").then((m) => console.log(JSON.stringify(m.default.urls)))')
+          node .github/scripts/compare-unlighthouse.mts \
+            --deployment-desktop /tmp/unlighthouse-artifacts/unlighthouse-deployment-desktop-report/ci-result.json \
+            --deployment-mobile  /tmp/unlighthouse-artifacts/unlighthouse-deployment-mobile-report/ci-result.json \
+            --baseline-desktop   /tmp/unlighthouse-artifacts/unlighthouse-baseline-desktop-report/ci-result.json \
+            --baseline-mobile    /tmp/unlighthouse-artifacts/unlighthouse-baseline-mobile-report/ci-result.json \
+            --output /tmp/unlighthouse-report.md \
+            --meta-output /tmp/unlighthouse-meta.json \
+            --expected-routes "$EXPECTED_ROUTES" \
+            --baseline-label "$BASELINE_LABEL"
+          cat /tmp/unlighthouse-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post PR comment
+        if: needs.find-baseline.outputs.mode == 'pr'
         uses: actions/github-script@v7
         with:
           script: |
-            const prData = require('./.github/workflows/pull-request-data.js');
-            await prData({ github, context, core });
+            const postComment = require('./.github/scripts/post-unlighthouse-pr-comment.js')
+            await postComment({
+              github,
+              context,
+              reportPath: '/tmp/unlighthouse-report.md',
+              metaPath: '/tmp/unlighthouse-meta.json',
+            })
 
-      - name: Lighthouse house audit on desktop
-        id: lighthouse_audit_desktop
-        uses: treosh/lighthouse-ci-action@v11
-        with:
-          urls: |
-            ${{ github.event.deployment_status.target_url }}
-          configPath: '.github/workflows/.lighthouserc-desktop.json'
-          temporaryPublicStorage: true
-          runs: 3
-
-      - name: Lighthouse audit on mobile
-        id: lighthouse_audit_mobile
-        uses: treosh/lighthouse-ci-action@v11
-        with:
-          urls: |
-            ${{ github.event.deployment_status.target_url }}
-          temporaryPublicStorage: true
-          runs: 3
-
-      - uses: pnpm/action-setup@v3
-      - name: Format lighthouse score on desktop
-        id: format_lighthouse_score_desktop
+      - name: Post commit comment
+        if: needs.find-baseline.outputs.mode == 'branch'
         uses: actions/github-script@v7
         with:
           script: |
-            const lighthouseCommentMaker = require('./.github/workflows/lighthouseCommentMaker.js');
+            const postComment = require('./.github/scripts/post-unlighthouse-commit-comment.js')
+            await postComment({
+              github,
+              context,
+              reportPath: '/tmp/unlighthouse-report.md',
+              metaPath: '/tmp/unlighthouse-meta.json',
+            })
 
-            const lighthouseOutputs = {
-              manifest: ${{ steps.lighthouse_audit_desktop.outputs.manifest }},
-              links: ${{ steps.lighthouse_audit_desktop.outputs.links }},
-              preset: "desktop"
-            };
-
-            const comment = lighthouseCommentMaker({ lighthouseOutputs });
-            core.setOutput("comment", comment);
-
-      - name: Format lighthouse score on mobile
-        id: format_lighthouse_score_mobile
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const lighthouseCommentMaker = require('./.github/workflows/lighthouseCommentMaker.js');
-            
-            const lighthouseOutputs = {
-              manifest: ${{ steps.lighthouse_audit_mobile.outputs.manifest }},
-              links: ${{ steps.lighthouse_audit_mobile.outputs.links }},
-              preset: "mobile"
-            };
-
-            const comment = lighthouseCommentMaker({ lighthouseOutputs });
-            core.setOutput("comment", comment);
-
-      - name: Add comment to PR
-        id: comment_to_pr
-        uses: marocchino/sticky-pull-request-comment@v2.9.0
-        if: ${{ steps.pr_details.outputs.pr }}
-        with:
-          recreate: true
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          number: ${{ steps.pr_details.outputs.pr }}
-          header: lighthouse
-          message: |
-            # ⚡️🏠 Lighthouse report
-            
-            *Lighthouse ran against ${{ github.event.deployment_status.target_url }}* 
-            
-            ## 🖥️ Desktop
-            
-            ${{ steps.format_lighthouse_score_desktop.outputs.comment }}
-            
-            ## 📱 Mobile
-            
-            ${{ steps.format_lighthouse_score_mobile.outputs.comment }}
+      - name: Fail on regressions
+        run: |
+          if [[ "$(jq -r .failed /tmp/unlighthouse-meta.json)" == "true" ]]; then
+            echo "::error::Unlighthouse found regressions or incomplete scans. See the job summary."
+            exit 1
+          fi

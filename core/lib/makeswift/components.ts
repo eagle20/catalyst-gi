@@ -1,59 +1,25 @@
-import './components/accordions/accordions.makeswift';
-import './components/button-link/button-link.makeswift';
-import './components/card-carousel/card-carousel.makeswift';
-import './components/card/card.makeswift';
-import './components/carousel/carousel.makeswift';
-import './components/customer-group-slot/customer-group-slot.makeswift';
-import './components/product-card/product-card.makeswift';
-import './components/products-carousel/products-carousel.makeswift';
-import './components/products-list/products-list.makeswift';
-import './components/section/section.makeswift';
-import './components/site-footer/site-footer.makeswift';
-import './components/site-header/site-header.makeswift';
-import './components/slideshow/slideshow.makeswift';
-import './components/sticky-sidebar/sticky-sidebar.makeswift';
+import './components/accordion/register';
+import './components/button-link/register';
+import './components/card/register';
+import './components/card-carousel/register';
+import './components/carousel/register';
+import './components/customer-group-slot/register';
+import './components/product-card/register';
 import './components/product-detail/register';
-// Custom Created MakeSwift Components
+import './components/products-carousel/register';
+import './components/products-list/register';
+import './components/section/register';
+import './components/site-footer/register';
+import './components/site-header/register';
+import './components/site-theme/register';
+import './components/slideshow/register';
+import './components/sticky-sidebar/register';
+
+// GI: custom Makeswift components
+import './components/brand-banner/brand-banner.makeswift';
+import './components/category-grid-git/category-grid-git.makeswift';
+import './components/contact-form-git/contact-form-git.makeswift';
+import './components/featured-category-git/featured-category-git.makeswift';
+import './components/featured-products-git/featured-products-git.makesiwft';
 import './components/logo-carousel/logo-carousel.makeswift';
 import './components/product-cards-git/product-cards-git.makeswift';
-import './components/category-grid-git/category-grid-git.makeswift';
-import './components/featured-products-git/featured-products-git.makesiwft';
-import './components/featured-category-git/featured-category-git.makeswift';
-import './components/contact-form-git/contact-form-git.makeswift';
-import './components/brand-banner/brand-banner.makeswift';
-
-import './components/site-theme/register';
-
-import { MakeswiftComponentType } from '@makeswift/runtime/react/builtins';
-
-import { runtime } from './runtime';
-
-// Hide some builtin Makeswift components
-
-runtime.registerComponent(() => null, {
-  type: MakeswiftComponentType.Carousel,
-  label: 'Carousel (hidden)',
-  hidden: true,
-  props: {},
-});
-
-runtime.registerComponent(() => null, {
-  type: MakeswiftComponentType.Countdown,
-  label: 'Countdown (hidden)',
-  hidden: true,
-  props: {},
-});
-
-runtime.registerComponent(() => null, {
-  type: MakeswiftComponentType.Form,
-  label: 'Form (hidden)',
-  hidden: true,
-  props: {},
-});
-
-runtime.registerComponent(() => null, {
-  type: MakeswiftComponentType.Navigation,
-  label: 'Navigation (hidden)',
-  hidden: true,
-  props: {},
-});

@@ -1,9 +1,8 @@
 // @ts-check
 
-// eslint-disable-next-line import/no-extraneous-dependencies
 require('@bigcommerce/eslint-config/patch');
 
-/** @type {import('eslint').Linter.Config} */
+/** @type {import('eslint').Linter.LegacyConfig} */
 const config = {
   root: true,
   extends: [
@@ -46,7 +45,13 @@ const config = {
           {
             name: 'next/navigation',
             importNames: ['redirect', 'permanentRedirect', 'useRouter', 'usePathname'],
-            message: 'Please import from `~/i18n/routing` instead.',
+            message:
+              'Please import `useRouter`/`usePathname` from `~/i18n/routing`, and `redirect`/`permanentRedirect` from `~/i18n/navigation-server`, so that merchant-configured locale subfolders are applied.',
+          },
+          {
+            name: '@playwright/test',
+            importNames: ['expect', 'test'],
+            message: 'Please import from `~/tests/fixtures` instead.',
           },
         ],
       },
@@ -58,11 +63,25 @@ const config = {
       },
     ],
   },
-  ignorePatterns: [
-    'client/generated/**/*.ts',
-    'playwright-report/**',
-    'test-results/**',
-    '**/google_analytics4.js',
+  overrides: [
+    {
+      files: ['**/*.spec.ts', '**/*.test.ts'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            paths: [
+              {
+                name: 'next-intl/server',
+                importNames: ['getTranslations', 'getFormatter'],
+                message:
+                  'Please import `getTranslations` from `~/tests/lib/i18n` and `getFormatter` from `~/tests/lib/formatter` instead.',
+              },
+            ],
+          },
+        ],
+      },
+    },
   ],
 };
 

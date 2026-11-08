@@ -1,6 +1,5 @@
-import type { Metadata } from 'next';
+import { Metadata } from 'next';
 
-import { locales } from '~/i18n/routing';
 import { getPageMeta, getPageSnapshot, Page as MakeswiftPage } from '~/lib/makeswift';
 import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
@@ -12,9 +11,11 @@ interface Props {
   params: Promise<Params>;
 }
 
+// GI: Next owns title/description/og/twitter tags (Makeswift's are disabled in MAKESWIFT_METADATA),
+// with the canonical from our lib/seo helpers.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  const snapshot = await getPageSnapshot('/', locale);
+  const snapshot = await getPageSnapshot({ path: '/', locale });
   const { title, description, socialImage } = snapshot ? getPageMeta(snapshot.document) : {};
 
   return {
@@ -23,6 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     ...(title && {
       title,
+      ...(description && { description }),
       openGraph: buildOpenGraph({
         title,
         description: description ?? undefined,
@@ -33,9 +35,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export function generateStaticParams(): Params[] {
-  return locales.map((locale) => ({ locale }));
-}
+// Intentionally no `generateStaticParams`: see the catch-all route for why the locale fan-out is
+// gone.
 
 export default async function Home({ params }: Props) {
   const { locale } = await params;

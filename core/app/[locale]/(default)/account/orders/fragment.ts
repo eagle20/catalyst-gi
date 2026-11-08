@@ -18,10 +18,30 @@ export const OrderItemFragment = graphql(`
       value
       currencyCode
     }
+    catalogProductWithOptionSelections {
+      prices {
+        price {
+          value
+          currencyCode
+        }
+      }
+    }
     productOptions {
       __typename
       name
       value
+    }
+  }
+`);
+
+export const OrderGiftCertificateItemFragment = graphql(`
+  fragment OrderGiftCertificateItemFragment on OrderGiftCertificateLineItem {
+    entityId
+    name
+    salePrice {
+      value
+      formattedV2
+      currencyCode
     }
   }
 `);

@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getFormatter } from 'next-intl/server';
+import { getFormatter, getTranslations, setRequestLocale } from 'next-intl/server';
 import { cache } from 'react';
 
 import { BlogPostContent, BlogPostContentBlogPost } from '@/vibes/soul/sections/blog-post-content';
 import { Breadcrumb } from '@/vibes/soul/sections/breadcrumbs';
+import { rewriteWysiwygContentUrls } from '~/data-transformers/html-content-transformer';
+import { getMakeswiftPageMetadata } from '~/lib/makeswift';
 import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
 import { getBlogPageData } from './page-data';
@@ -12,11 +14,14 @@ import { getBlogPageData } from './page-data';
 const cachedBlogPageDataVariables = cache((blogId: string) => ({ entityId: Number(blogId) }));
 
 interface Props {
-  params: Promise<{ blogId: string }>;
+  params: Promise<{
+    locale: string;
+    blogId: string;
+  }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { blogId } = await params;
+  const { blogId, locale } = await params;
 
   const variables = cachedBlogPageDataVariables(blogId);
 
@@ -27,18 +32,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return {};
   }
 
+  const makeswiftMetadata = await getMakeswiftPageMetadata({ path: blogPost.path, locale });
   const { pageTitle, metaDescription, metaKeywords } = blogPost.seo;
   const title = pageTitle || blogPost.name;
   const path = `/blog/${blogId}`;
 
   return {
-    title,
-    description: metaDescription,
-    keywords: metaKeywords ? metaKeywords.split(',') : null,
+    // GI: Makeswift SEO overrides (upstream), with our canonical and Open Graph tags.
+    title: makeswiftMetadata?.title || title,
+    ...((makeswiftMetadata?.description || metaDescription) && {
+      description: makeswiftMetadata?.description || metaDescription,
+    }),
+    ...(metaKeywords && { keywords: metaKeywords.split(',') }),
     alternates: {
       canonical: buildPageUrl(path),
     },
-    openGraph: buildOpenGraph({ title, description: metaDescription, path }),
+    openGraph: buildOpenGraph({
+      title: makeswiftMetadata?.title || title,
+      description: makeswiftMetadata?.description || metaDescription,
+      path,
+    }),
   };
 }
 
@@ -59,7 +72,7 @@ async function getBlogPost(props: Props): Promise<BlogPostContentBlogPost> {
   return {
     author: blogPost.author ?? undefined,
     title: blogPost.name,
-    content: blogPost.htmlBody,
+    content: rewriteWysiwygContentUrls(blogPost.htmlBody),
     date: format.dateTime(new Date(blogPost.publishedDate.utc)),
     image: blogPost.thumbnailImage
       ? { alt: blogPost.thumbnailImage.altText, src: blogPost.thumbnailImage.url }
@@ -74,6 +87,8 @@ async function getBlogPost(props: Props): Promise<BlogPostContentBlogPost> {
 }
 
 async function getBlogPostBreadcrumbs(props: Props): Promise<Breadcrumb[]> {
+  const t = await getTranslations('Blog');
+
   const { blogId } = await props.params;
 
   const variables = cachedBlogPageDataVariables(blogId);
@@ -87,7 +102,7 @@ async function getBlogPostBreadcrumbs(props: Props): Promise<Breadcrumb[]> {
 
   return [
     {
-      label: 'Home',
+      label: t('home'),
       href: '/',
     },
     {
@@ -101,7 +116,11 @@ async function getBlogPostBreadcrumbs(props: Props): Promise<Breadcrumb[]> {
   ];
 }
 
-export default function Blog(props: Props) {
+export default async function Blog(props: Props) {
+  const { locale } = await props.params;
+
+  setRequestLocale(locale);
+
   return (
     <BlogPostContent blogPost={getBlogPost(props)} breadcrumbs={getBlogPostBreadcrumbs(props)} />
   );

@@ -2,8 +2,10 @@
 
 import { getFormProps, getInputProps, SubmissionResult, useForm } from '@conform-to/react';
 import { parseWithZod } from '@conform-to/zod';
+import { useTranslations } from 'next-intl';
 import { startTransition, useActionState, useOptimistic } from 'react';
 import { useFormStatus } from 'react-dom';
+import { z } from 'zod';
 
 import { FieldError } from '@/vibes/soul/form/field-error';
 import { Input } from '@/vibes/soul/form/input';
@@ -20,7 +22,7 @@ export interface CouponCodeFormState {
   lastResult: SubmissionResult | null;
 }
 
-interface Props {
+export interface CouponCodeFormProps {
   action: Action<CouponCodeFormState, FormData>;
   couponCodes?: string[];
   ctaLabel?: string;
@@ -28,7 +30,6 @@ interface Props {
   label?: string;
   placeholder?: string;
   removeLabel?: string;
-  requiredErrorMessage?: string;
 }
 
 export function CouponCodeForm({
@@ -39,8 +40,9 @@ export function CouponCodeForm({
   label = 'Promo code',
   placeholder,
   removeLabel,
-  requiredErrorMessage,
-}: Props) {
+}: CouponCodeFormProps) {
+  const t = useTranslations('Cart.CheckoutSummary.CouponCode');
+  const schema = couponCodeActionFormDataSchema({ required_error: t('invalidCouponCode') });
   const [state, formAction] = useActionState(action, {
     couponCodes: couponCodes ?? [],
     lastResult: null,
@@ -49,9 +51,7 @@ export function CouponCodeForm({
   const [optimisticCouponCodes, setOptimisticCouponCodes] = useOptimistic<string[], FormData>(
     state.couponCodes,
     (prevState, formData) => {
-      const submission = parseWithZod(formData, {
-        schema: couponCodeActionFormDataSchema({ required_error: requiredErrorMessage }),
-      });
+      const submission = parseWithZod(formData, { schema });
 
       if (submission.status !== 'success') return prevState;
 
@@ -73,28 +73,22 @@ export function CouponCodeForm({
     shouldValidate: 'onBlur',
     shouldRevalidate: 'onInput',
     onValidate({ formData }) {
-      const submission = parseWithZod(formData, {
-        schema: couponCodeActionFormDataSchema({ required_error: requiredErrorMessage }),
+      // GI: don't re-apply a coupon that's already on the cart
+      return parseWithZod(formData, {
+        schema: schema.superRefine((value, ctx) => {
+          if (value.intent !== 'apply') return;
+
+          const couponCode = value.couponCode.trim().toUpperCase();
+
+          if (optimisticCouponCodes.some((code) => code.trim().toUpperCase() === couponCode)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['couponCode'],
+              message: 'This coupon code has already been applied',
+            });
+          }
+        }),
       });
-
-      // Check if coupon is already applied
-      if (submission.status === 'success' && submission.value.intent === 'apply') {
-        const couponCode = submission.value.couponCode.trim().toUpperCase();
-        const isAlreadyApplied = optimisticCouponCodes.some(
-          (code) => code.trim().toUpperCase() === couponCode
-        );
-
-        if (isAlreadyApplied) {
-          return {
-            ...submission,
-            error: {
-              couponCode: ['This coupon code has already been applied'],
-            },
-          };
-        }
-      }
-
-      return submission;
     },
     onSubmit(event, { formData }) {
       event.preventDefault();
@@ -107,10 +101,10 @@ export function CouponCodeForm({
   });
 
   return (
-    <div className="space-y-2 border-t border-contrast-100 pb-5 pt-4">
+    <div className="space-y-2 border-t border-[var(--cart-border,hsl(var(--contrast-100)))] pb-5 pt-4">
       <form {...getFormProps(form)} action={formAction} className="space-y-2">
         <label htmlFor={fields.couponCode.id}>{label}</label>
-        <div className="flex gap-1.5">
+        <div className="mt-2 flex gap-1.5">
           <Input
             {...getInputProps(fields.couponCode, {
               required: true,
@@ -143,7 +137,9 @@ export function CouponCodeForm({
           ))}
         </div>
       )}
-      {form.errors?.map((error, index) => <FieldError key={index}>{error}</FieldError>)}
+      {form.errors?.map((error, index) => (
+        <FieldError key={index}>{error}</FieldError>
+      ))}
     </div>
   );
 }

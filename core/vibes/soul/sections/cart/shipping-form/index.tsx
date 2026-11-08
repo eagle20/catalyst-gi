@@ -9,6 +9,7 @@ import {
 } from '@conform-to/react';
 import { getZodConstraint, parseWithZod } from '@conform-to/zod';
 import { clsx } from 'clsx';
+import { useTranslations } from 'next-intl';
 import { startTransition, useActionState, useEffect, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 
@@ -106,6 +107,8 @@ export function ShippingForm({
   showShippingForm = false,
   noShippingOptionsLabel = 'There are no shipping options available for your address',
 }: Props) {
+  const t = useTranslations('Cart.CheckoutSummary.Shipping');
+  const schema = shippingActionFormDataSchema({ required_error: t('countryRequired') });
   const [showForms, setShowForms] = useState(showShippingForm);
   const [showAddressForm, setShowAddressForm] = useState(!address);
 
@@ -119,7 +122,7 @@ export function ShippingForm({
 
   const [addressForm, addressFields] = useForm({
     lastResult: state.form === 'address' ? state.lastResult : null,
-    constraint: getZodConstraint(shippingActionFormDataSchema),
+    constraint: getZodConstraint(schema),
     shouldValidate: 'onBlur',
     shouldRevalidate: 'onInput',
     defaultValue: {
@@ -129,7 +132,7 @@ export function ShippingForm({
       postalCode: state.address?.postalCode,
     },
     onValidate({ formData }) {
-      return parseWithZod(formData, { schema: shippingActionFormDataSchema });
+      return parseWithZod(formData, { schema });
     },
     onSubmit(event, { formData }) {
       event.preventDefault();
@@ -143,14 +146,14 @@ export function ShippingForm({
 
   const [shippingOptionsForm, shippingOptionsFields] = useForm({
     lastResult: state.form === 'shipping' ? state.lastResult : null,
-    constraint: getZodConstraint(shippingActionFormDataSchema),
+    constraint: getZodConstraint(schema),
     shouldValidate: 'onBlur',
     shouldRevalidate: 'onInput',
     defaultValue: {
       shippingOption: state.shippingOption?.value,
     },
     onValidate({ formData }) {
-      return parseWithZod(formData, { schema: shippingActionFormDataSchema });
+      return parseWithZod(formData, { schema });
     },
     onSubmit(event, { formData }) {
       event.preventDefault();
@@ -227,7 +230,7 @@ export function ShippingForm({
   const stateControl = useInputControl(addressFields.state);
 
   return (
-    <div className="space-y-4 border-t border-contrast-100 pb-5 pt-4">
+    <div className="py-4">
       <div>
         <div className="flex justify-between">
           <span>{shippingLabel}</span>
@@ -264,7 +267,7 @@ export function ShippingForm({
         <form
           {...getFormProps(addressForm)}
           action={formAction}
-          className={clsx('space-y-5', { hidden: !showAddressForm })}
+          className={clsx('mt-4 space-y-4', { hidden: !showAddressForm })}
         >
           {Array.isArray(countries) ? (
             <Select
@@ -277,7 +280,8 @@ export function ShippingForm({
               onValueChange={countryControl.change}
               options={countries}
               placeholder=""
-              value={countryControl.value}
+              required
+              value={countryControl.value ?? ''}
             />
           ) : (
             <Input
@@ -285,6 +289,7 @@ export function ShippingForm({
               errors={addressFields.country.errors}
               key={addressFields.country.id}
               label={countryLabel}
+              required
             />
           )}
           <Input
@@ -308,7 +313,7 @@ export function ShippingForm({
                   states.find((s) => s.country === addressFields.country.value)?.states ?? []
                 }
                 placeholder=""
-                value={stateControl.value}
+                value={stateControl.value ?? ''}
               />
             ) : (
               <Input
@@ -352,7 +357,7 @@ export function ShippingForm({
           </div>
         </form>
 
-        <div className={clsx('space-y-2.5', { hidden: showAddressForm })}>
+        <div className={clsx('mt-4 space-y-2.5', { hidden: showAddressForm })}>
           {formattedAddress}
           <Button
             onClick={() => setShowAddressForm(true)}
@@ -371,7 +376,7 @@ export function ShippingForm({
           {...getFormProps(shippingOptionsForm)}
           action={formAction}
         >
-          <div className="space-y-3">
+          <div className="mt-4 space-y-3">
             <RadioGroup
               {...getInputProps(shippingOptionsFields.shippingOption, {
                 type: 'radio',
@@ -421,7 +426,7 @@ export function ShippingForm({
         </form>
 
         <div
-          className={clsx('space-y-3', {
+          className={clsx('mt-6 space-y-3', {
             hidden: state.shippingOptions === null || state.shippingOptions.length > 0,
           })}
         >

@@ -1,0 +1,177 @@
+name: Bundle Size
+# Reports the bundle size impact of a PR by comparing the current build against
+# a live build of the base branch (canary or integrations/makeswift).
+#
+# build-pr and build-baseline run in parallel, each uploading a JSON artifact.
+# compare downloads both artifacts, runs the comparison, writes the job summary,
+# and fails if the PR is over budget (commenting only in that case). The
+# `bundle-size-ok` label acknowledges an intended increase.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - core/**
+      - packages/client/**
+      - package.json
+      - pnpm-lock.yaml
+      - .github/workflows/bundle-size.yml
+      - .github/scripts/bundle-size.mts
+      - .github/scripts/post-bundle-comment.js
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+  TURBO_REMOTE_CACHE_SIGNATURE_KEY: ${{ secrets.TURBO_REMOTE_CACHE_SIGNATURE_KEY }}
+  BIGCOMMERCE_STORE_HASH: ${{ vars.BIGCOMMERCE_STORE_HASH }}
+  BIGCOMMERCE_CHANNEL_ID: ${{ vars.BIGCOMMERCE_CHANNEL_ID }}
+  BIGCOMMERCE_CLIENT_ID: ${{ secrets.BIGCOMMERCE_CLIENT_ID }}
+  BIGCOMMERCE_CLIENT_SECRET: ${{ secrets.BIGCOMMERCE_CLIENT_SECRET }}
+  BIGCOMMERCE_STOREFRONT_TOKEN: ${{ secrets.BIGCOMMERCE_STOREFRONT_TOKEN }}
+  BIGCOMMERCE_ACCESS_TOKEN: ${{ secrets.BIGCOMMERCE_ACCESS_TOKEN }}
+  MAKESWIFT_SITE_API_KEY: ${{ secrets.MAKESWIFT_SITE_API_KEY }}
+
+jobs:
+  build-pr:
+    name: Build & Measure PR Bundle
+    # Release and sync PRs move by design. Every label event re-runs (there's no
+    # label-name filter on triggers): a skipped run would replace a failed check.
+    if: >-
+      !startsWith(github.head_ref, 'changeset-release/') &&
+      !startsWith(github.head_ref, 'sync-integrations-')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pr
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: pr/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: pr/.nvmrc
+          cache: pnpm
+          cache-dependency-path: pr/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+        working-directory: pr
+
+      - run: pnpm build
+        working-directory: pr
+
+      - run: node .github/scripts/bundle-size.mts generate --output /tmp/bundle-current.json --sha ${{ github.sha }}
+        working-directory: pr
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-current
+          path: /tmp/bundle-current.json
+
+  build-baseline:
+    name: Build & Measure Baseline Bundle
+    if: >-
+      !startsWith(github.head_ref, 'changeset-release/') &&
+      !startsWith(github.head_ref, 'sync-integrations-')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pr
+
+      - name: Detect baseline branch
+        id: baseline
+        run: |
+          PKG_NAME=$(node -p "require('./pr/core/package.json').name")
+          if [ "$PKG_NAME" = "@bigcommerce/catalyst-makeswift" ]; then
+            echo "branch=integrations/makeswift" >> $GITHUB_OUTPUT
+          elif [ "$PKG_NAME" = "@bigcommerce/catalyst-b2b-makeswift" ]; then
+            echo "branch=integrations/b2b-makeswift" >> $GITHUB_OUTPUT
+          else
+            echo "branch=canary" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.baseline.outputs.branch }}
+          path: baseline
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: pr/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: pr/.nvmrc
+          cache: pnpm
+          cache-dependency-path: baseline/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+        working-directory: baseline
+
+      - run: pnpm build
+        working-directory: baseline
+
+      - name: Generate baseline bundle size
+        run: |
+          SHA=$(git -C $GITHUB_WORKSPACE/baseline rev-parse --short HEAD)
+          node .github/scripts/bundle-size.mts generate --dir $GITHUB_WORKSPACE/baseline/core/.next --output /tmp/bundle-baseline.json --sha $SHA
+        working-directory: pr
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundle-baseline
+          path: /tmp/bundle-baseline.json
+
+  compare:
+    name: Compare Bundles & Post Report
+    needs: [build-pr, build-baseline]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      # Deleting a stale comment goes through the issues API.
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pr
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: pr/.nvmrc
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bundle-*
+          path: /tmp
+          merge-multiple: true
+
+      - id: compare
+        run: node .github/scripts/bundle-size.mts compare --baseline /tmp/bundle-baseline.json --current /tmp/bundle-current.json > /tmp/bundle-report.md
+        working-directory: pr
+
+      - run: cat /tmp/bundle-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/github-script@v7
+        env:
+          OVER_BUDGET: ${{ steps.compare.outputs.over_budget }}
+        with:
+          script: |
+            const postComment = require('./pr/.github/scripts/post-bundle-comment.js')
+            await postComment({ github, context, overBudget: process.env.OVER_BUDGET === 'true' })
+
+      - name: Enforce bundle size budget
+        if: steps.compare.outputs.over_budget == 'true' && !contains(github.event.pull_request.labels.*.name, 'bundle-size-ok')
+        run: |
+          echo "::error::Bundle size is over budget. See the PR comment, or add the bundle-size-ok label if the increase is intended."
+          exit 1

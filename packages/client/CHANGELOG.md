@@ -1,5 +1,64 @@
 # Changelog
 
+## 1.0.4
+
+### Patch Changes
+
+- [#3263](https://github.com/bigcommerce/catalyst/pull/3263) [`4db7221`](https://github.com/bigcommerce/catalyst/commit/4db7221e2d2e9bbc4c2541306f7b50daabbef4b9) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Retry Storefront GraphQL queries that fail on a dropped connection or a `502`, `503`, or `504`. Previously a single upstream hiccup threw straight to the error page ("There was a server error!"). Queries are now retried up to twice, after 100ms and 300ms, including when the connection drops while the response body is being read (`TypeError: terminated`). Mutations are never retried, since they aren't idempotent, and 4xx responses, GraphQL errors, and aborted requests fail immediately as before. Each retry logs a `console.warn` naming the operation, the attempt, and the failure (for example `[BigCommerce] Retrying query GetSite after HTTP 502 (attempt 2 of 3)`), so recovered failures still show up in server logs.
+
+## 1.0.3
+
+### Patch Changes
+
+- [#3158](https://github.com/bigcommerce/catalyst/pull/3158) [`be1967c`](https://github.com/bigcommerce/catalyst/commit/be1967ce85e2e71bf2cf8e0c0837aad66e423ceb) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Surface a clearer error when `BIGCOMMERCE_STOREFRONT_TOKEN` is not a storefront JWT. Previously an incompatible token (e.g. an OAuth access token) produced a bare 401 with no explanation. The client now detects when a 401 is returned with a token that isn't a well-formed storefront JWT and throws `InvalidStorefrontTokenError` explaining that a storefront JWT is required and how to generate one.
+
+## 1.0.2
+
+### Patch Changes
+
+- [#3018](https://github.com/bigcommerce/catalyst/pull/3018) [`f4216a6`](https://github.com/bigcommerce/catalyst/commit/f4216a63839050e095e68539d7260ae03797fe9f) Thanks [@parthshahp](https://github.com/parthshahp)! - Fix `client.fetch` so that custom headers passed via `fetchOptions.headers` properly override the client's default headers. Headers are now built via a `Headers` object using `.set()`, so case-insensitive overrides work as expected.
+
+## 1.0.1
+
+### Patch Changes
+
+- [#2563](https://github.com/bigcommerce/catalyst/pull/2563) [`707ec24`](https://github.com/bigcommerce/catalyst/commit/707ec24745b6a0040551328d64657ff40df4e252) Thanks [@matthewvolk](https://github.com/matthewvolk)! - Replace usage of Date.now with performance.now for compatibility with upcoming Next.js Composable Cache feature
+
+- [#2565](https://github.com/bigcommerce/catalyst/pull/2565) [`a27054f`](https://github.com/bigcommerce/catalyst/commit/a27054f4f22013707d40a100b15122c22354c956) Thanks [@matthewvolk](https://github.com/matthewvolk)! - Truncate performance.now to 2 decimal places
+
+## 1.0.0
+
+### Major Changes
+
+- [#2435](https://github.com/bigcommerce/catalyst/pull/2435) [`cd4bd60`](https://github.com/bigcommerce/catalyst/commit/cd4bd604739b0cea4b622b08ebbde4cea953fcae) Thanks [@matthewvolk](https://github.com/matthewvolk)! - Release 1.0.0 (see [`core/CHANGELOG.md`](../../core/CHANGELOG.md#100) for more details)
+
+### Minor Changes
+
+- [#2370](https://github.com/bigcommerce/catalyst/pull/2370) [`20b8788`](https://github.com/bigcommerce/catalyst/commit/20b87882e089438c6183e83a506267e432a4f741) Thanks [@matthewvolk](https://github.com/matthewvolk)! - Remove the `xAuthToken` config parameter from `@bigcommerce/catalyst-client`. The client no longer has any dependency on a BigCommerce access token, now that we have replaced the `/v2/shipping/zones` REST API call with an appropriate GraphQL field (`site.settings.shipping.supportedShippingDestinations`).
+
+  Migration:
+  1. If you are using the version of the client published to NPM, simply ensure you are using at least `@bigcommerce/catalyst-client@0.16.0` or higher.
+  2. If you are using the client in your pnpm workspace, simply remove the `xAuthToken` references in `packages/client/src/client.ts` as well as the `fetchShippingZones` method.
+  3. Remove the reference to `xAuthToken` in `core/client/index.ts`
+
+## 0.15.0
+
+### Minor Changes
+
+- [#1914](https://github.com/bigcommerce/catalyst/pull/1914) [`f039b2c`](https://github.com/bigcommerce/catalyst/commit/f039b2c7235118626d7a727bff5271ac8982f910) Thanks [@jorgemoya](https://github.com/jorgemoya)! - GQL requests that respond as `200` but have an `errors` field will now be properly handled by the client and throw a proper `BigCommerceGQLError` response with the message reason from the API. This will provide a more detailed description of why the GQL request errored out.
+
+  API errors will still be handled and attribute the errored status as the message with this change as `BigCommerceAPIError`.
+
+- [`0aa23e2`](undefined) - Add an `onError` callback to in order to handle auth and invalid sessions.
+
+- [#2124](https://github.com/bigcommerce/catalyst/pull/2124) [`4a00a27`](https://github.com/bigcommerce/catalyst/commit/4a00a27acea733b6f3fef221b3d1472b145d25f0) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Add an `errorPolicy` option for GQL requests. Accepts `none`, `ignore`, `all`. Defaults to `none` which throws an error if there are GQL errors, `ignore` returns the data without error object, and `all` returns both data and errors.
+
+### Patch Changes
+
+- [`c830100`](undefined) - Manual changes on a dependency bumps.
+
+- [#2226](https://github.com/bigcommerce/catalyst/pull/2226) [`3b14d66`](https://github.com/bigcommerce/catalyst/commit/3b14d668d32e7ebe37e31b1851b3db8f8be46bec) Thanks [@bookernath](https://github.com/bookernath)! - Add GraphQL operation name and type to GraphQL URL as query parameters to improve server logging of GraphQL operations
+
 ## 0.14.0
 
 ### Minor Changes
