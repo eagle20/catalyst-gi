@@ -74,8 +74,21 @@ function MakeswiftFeaturedProductsGridGIT({
     productEntityThree,
     productEntityFour,
   ].map(({ entityId }) => entityId ?? '');
+  const categoryId = categoryEntity?.entityId;
 
-  if (productIds.length === 0 || categoryEntity == null || !categoryEntity.entityId) {
+  // Hooks run before any early return, so picking or clearing the category in the editor doesn't
+  // change the hook order.
+  const { products, isLoading } = useProductsByIds({
+    productIds,
+  });
+
+  const { categories, isLoading: isLoadingCategory } = useCategoriesByIds({
+    categoryIds: categoryId ? [categoryId] : [],
+  });
+
+  const category = categories?.[0];
+
+  if (productIds.length === 0 || !categoryId) {
     return (
       <div className={className}>
         <div className="my-5 py-10 text-center text-lg text-gray-500">
@@ -84,16 +97,6 @@ function MakeswiftFeaturedProductsGridGIT({
       </div>
     );
   }
-
-  const { products, isLoading } = useProductsByIds({
-    productIds,
-  });
-
-  const { categories, isLoading: isLoadingCategory } = useCategoriesByIds({
-    categoryIds: [categoryEntity.entityId],
-  });
-
-  const category = categories?.[0];
 
   if (isLoading || isLoadingCategory) {
     return <PlaceholderSkeletons className={className} aspectRatio={aspectRatio} />;

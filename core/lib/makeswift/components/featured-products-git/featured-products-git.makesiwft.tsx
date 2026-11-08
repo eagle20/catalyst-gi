@@ -60,6 +60,17 @@ function MakeswiftFeaturedProductsGridGIT({
   ...props
 }: Props) {
   const additionalProductIds = additionalProducts.map(({ entityId }) => entityId ?? '');
+  const categoryId = props.categoryItem?.entityId;
+
+  // Hooks run before any early return, so adding the first product or removing the last one in
+  // the editor doesn't change the hook order.
+  const { products, isLoading: isLoadingProducts } = useProductsByIds({
+    productIds: additionalProductIds,
+  });
+  const { categories, isLoading: isLoadingCategories } = useCategoriesByIds({
+    categoryIds: categoryId ? [categoryId] : [],
+  });
+  const category = categories && categories.length > 0 ? categories[0] : null;
 
   if (additionalProductIds.length === 0) {
     return (
@@ -69,17 +80,6 @@ function MakeswiftFeaturedProductsGridGIT({
         </div>
       </div>
     );
-  }
-
-  const { products, isLoading: isLoadingProducts } = useProductsByIds({
-    productIds: additionalProductIds,
-  });
-  let category = null;
-  const { categories, isLoading: isLoadingCategories } = useCategoriesByIds({
-    categoryIds: [props.categoryItem!.entityId!],
-  });
-  if (categories && categories.length > 0) {
-    category = categories[0];
   }
 
   if (isLoadingProducts || isLoadingCategories) {

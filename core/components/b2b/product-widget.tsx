@@ -4,7 +4,12 @@ import { useState, useEffect } from 'react';
 import { FormStatus } from '@/vibes/soul/form/form-status';
 import { NumberInput } from '@/vibes/soul/form/number-input';
 import { Button } from '@/vibes/soul/primitives/button';
-import { B2BAccessError, type B2BPricingResult, getB2BPricing } from '~/lib/b2b/api';
+import {
+  B2BAccessError,
+  type B2BPricingResult,
+  getB2BPricing,
+  NO_PORTAL_ACCESS_MESSAGE,
+} from '~/lib/b2b/api';
 import { useB2BCart } from './cart-context';
 
 interface Props {
@@ -25,14 +30,15 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, produ
   const [quantity, setQuantity] = useState(1);
   const [pricingLoading, setPricingLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [accessError, setAccessError] = useState<string | null>(null);
+  // The portal doesn't recognise this customer, so B2B pricing and the B2B cart can't work.
+  const [noPortalAccess, setNoPortalAccess] = useState(false);
 
   useEffect(() => {
     getB2BPricing(sku)
       .then(setPricing)
       .catch((err: unknown) => {
         if (err instanceof B2BAccessError) {
-          setAccessError(err.message);
+          setNoPortalAccess(true);
         }
 
         setPricing({ sku, price: null });
@@ -42,20 +48,6 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, produ
 
   if (pricingLoading) {
     return <div className="h-48 animate-pulse rounded-xl bg-contrast-100" />;
-  }
-
-  // The portal doesn't recognise this customer, so B2B pricing and the B2B cart can't work.
-  if (accessError) {
-    return (
-      <div className="rounded-lg border border-[hsl(var(--contrast-200))] bg-[hsl(var(--background))] p-6">
-        <span className="rounded-full bg-[hsl(var(--foreground))] px-3 py-1 text-xs font-semibold text-[hsl(var(--background))]">
-          B2B Account Pricing
-        </span>
-        <div className="mt-5">
-          <FormStatus type="error">{accessError}</FormStatus>
-        </div>
-      </div>
-    );
   }
 
   const contractPrice = pricing?.price ?? null;
@@ -72,7 +64,7 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, produ
       });
     } catch (err) {
       if (err instanceof B2BAccessError) {
-        setAccessError(err.message);
+        setNoPortalAccess(true);
 
         return;
       }
@@ -93,77 +85,83 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, produ
         </span>
       </div>
 
-      {/* Price display */}
-      {unitPrice != null ? (
-        <div className="mb-6">
-          <p className="font-heading text-3xl font-medium text-[hsl(var(--foreground))]">
-            ${unitPrice.toFixed(2)}
-          </p>
-          <p className="mt-1 text-sm text-[hsl(var(--contrast-400))]">
-            {isContractPrice ? 'Your contract price' : 'Standard price'} / unit
-          </p>
-        </div>
+      {noPortalAccess ? (
+        <FormStatus type="error">{NO_PORTAL_ACCESS_MESSAGE}</FormStatus>
       ) : (
-        <p className="mb-6 text-sm text-[hsl(var(--contrast-500))]">
-          Contact your account manager for pricing on this item.
-        </p>
-      )}
+        <>
+          {/* Price display */}
+          {unitPrice != null ? (
+            <div className="mb-6">
+              <p className="font-heading text-3xl font-medium text-[hsl(var(--foreground))]">
+                ${unitPrice.toFixed(2)}
+              </p>
+              <p className="mt-1 text-sm text-[hsl(var(--contrast-400))]">
+                {isContractPrice ? 'Your contract price' : 'Standard price'} / unit
+              </p>
+            </div>
+          ) : (
+            <p className="mb-6 text-sm text-[hsl(var(--contrast-500))]">
+              Contact your account manager for pricing on this item.
+            </p>
+          )}
 
-      {/* Quantity + running total */}
-      <div className="mb-5 flex flex-wrap items-center gap-4">
-        <NumberInput
-          aria-label="Quantity"
-          buttonClassName="w-full"
-          decrementLabel="Decrease quantity"
-          incrementLabel="Increase quantity"
-          min={1}
-          max={9999}
-          value={quantity}
-          onChange={(e) => setQuantity(Math.max(1, parseInt(e.currentTarget.value) || 1))}
-        />
-        {unitPrice != null && (
-          <p className="text-sm text-[hsl(var(--contrast-500))]">
-            Total:{' '}
-            <strong className="font-semibold text-[hsl(var(--foreground))]">
-              ${(unitPrice * quantity).toFixed(2)}
-            </strong>
+          {/* Quantity + running total */}
+          <div className="mb-5 flex flex-wrap items-center gap-4">
+            <NumberInput
+              aria-label="Quantity"
+              buttonClassName="w-full"
+              decrementLabel="Decrease quantity"
+              incrementLabel="Increase quantity"
+              min={1}
+              max={9999}
+              value={quantity}
+              onChange={(e) => setQuantity(Math.max(1, parseInt(e.currentTarget.value) || 1))}
+            />
+            {unitPrice != null && (
+              <p className="text-sm text-[hsl(var(--contrast-500))]">
+                Total:{' '}
+                <strong className="font-semibold text-[hsl(var(--foreground))]">
+                  ${(unitPrice * quantity).toFixed(2)}
+                </strong>
+              </p>
+            )}
+          </div>
+
+          {/* CTA */}
+          <Button
+            className="w-full"
+            disabled={cartLoading}
+            onClick={() => void handleAddToCart()}
+            shape="rounded"
+            size="medium"
+            type="button"
+            variant="secondary"
+          >
+            {cartLoading ? 'Adding…' : 'Add to B2B Cart'}
+          </Button>
+
+          {/* Feedback message */}
+          {message && (
+            <div className="mt-3">
+              <FormStatus type={message.type}>{message.text}</FormStatus>
+            </div>
+          )}
+
+          {/* Portal link */}
+          <p className="mt-5 text-xs text-[hsl(var(--contrast-400))]">
+            PO-based checkout and order history are available in your{' '}
+            <a
+              className="underline underline-offset-2 hover:text-[hsl(var(--foreground))] transition-colors"
+              href={portalUrl ?? 'https://portal.gitool.com'}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              B2B portal
+            </a>
+            .
           </p>
-        )}
-      </div>
-
-      {/* CTA */}
-      <Button
-        className="w-full"
-        disabled={cartLoading}
-        onClick={() => void handleAddToCart()}
-        shape="rounded"
-        size="medium"
-        type="button"
-        variant="secondary"
-      >
-        {cartLoading ? 'Adding…' : 'Add to B2B Cart'}
-      </Button>
-
-      {/* Feedback message */}
-      {message && (
-        <div className="mt-3">
-          <FormStatus type={message.type}>{message.text}</FormStatus>
-        </div>
+        </>
       )}
-
-      {/* Portal link */}
-      <p className="mt-5 text-xs text-[hsl(var(--contrast-400))]">
-        PO-based checkout and order history are available in your{' '}
-        <a
-          className="underline underline-offset-2 hover:text-[hsl(var(--foreground))] transition-colors"
-          href={portalUrl ?? 'https://portal.gitool.com'}
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          B2B portal
-        </a>
-        .
-      </p>
     </div>
   );
 }

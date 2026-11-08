@@ -55,6 +55,12 @@ function MakeswiftProductCardGIT({
 }: Props) {
   const additionalProductIds = additionalProducts.map(({ entityId }) => entityId ?? '');
 
+  // Hooks run before any early return, so adding the first product or removing the last one in
+  // the editor doesn't change the hook order.
+  const { products, isLoading } = useProductsByIds({
+    productIds: additionalProductIds,
+  });
+
   if (additionalProductIds.length === 0) {
     return (
       <div className={className}>
@@ -64,10 +70,6 @@ function MakeswiftProductCardGIT({
       </div>
     );
   }
-
-  const { products, isLoading } = useProductsByIds({
-    productIds: additionalProductIds,
-  });
 
   if (isLoading) {
     return (
@@ -118,9 +120,13 @@ function MakeswiftProductCardGIT({
         className,
       )}
     >
-      {products.map((product, index) => {
+      {products.map((product) => {
         const { price, salePrice } = priceToStrings(product.price);
-        const customProductSettings = additionalProducts[index] || handleCustomBadgeObject();
+        // Match the editor's per-product settings by id: BigCommerce returns products in its
+        // own order, not the order they were added in Makeswift.
+        const customProductSettings =
+          additionalProducts.find(({ entityId }) => entityId === product.id) ??
+          handleCustomBadgeObject();
 
         return (
           <ProductCard
