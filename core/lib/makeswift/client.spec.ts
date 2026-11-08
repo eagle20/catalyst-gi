@@ -58,9 +58,6 @@ const { getComponentSnapshot, getPageSnapshot } = await import('./client');
 const draftVersion = { version: 'working', token: 'preview-token' };
 const pageSnapshot = { document: { id: 'page' } };
 
-function notFoundError() {
-  return Object.assign(new Error('Not found'), { status: 404 });
-}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -81,17 +78,19 @@ describe('getPageSnapshot', () => {
     expect(mocks.cacheOptions[0]).toEqual({ tags: ['@@makeswift'], revalidate: 300 });
   });
 
-  it('keys the missing page cache by path and locale', async () => {
+  // GI: Makeswift only has English content, so every locale reads the default-locale page and
+  // shares its missing-page cache entry.
+  it('keys the missing page cache by path, with every locale reading the default locale', async () => {
     mocks.getPageSnapshot.mockResolvedValue(null);
 
     await getPageSnapshot({ path: '/a', locale: 'en' });
     await getPageSnapshot({ path: '/b', locale: 'en' });
     await getPageSnapshot({ path: '/a', locale: 'fr' });
 
-    expect(mocks.getPageSnapshot).toHaveBeenCalledTimes(3);
-    expect(mocks.getPageSnapshot).toHaveBeenLastCalledWith('/a', {
+    expect(mocks.getPageSnapshot).toHaveBeenCalledTimes(2);
+    expect(mocks.getPageSnapshot).toHaveBeenLastCalledWith('/b', {
       siteVersion: null,
-      locale: 'fr',
+      locale: undefined,
     });
   });
 
@@ -138,20 +137,20 @@ describe('getPageSnapshot', () => {
 });
 
 describe('getComponentSnapshot', () => {
-  it('caches a missing locale and goes straight to the default locale', async () => {
+  // GI: Makeswift only has English content, so a non-default locale goes straight to the default
+  // locale without probing for a localized snapshot.
+  it('requests the default locale for every locale', async () => {
     mocks.getLocale.mockResolvedValue('fr');
-    mocks.getComponentSnapshot.mockImplementation((_id: string, { locale }: { locale?: string }) =>
-      locale === 'fr' ? Promise.reject(notFoundError()) : Promise.resolve({ key: 'default' }),
-    );
+    mocks.getComponentSnapshot.mockResolvedValue({ key: 'default' });
 
     await expect(getComponentSnapshot('site-header')).resolves.toEqual({ key: 'default' });
-    await expect(getComponentSnapshot('site-header')).resolves.toEqual({ key: 'default' });
 
-    const localizedCalls = mocks.getComponentSnapshot.mock.calls.filter(
-      ([, options]) => options.locale === 'fr',
-    );
-
-    expect(localizedCalls).toHaveLength(1);
+    expect(mocks.cacheOptions).toHaveLength(0);
+    expect(mocks.getComponentSnapshot).toHaveBeenCalledTimes(1);
+    expect(mocks.getComponentSnapshot).toHaveBeenLastCalledWith('site-header', {
+      siteVersion: null,
+      locale: undefined,
+    });
   });
 
   it('does not probe the default locale', async () => {
@@ -172,16 +171,15 @@ describe('getComponentSnapshot', () => {
     expect(mocks.cacheEntries.size).toBe(0);
   });
 
-  it('falls back to the default locale on a 404 in draft mode', async () => {
+  it('requests the default locale in draft mode', async () => {
     mocks.getSiteVersion.mockResolvedValue(draftVersion);
     mocks.getLocale.mockResolvedValue('fr');
-    mocks.getComponentSnapshot
-      .mockRejectedValueOnce(notFoundError())
-      .mockResolvedValueOnce({ key: 'default' });
+    mocks.getComponentSnapshot.mockResolvedValue({ key: 'default' });
 
     await expect(getComponentSnapshot('site-header')).resolves.toEqual({ key: 'default' });
 
     expect(mocks.cacheOptions).toHaveLength(0);
+    expect(mocks.getComponentSnapshot).toHaveBeenCalledTimes(1);
     expect(mocks.getComponentSnapshot).toHaveBeenLastCalledWith('site-header', {
       siteVersion: draftVersion,
       locale: undefined,
