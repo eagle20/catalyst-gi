@@ -1,9 +1,9 @@
 name: Regression Tests
 
-# Vercel reports each deployment to GitHub; these audits only run for Vercel.
+# GI: Lighthouse audits are disabled; they expect BigCommerce's deployment setup. Run by hand only.
+# Upstream trigger was: deployment_status (states: ["success"]).
 on:
-  deployment_status:
-    states: ["success"]
+  workflow_dispatch:
 
 env:
   VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}

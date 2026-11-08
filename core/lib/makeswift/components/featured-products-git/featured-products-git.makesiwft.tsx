@@ -154,7 +154,7 @@ function MakeswiftFeaturedProductsGridGIT({
           className,
         )}
       >
-        {products.map(async (product, index) => {
+        {products.map((product, index) => {
           const { price, salePrice } = priceToStrings(product.price);
 
           return (

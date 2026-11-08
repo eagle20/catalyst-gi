@@ -100,7 +100,7 @@ function MakeswiftCategoryGridGIT({
         className,
       )}
     >
-      {categories.map(async (category) => {
+      {categories.map((category) => {
         return (
           <CategoryGridCard
             key={category.id}

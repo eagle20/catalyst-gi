@@ -118,7 +118,7 @@ function MakeswiftProductCardGIT({
         className,
       )}
     >
-      {products.map(async (product, index) => {
+      {products.map((product, index) => {
         const { price, salePrice } = priceToStrings(product.price);
         const customProductSettings = additionalProducts[index] || handleCustomBadgeObject();
 
