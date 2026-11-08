@@ -41,5 +41,7 @@ export const config = {
      * separately so the `api` exclusion above keeps applying to every other API route.
      */
     '/api/ucp/:path*',
+    // GI: BigCommerce's storefront MCP endpoint, proxied the same way.
+    '/api/mcp',
   ],
 };

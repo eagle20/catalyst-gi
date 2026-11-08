@@ -29,6 +29,10 @@ const FORWARDED_REQUEST_HEADERS = new Set([
   'ucp-agent',
   'user-agent',
   'x-api-key',
+  // GI: BigCommerce's storefront MCP endpoint (/api/mcp) keeps the cart in an MCP session.
+  'last-event-id',
+  'mcp-protocol-version',
+  'mcp-session-id',
 ]);
 
 const FORWARDED_REQUEST_HEADER_PREFIXES = ['ucp-', 'access-control-request-'];
@@ -47,6 +51,8 @@ const FORWARDED_RESPONSE_HEADERS = new Set([
   'etag',
   'last-modified',
   'location',
+  'mcp-protocol-version',
+  'mcp-session-id',
   'request-id',
   'retry-after',
   'signature',
@@ -71,7 +77,12 @@ const copyAllowedHeaders = (source: Headers, allowed: Set<string>, prefixes: str
   return headers;
 };
 
-const UCP_PATHNAMES = [/^\/\.well-known\/ucp\/?$/, /^\/api\/ucp(\/.*)?$/];
+const UCP_PATHNAMES = [
+  /^\/\.well-known\/ucp\/?$/,
+  /^\/api\/ucp(\/.*)?$/,
+  // GI: BigCommerce's storefront MCP endpoint, open to any agent (no credentials).
+  /^\/api\/mcp\/?$/,
+];
 
 export const isUcpPath = (pathname: string): boolean =>
   UCP_PATHNAMES.some((pattern) => pattern.test(pathname));

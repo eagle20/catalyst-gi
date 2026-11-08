@@ -31,12 +31,16 @@ describe('isUcpPath', () => {
     '/api/ucp/checkout_sessions',
     '/api/ucp/checkout_sessions/',
     '/api/ucp/a/b/c',
+    '/api/mcp',
+    '/api/mcp/',
   ])('matches %s', (pathname) => {
     expect(isUcpPath(pathname)).toBe(true);
   });
 
   it.each([
     '/api/ucpfoo',
+    '/api/mcpfoo',
+    '/api/mcp/tools',
     '/api/auth/session',
     '/graphql',
     '/en/product/some-shoe',
@@ -144,6 +148,9 @@ describe('buildUpstreamHeaders', () => {
     ['user-agent', 'ShoppingAgent/1.0'],
     ['x-api-key', 'key-abc'],
     ['access-control-request-method', 'POST'],
+    ['last-event-id', 'event-1'],
+    ['mcp-protocol-version', '2025-06-18'],
+    ['mcp-session-id', 'session-1'],
   ])('forwards %s', (name, value) => {
     const headers = buildUpstreamHeaders(
       storefrontRequest('/api/ucp/checkout-sessions', { [name]: value }),
@@ -285,6 +292,8 @@ describe('buildDownstreamHeaders', () => {
     ['etag', '"v1"'],
     ['last-modified', 'Wed, 21 Oct 2026 07:28:00 GMT'],
     ['location', 'https://store-abc123-1.mybigcommerce.com/api/ucp/checkout-sessions/1'],
+    ['mcp-protocol-version', '2025-06-18'],
+    ['mcp-session-id', 'session-1'],
     ['ratelimit-remaining', '9'],
     ['request-id', 'req-1'],
     ['retry-after', '60'],
