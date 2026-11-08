@@ -7,7 +7,7 @@ import { PaginationFragment } from '~/client/fragments/pagination';
 import { graphql, VariablesOf } from '~/client/graphql';
 import { TAGS } from '~/client/tags';
 
-import { OrderItemFragment } from './fragment';
+import { OrderGiftCertificateItemFragment, OrderItemFragment } from './fragment';
 
 const CustomerAllOrders = graphql(
   `
@@ -51,6 +51,21 @@ const CustomerAllOrders = graphql(
                     }
                   }
                 }
+                email {
+                  giftCertificates {
+                    edges {
+                      node {
+                        lineItems {
+                          edges {
+                            node {
+                              ...OrderGiftCertificateItemFragment
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -58,7 +73,7 @@ const CustomerAllOrders = graphql(
       }
     }
   `,
-  [OrderItemFragment, PaginationFragment],
+  [OrderItemFragment, OrderGiftCertificateItemFragment, PaginationFragment],
 );
 
 type OrdersFiltersInput = VariablesOf<typeof CustomerAllOrders>['filters'];
@@ -94,7 +109,7 @@ export const getCustomerOrders = cache(
       variables: { ...paginationArgs, ...filtersArgs },
       customerAccessToken,
       fetchOptions: { cache: 'no-store', next: { tags: [TAGS.customer] } },
-      errorPolicy: 'ignore',
+      errorPolicy: 'auth',
     });
 
     const orders = response.data.customer?.orders;
@@ -116,6 +131,21 @@ export const getCustomerOrders = cache(
                   lineItems: removeEdgesAndNodes(consignment.lineItems),
                 };
               }),
+            email:
+              order.consignments?.email &&
+              removeEdgesAndNodes(order.consignments.email.giftCertificates).map(
+                ({ lineItems }) => {
+                  return {
+                    lineItems: removeEdgesAndNodes(lineItems).map(
+                      ({ entityId, name, salePrice }) => ({
+                        entityId,
+                        name,
+                        salePrice,
+                      }),
+                    ),
+                  };
+                },
+              ),
           },
         };
       }),

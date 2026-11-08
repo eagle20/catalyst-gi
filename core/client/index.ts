@@ -1,27 +1,21 @@
-import { createClient } from '@bigcommerce/catalyst-client';
-import { headers } from 'next/headers';
-import { getLocale as getServerLocale } from 'next-intl/server';
+import { BigCommerceAuthError, createClient } from '@bigcommerce/catalyst-client';
 
-import { getChannelIdFromLocale } from '../channels.config';
-import { backendUserAgent } from '../userAgent';
+import { getCurrentChannelId } from '../lib/channel';
+import { backendUserAgent } from '../user-agent';
 
-const getLocale = async () => {
-  try {
-    const locale = await getServerLocale();
+import { beforeRequest } from './before-request';
 
-    return locale;
-  } catch {
-    /**
-     * Next-intl `getLocale` only works on the server, and when middleware has run.
-     *
-     * Instances when `getLocale` will not work:
-     * - Requests in middlewares
-     * - Requests in `generateStaticParams`
-     * - Request in api routes
-     * - Requests in static sites without `setRequestLocale`
-     */
-  }
-};
+// next/headers, next/navigation, and next-intl/server are imported dynamically
+// (via `import()`) rather than statically. Static imports cause these modules to
+// be evaluated during module graph resolution when next.config.ts imports this
+// file, which poisons the process-wide AsyncLocalStorage context (pnpm symlinks
+// create two separate singleton instances of next/headers). Dynamic imports
+// defer module loading to call time, after Next.js has fully initialized.
+//
+// During config resolution, the dynamic import of next-intl/server succeeds but
+// getLocale() throws ("not supported in Client Components") — the try/catch in
+// `./before-request` absorbs this gracefully. The channel itself is resolved by
+// getCurrentChannelId(), which falls back to the default channel.
 
 export const client = createClient({
   storefrontToken: process.env.BIGCOMMERCE_STOREFRONT_TOKEN ?? '',
@@ -32,54 +26,13 @@ export const client = createClient({
   logger:
     (process.env.NODE_ENV !== 'production' && process.env.CLIENT_LOGGER !== 'false') ||
     process.env.CLIENT_LOGGER === 'true',
-  getChannelId: async (defaultChannelId: string) => {
-    const locale = await getLocale();
+  getChannelId: (defaultChannelId: string) => getCurrentChannelId(defaultChannelId),
+  beforeRequest,
+  onError: async (error, queryType) => {
+    if (error instanceof BigCommerceAuthError && queryType === 'query') {
+      const { redirect } = await import('next/navigation');
 
-    // We use the default channelId as a fallback, but it is not ideal in some scenarios.
-    return getChannelIdFromLocale(locale) ?? defaultChannelId;
-  },
-  beforeRequest: async (fetchOptions) => {
-    // We can't serialize a `Headers` object within this method so we have to opt into using a plain object
-    const requestHeaders: Record<string, string> = {};
-    const locale = await getLocale();
-
-    if (fetchOptions?.cache && ['no-store', 'no-cache'].includes(fetchOptions.cache)) {
-      const ipAddress = (await headers()).get('X-Forwarded-For');
-
-      if (ipAddress) {
-        requestHeaders['X-Forwarded-For'] = ipAddress;
-        requestHeaders['True-Client-IP'] = ipAddress;
-      }
+      redirect('/api/auth/signout');
     }
-
-    if (locale) {
-      requestHeaders['Accept-Language'] = locale;
-    }
-
-    // Inject customer info if available
-    try {
-      // Dynamically import to avoid circular deps
-      const { auth } = await import('../auth');
-      const session = await auth();
-
-      if (session?.user) {
-        if (session.user.customerAccessToken) {
-          requestHeaders['X-Customer-Access-Token'] = session.user.customerAccessToken;
-        }
-        if (session.user.email) {
-          requestHeaders['X-Customer-Email'] = session.user.email;
-        }
-        if (session.user.name) {
-          requestHeaders['X-Customer-Name'] = session.user.name;
-        }
-        // Add more fields as needed (e.g., ID, group, etc.)
-      }
-    } catch (e) {
-      // fail silently if not available
-    }
-
-    return {
-      headers: requestHeaders,
-    };
   },
 });

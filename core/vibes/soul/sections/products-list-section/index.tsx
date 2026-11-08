@@ -18,11 +18,11 @@ import {
 interface Props {
   breadcrumbs?: Streamable<Breadcrumb[]>;
   title?: Streamable<string | null>;
-  totalCount: Streamable<number>;
+  totalCount: Streamable<string>;
   products: Streamable<Product[]>;
   filters: Streamable<Filter[]>;
   sortOptions: Streamable<SortOption[]>;
-  categoryImage: Streamable<string | null>;
+  categoryImage?: Streamable<string | null>;
   compareProducts?: Streamable<Product[]>;
   paginationInfo?: Streamable<CursorPaginationInfo>;
   compareHref?: string;
@@ -31,6 +31,7 @@ interface Props {
   filterLabel?: string;
   filtersPanelTitle?: Streamable<string>;
   resetFiltersLabel?: Streamable<string>;
+  showRating?: boolean;
   rangeFilterApplyLabel?: Streamable<string>;
   sortLabel?: Streamable<string | null>;
   sortPlaceholder?: Streamable<string | null>;
@@ -52,6 +53,7 @@ export function ProductsListSection({
   title = 'Products',
   totalCount,
   products,
+  showRating,
   compareProducts,
   sortOptions: streamableSortOptions,
   sortDefaultValue,
@@ -228,7 +230,7 @@ export function ProductsListSection({
         </div>
 
         <div className="mt-6 flex items-stretch gap-8 @4xl:gap-10">
-          <div className="flex-1 group-has-[[data-pending]]/products-list-section:animate-pulse">
+          <div className="group-has-data-pending/products-list-section:animate-pulse flex-1">
             <ProductList
               compareHref={compareHref}
               compareLabel={compareLabel}
@@ -243,6 +245,7 @@ export function ProductsListSection({
               removeLabel={removeLabel}
               showCompare={showCompare}
               aspectRatio="1:1"
+              showRating={showRating}
             />
 
             {paginationInfo && <CursorPagination info={paginationInfo} />}

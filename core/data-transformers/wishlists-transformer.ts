@@ -8,16 +8,17 @@ import { ExistingResultType } from '~/client/util';
 import {
   PublicWishlistFragment,
   WishlistFragment,
-  WishlistItemFragment,
+  WishlistItemProductFragment,
   WishlistPaginatedItemsFragment,
   WishlistsFragment,
 } from '~/components/wishlist/fragment';
 
+import { TaxDisplay } from './prices-transformer';
 import { singleProductCardTransformer } from './product-card-transformer';
 
 const getCtaLabel = (
-  product: ResultOf<typeof WishlistItemFragment>['product'],
-  pt: ExistingResultType<typeof getTranslations>,
+  product: ResultOf<typeof WishlistItemProductFragment>,
+  pt: ExistingResultType<typeof getTranslations<'Product.ProductDetails'>>,
 ): string => {
   if (product.availabilityV2.status === 'Unavailable') {
     return pt('Submit.unavailable');
@@ -34,7 +35,7 @@ const getCtaLabel = (
   return pt('Submit.addToCart');
 };
 
-const getCtaDisabled = (product: ResultOf<typeof WishlistItemFragment>['product']): boolean => {
+const getCtaDisabled = (product: ResultOf<typeof WishlistItemProductFragment>): boolean => {
   if (product.availabilityV2.status === 'Unavailable') {
     return true;
   }
@@ -53,27 +54,40 @@ const getCtaDisabled = (product: ResultOf<typeof WishlistItemFragment>['product'
 function wishlistItemsTransformer(
   wishlistItems: ResultOf<typeof WishlistFragment | typeof WishlistPaginatedItemsFragment>['items'],
   formatter: ExistingResultType<typeof getFormatter>,
-  pt?: ExistingResultType<typeof getTranslations>,
+  pt?: ExistingResultType<typeof getTranslations<'Product.ProductDetails'>>,
+  taxDisplay?: TaxDisplay | null,
 ): WishlistItem[] {
-  return removeEdgesAndNodes(wishlistItems).map((item) => ({
-    itemId: item.entityId.toString(),
-    productId: item.productEntityId.toString(),
-    variantId: item.variantEntityId?.toString() ?? undefined,
-    callToAction: pt
-      ? {
-          label: getCtaLabel(item.product, pt),
-          disabled: getCtaDisabled(item.product),
-        }
-      : undefined,
-    product: singleProductCardTransformer(item.product, formatter),
-  }));
+  return removeEdgesAndNodes(wishlistItems)
+    .filter(
+      (item): item is typeof item & { product: NonNullable<typeof item.product> } =>
+        item.product !== null,
+    )
+    .map((item) => ({
+      itemId: item.entityId.toString(),
+      productId: item.productEntityId.toString(),
+      variantId: item.variantEntityId?.toString() ?? undefined,
+      callToAction: pt
+        ? {
+            label: getCtaLabel(item.product, pt),
+            disabled: getCtaDisabled(item.product),
+          }
+        : undefined,
+      product: singleProductCardTransformer(
+        item.product,
+        formatter,
+        undefined,
+        undefined,
+        taxDisplay,
+      ),
+    }));
 }
 
 function wishlistTransformer(
   wishlist: ResultOf<typeof WishlistFragment | typeof WishlistPaginatedItemsFragment>,
-  t: ExistingResultType<typeof getTranslations>,
+  t: ExistingResultType<typeof getTranslations<'Wishlist'>>,
   formatter: ExistingResultType<typeof getFormatter>,
-  pt?: ExistingResultType<typeof getTranslations>,
+  pt?: ExistingResultType<typeof getTranslations<'Product.ProductDetails'>>,
+  taxDisplay?: TaxDisplay | null,
 ): Wishlist {
   const totalItems = wishlist.items.collectionInfo?.totalItems ?? 0;
 
@@ -88,7 +102,7 @@ function wishlistTransformer(
       privateLabel: t('Visibility.private'),
     },
     href: `/account/wishlists/${wishlist.entityId}`,
-    items: wishlistItemsTransformer(wishlist.items, formatter, pt),
+    items: wishlistItemsTransformer(wishlist.items, formatter, pt, taxDisplay),
     totalItems: {
       value: totalItems,
       label: t('items', { count: totalItems }),
@@ -98,21 +112,26 @@ function wishlistTransformer(
 
 export const wishlistsTransformer = (
   wishlists: ResultOf<typeof WishlistsFragment>,
-  t: ExistingResultType<typeof getTranslations>,
+  t: ExistingResultType<typeof getTranslations<'Wishlist'>>,
   formatter: ExistingResultType<typeof getFormatter>,
+  taxDisplay?: TaxDisplay | null,
 ): Wishlist[] =>
-  removeEdgesAndNodes(wishlists).map((wishlist) => wishlistTransformer(wishlist, t, formatter));
+  removeEdgesAndNodes(wishlists).map((wishlist) =>
+    wishlistTransformer(wishlist, t, formatter, undefined, taxDisplay),
+  );
 
 export const wishlistDetailsTransformer = (
   wishlist: ResultOf<typeof WishlistPaginatedItemsFragment>,
-  t: ExistingResultType<typeof getTranslations>,
-  pt: ExistingResultType<typeof getTranslations>,
+  t: ExistingResultType<typeof getTranslations<'Wishlist'>>,
+  pt: ExistingResultType<typeof getTranslations<'Product.ProductDetails'>>,
   formatter: ExistingResultType<typeof getFormatter>,
-): Wishlist => wishlistTransformer(wishlist, t, formatter, pt);
+  taxDisplay?: TaxDisplay | null,
+): Wishlist => wishlistTransformer(wishlist, t, formatter, pt, taxDisplay);
 
 export const publicWishlistDetailsTransformer = (
   wishlist: ResultOf<typeof PublicWishlistFragment>,
-  t: ExistingResultType<typeof getTranslations>,
-  pt: ExistingResultType<typeof getTranslations>,
+  t: ExistingResultType<typeof getTranslations<'Wishlist'>>,
+  pt: ExistingResultType<typeof getTranslations<'Product.ProductDetails'>>,
   formatter: ExistingResultType<typeof getFormatter>,
-): Wishlist => wishlistTransformer({ ...wishlist, isPublic: true }, t, formatter, pt);
+  taxDisplay?: TaxDisplay | null,
+): Wishlist => wishlistTransformer({ ...wishlist, isPublic: true }, t, formatter, pt, taxDisplay);

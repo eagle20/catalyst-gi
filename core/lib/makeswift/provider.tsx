@@ -7,14 +7,16 @@ import '~/lib/makeswift/components';
 
 export function MakeswiftProvider({
   children,
+  locale,
   siteVersion,
 }: {
   children: React.ReactNode;
+  locale?: string;
   siteVersion: SiteVersion | null;
 }) {
   return (
-    <ReactRuntimeProvider siteVersion={siteVersion} runtime={runtime}>
-      <RootStyleRegistry>{children}</RootStyleRegistry>
+    <ReactRuntimeProvider locale={locale} runtime={runtime} siteVersion={siteVersion}>
+      <RootStyleRegistry enableCssReset={false}>{children}</RootStyleRegistry>
     </ReactRuntimeProvider>
   );
 }

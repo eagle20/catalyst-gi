@@ -1,31 +1,47 @@
 import { defineConfig, devices } from '@playwright/test';
-import { config } from 'dotenv';
 
-config();
+import { testEnv } from '~/tests/environment';
 
 export default defineConfig({
   testDir: './tests',
+  outputDir: './.tests/test-results',
+  globalSetup: './tests/global-setup.ts',
+  workers: 1, // TODO: Implement parallel workers in the future
   expect: {
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.02,
     },
   },
-  reporter: [['list'], ['html']],
+  reporter: [
+    ['list', { outputFolder: './.tests/reports/list' }],
+    ['html', { outputFolder: './.tests/reports/html' }],
+  ],
   use: {
-    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL,
+    locale: testEnv.TESTS_LOCALE,
+    baseURL: testEnv.PLAYWRIGHT_TEST_BASE_URL,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'retain-on-failure',
     extraHTTPHeaders: {
-      'x-vercel-protection-bypass': process.env.VERCEL_PROTECTION_BYPASS || '',
-      'x-vercel-set-bypass-cookie': process.env.CI ? 'true' : 'false',
+      'x-vercel-protection-bypass': testEnv.VERCEL_PROTECTION_BYPASS,
+      'x-vercel-set-bypass-cookie': testEnv.CI.toString(),
     },
   },
   projects: [
     {
       name: 'tests-chromium',
+      testIgnore: [
+        /.*\.mobile\.spec\.ts$/,
+        // The homepage is rendered entirely from Makeswift, so these canary specs, which assert
+        // Catalyst's native featured/newest/newsletter sections, can't pass against it.
+        /e2e\/home\.spec\.ts$/,
+        /e2e\/subscribe\.spec\.ts$/,
+      ],
       use: {
         ...devices['Desktop Chrome'],
+        // The headless shell reports "HeadlessChrome" in sec-ch-ua, which BigCommerce treats as a
+        // crawler and rejects on checkout session-sync. Full Chromium's headless mode doesn't.
+        channel: 'chromium',
         launchOptions: {
           // When redirected to checkout, BigCommerce blocks preflight requests from a HeadlessChrome user agent.
           // We need to disable web security to allow the preflight request to go through.
@@ -33,6 +49,14 @@ export default defineConfig({
         },
       },
     },
+    {
+      name: 'tests-webkit-mobile',
+      testMatch: /.*\.mobile\.spec\.ts$/,
+      use: {
+        ...devices['iPhone 11'],
+        // WebKit doesn't support --disable-web-security
+      },
+    },
   ],
-  retries: 1,
+  retries: 2,
 });

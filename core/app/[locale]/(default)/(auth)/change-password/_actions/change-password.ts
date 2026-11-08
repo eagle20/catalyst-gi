@@ -4,8 +4,8 @@ import { BigCommerceGQLError } from '@bigcommerce/catalyst-client';
 import { SubmissionResult } from '@conform-to/react';
 import { parseWithZod } from '@conform-to/zod';
 import { getTranslations } from 'next-intl/server';
+import { z } from 'zod';
 
-import { schema } from '@/vibes/soul/sections/reset-password-section/schema';
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
 
@@ -25,16 +25,20 @@ const ChangePasswordMutation = graphql(`
   }
 `);
 
+const schema = z.object({
+  password: z.string(),
+});
+
 export async function changePassword(
   { token, customerEntityId }: { token: string; customerEntityId: string },
   _prevState: { lastResult: SubmissionResult | null; successMessage?: string },
   formData: FormData,
 ) {
-  const t = await getTranslations('ChangePassword');
+  const t = await getTranslations('Auth.ChangePassword');
   const submission = parseWithZod(formData, { schema });
 
   if (submission.status !== 'success') {
-    return { lastResult: submission.reply({ formErrors: [t('Form.error')] }) };
+    return { lastResult: submission.reply() };
   }
 
   try {
@@ -62,7 +66,7 @@ export async function changePassword(
 
     return {
       lastResult: submission.reply(),
-      successMessage: t('Form.successMessage'),
+      successMessage: t('passwordUpdated'),
     };
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -83,7 +87,7 @@ export async function changePassword(
     }
 
     return {
-      lastResult: submission.reply({ formErrors: [t('Errors.error')] }),
+      lastResult: submission.reply({ formErrors: [t('somethingWentWrong')] }),
     };
   }
 }

@@ -23,9 +23,44 @@ export const ProductCardFragment = graphql(
           }
         }
       }
+      inventory {
+        hasVariantInventory
+        isInStock
+        aggregated {
+          availableForBackorder
+          unlimitedBackorder
+          availableOnHand
+        }
+      }
       reviewSummary {
         numberOfReviews
         averageRating
+      }
+      variants(first: 1) {
+        edges {
+          node {
+            entityId
+            sku
+            inventory {
+              byLocation {
+                edges {
+                  node {
+                    locationEntityId
+                    backorderMessage
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      featuredPromotions {
+        edges {
+          node {
+            entityId
+            text
+          }
+        }
       }
       ...PricingFragment
     }

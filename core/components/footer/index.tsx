@@ -7,18 +7,21 @@ import {
   SiYoutube,
   SiLinkerd,
 } from '@icons-pack/react-simple-icons';
-import { useTranslations } from 'next-intl';
+import { getTranslations } from 'next-intl/server';
 import { cache, JSX } from 'react';
 
-import { LayoutQuery } from '~/app/[locale]/(default)/query';
+import { Streamable } from '@/vibes/soul/lib/streamable';
+import { GetLinksAndSectionsQuery, LayoutQuery } from '~/app/[locale]/(default)/page-data';
 import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
 import { readFragment } from '~/client/graphql';
 import { revalidate } from '~/client/revalidate-target';
+import { CurrencyCode } from '~/components/header/fragment';
 import { logoTransformer } from '~/data-transformers/logo-transformer';
-import { SiteFooter as FooterSection } from '~/lib/makeswift/components/site-footer/site-footer';
+import { getPreferredCurrencyCode } from '~/lib/currency';
+import { SiteFooter as FooterSection } from '~/lib/makeswift/components/site-footer';
 
-import { FooterFragment } from './fragment';
+import { FooterFragment, FooterSectionsFragment } from './fragment';
 import { AmazonIcon } from './payment-icons/amazon';
 import { AmericanExpressIcon } from './payment-icons/american-express';
 import { ApplePayIcon } from './payment-icons/apple-pay';
@@ -49,107 +52,106 @@ const socialIcons: Record<string, { icon: JSX.Element }> = {
   }, // Using X icon as placeholder
 };
 
-const getLayoutData = cache(async () => {
-  const customerAccessToken = await getSessionCustomerAccessToken();
+const getFooterSections = cache(
+  async (customerAccessToken?: string, currencyCode?: CurrencyCode) => {
+    const { data: response } = await client.fetch({
+      document: GetLinksAndSectionsQuery,
+      customerAccessToken,
+      variables: { currencyCode },
+      // Since this query is needed on every page, it's a good idea not to validate the customer access token.
+      // The 'cache' function also caches errors, so we might get caught in a redirect loop if the cache saves an invalid token error response.
+      validateCustomerAccessToken: false,
+      fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
+    });
 
+    return readFragment(FooterSectionsFragment, response).site;
+  },
+);
+
+const getFooterData = cache(async () => {
   const { data: response } = await client.fetch({
     document: LayoutQuery,
-    fetchOptions: customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } },
+    fetchOptions: { next: { revalidate } },
   });
 
   return readFragment(FooterFragment, response).site;
 });
 
-const getContactInformation = async () => {
-  const data = await getLayoutData();
+export const Footer = async () => {
+  const t = await getTranslations('Components.Footer');
+  const data = await getFooterData();
 
-  if (!data.settings?.contact) {
-    return null;
-  }
+  const logo = data.settings ? logoTransformer(data.settings) : '';
 
-  return {
-    address: data.settings.contact.address,
-    phone: data.settings.contact.phone,
-  };
-};
+  const copyright = `© ${new Date().getFullYear()} ${data.settings?.storeName} – Powered by BigCommerce`;
 
-const getCopyright = async () => {
-  const data = await getLayoutData();
+  const contactInformation = data.settings?.contact
+    ? {
+        address: data.settings.contact.address,
+        phone: data.settings.contact.phone,
+      }
+    : undefined;
 
-  if (!data.settings) {
-    return null;
-  }
-
-  return `© ${new Date().getFullYear()} ${data.settings.storeName} – Powered by BigCommerce`;
-};
-
-const getLogo = async () => {
-  const data = await getLayoutData();
-
-  if (!data.settings) {
-    return null;
-  }
-
-  return logoTransformer(data.settings);
-};
-
-const getSections = async () => {
-  const data = await getLayoutData();
-
-  return [
-    {
-      title: 'Categories',
-      links: data.categoryTree.map((category) => ({
-        label: category.name,
-        href: category.path,
-      })),
-    },
-    {
-      title: 'Brands',
-      links: removeEdgesAndNodes(data.brands).map((brand) => ({
-        label: brand.name,
-        href: brand.path,
-      })),
-    },
-    {
-      title: 'Navigate',
-      links: removeEdgesAndNodes(data.content.pages).map((page) => ({
-        label: page.name,
-        href: page.__typename === 'ExternalLinkPage' ? page.link : page.path,
-      })),
-    },
-  ];
-};
-
-const getSocialMediaLinks = async () => {
-  const data = await getLayoutData();
-
-  if (!data.settings?.socialMediaLinks) {
-    return null;
-  }
-
-  return data.settings.socialMediaLinks
+  const socialMediaLinks = data.settings?.socialMediaLinks
     .filter((socialMediaLink) => Boolean(socialIcons[socialMediaLink.name]))
     .map((socialMediaLink) => ({
       href: socialMediaLink.url,
       icon: socialIcons[socialMediaLink.name]?.icon,
     }));
-};
 
-export const Footer = () => {
-  const t = useTranslations('Components.Footer');
+  const streamableSections = Streamable.from(async () => {
+    const customerAccessToken = await getSessionCustomerAccessToken();
+    const currencyCode = await getPreferredCurrencyCode();
+    const sectionsData = await getFooterSections(customerAccessToken, currencyCode);
+
+    return [
+      {
+        title: t('categories'),
+        links: sectionsData.categoryTree.map((category) => ({
+          label: category.name,
+          href: category.path,
+        })),
+      },
+      {
+        title: t('brands'),
+        links: removeEdgesAndNodes(sectionsData.brands).map((brand) => ({
+          label: brand.name,
+          href: brand.path,
+        })),
+      },
+      {
+        title: t('navigate'),
+        links: [
+          ...(sectionsData.settings?.giftCertificates?.isEnabled
+            ? [
+                {
+                  label: t('giftCertificates'),
+                  href: '/gift-certificates',
+                },
+              ]
+            : []),
+          ...removeEdgesAndNodes(sectionsData.content.pages)
+            .filter((page) => page.isVisibleInNavigation)
+            .map((page) => ({
+              label: page.name,
+              href: page.__typename === 'ExternalLinkPage' ? page.link : page.path,
+            })),
+        ],
+      },
+    ];
+  });
 
   return (
     <FooterSection
-      contactInformation={getContactInformation()}
-      contactTitle={t('contact')}
-      copyright={getCopyright()}
-      logo={getLogo()}
+      contactInformation={contactInformation}
+      contactTitle={t('contactUs')}
+      copyright={copyright}
+      logo={logo}
       logoHref="/"
       logoLabel={t('home')}
       paymentIcons={paymentIcons}
-      sections={getSections()}
-      socialMediaLinks={getSocialMediaLinks()}
+      sections={streamableSections}
+      socialMediaLinks={socialMediaLinks}
     />
   );
 };

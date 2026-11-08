@@ -11,12 +11,12 @@ import {
 } from '@makeswift/runtime/controls';
 
 import { runtime } from '~/lib/makeswift/runtime';
+import { priceToStrings } from '~/lib/makeswift/utils/price-strings';
 import { ProductCardSkeleton } from '~/vibes/soul/primitives/product-card';
 import { ProductCard } from '~/vibes/soul/primitives/product-card-git';
 
 import { searchProducts } from '../../utils/search-products';
 import { useProductsByIds } from '../../utils/fetch-products';
-import { Price } from '@/vibes/soul/primitives/price-label';
 import clsx from 'clsx';
 
 interface Props {
@@ -55,6 +55,12 @@ function MakeswiftProductCardGIT({
 }: Props) {
   const additionalProductIds = additionalProducts.map(({ entityId }) => entityId ?? '');
 
+  // Hooks run before any early return, so adding the first product or removing the last one in
+  // the editor doesn't change the hook order.
+  const { products, isLoading } = useProductsByIds({
+    productIds: additionalProductIds,
+  });
+
   if (additionalProductIds.length === 0) {
     return (
       <div className={className}>
@@ -64,10 +70,6 @@ function MakeswiftProductCardGIT({
       </div>
     );
   }
-
-  const { products, isLoading } = useProductsByIds({
-    productIds: additionalProductIds,
-  });
 
   if (isLoading) {
     return (
@@ -118,9 +120,13 @@ function MakeswiftProductCardGIT({
         className,
       )}
     >
-      {products.map(async (product, index) => {
-        const { price, salePrice } = handlePrice(product.price);
-        const customProductSettings = additionalProducts[index] || handleCustomBadgeObject();
+      {products.map((product) => {
+        const { price, salePrice } = priceToStrings(product.price);
+        // Match the editor's per-product settings by id: BigCommerce returns products in its
+        // own order, not the order they were added in Makeswift.
+        const customProductSettings =
+          additionalProducts.find(({ entityId }) => entityId === product.id) ??
+          handleCustomBadgeObject();
 
         return (
           <ProductCard
@@ -145,34 +151,6 @@ function MakeswiftProductCardGIT({
     </div>
   );
 }
-
-const handlePrice = (productPrice: Price | undefined) => {
-  let price;
-  let salePrice: string | undefined = undefined;
-  if (!productPrice) {
-    price = '0';
-  } else if (typeof productPrice === 'string') {
-    price = productPrice;
-  } else if (
-    typeof productPrice === 'object' &&
-    productPrice !== null &&
-    'minValue' in productPrice
-  ) {
-    price = `${productPrice.minValue} - ${productPrice.maxValue}`;
-  } else if (
-    typeof productPrice === 'object' &&
-    productPrice !== null &&
-    'previousValue' in productPrice
-  ) {
-    price = productPrice.previousValue;
-    salePrice = productPrice.currentValue;
-  }
-
-  return {
-    price,
-    salePrice: salePrice ? salePrice.toString() : undefined,
-  };
-};
 
 const handleCustomBadgeObject = () => {
   return {

@@ -1,6 +1,5 @@
-import { Page as MakeswiftPage } from '@makeswift/runtime/next';
-
 import { getPageSnapshot } from './client';
+import { MakeswiftPageShim } from './makeswift-page-shim';
 import { MAKESWIFT_METADATA } from './page';
 
 export async function OptionalMakeswiftSection({
@@ -13,12 +12,12 @@ export async function OptionalMakeswiftSection({
   let snapshot;
 
   try {
-    snapshot = await getPageSnapshot(path, locale);
+    snapshot = await getPageSnapshot({ path, locale });
   } catch {
     return null;
   }
 
   if (snapshot == null) return null;
 
-  return <MakeswiftPage metadata={MAKESWIFT_METADATA} snapshot={snapshot} />;
+  return <MakeswiftPageShim metadata={MAKESWIFT_METADATA} snapshot={snapshot} />;
 }

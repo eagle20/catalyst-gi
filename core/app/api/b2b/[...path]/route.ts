@@ -10,6 +10,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '~/auth';
+import { SIGNED_OUT_CODE } from '~/lib/b2b/api';
 
 const PORTAL_URL = (process.env.B2B_PORTAL_URL ?? '').replace(/\/$/, '');
 const PORTAL_SECRET = process.env.B2B_PORTAL_SECRET ?? '';
@@ -23,8 +24,12 @@ async function proxy(request: NextRequest, method: string): Promise<NextResponse
 
   const session = await auth();
 
+  // `code` lets the client tell an ended session apart from a portal 401 (no portal access).
   if (!session?.user?.email) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Your session has ended. Please sign in again.', code: SIGNED_OUT_CODE },
+      { status: 401 },
+    );
   }
 
   // Strip the /api/b2b prefix and forward the rest including query string

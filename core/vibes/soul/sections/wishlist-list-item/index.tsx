@@ -44,19 +44,27 @@ export const WishlistListItem = ({
       value={streamableWishlist}
     >
       {(wishlist) => {
-        const { name, visibility, items, totalItems, href } = wishlist;
+        const { name, visibility, items, totalItems, href, id } = wishlist;
 
         return (
-          <div className={clsx('my-4 flex flex-col @container', className)}>
+          <section
+            aria-describedby={`wishlist-description-${id}`}
+            aria-labelledby={`wishlist-title-${id}`}
+            className={clsx('my-4 flex flex-col @container', className)}
+          >
             <div className="flex flex-1 flex-col justify-between @sm:flex-row @sm:items-center">
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-semibold">{name}</span>
+                  <h2 className="text-lg font-semibold" id={`wishlist-title-${id}`}>
+                    {name}
+                  </h2>
                   <Badge variant={visibility.isPublic ? 'primary' : 'info'}>
                     {visibility.label}
                   </Badge>
                 </div>
-                <div className="text-sm text-contrast-500">{totalItems.label}</div>
+                <div className="text-sm text-contrast-500" id={`wishlist-description-${id}`}>
+                  {totalItems.label}
+                </div>
               </div>
               <div className="my-4 flex gap-2 whitespace-nowrap @sm:my-0 @sm:ml-2 @sm:items-center">
                 {actionsPosition === 'left' && actionsComponent?.(wishlist)}
@@ -71,7 +79,7 @@ export const WishlistListItem = ({
               items={items}
               placeholderCount={placeholderCount}
             />
-          </div>
+          </section>
         );
       }}
     </Stream>

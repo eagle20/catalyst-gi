@@ -8,10 +8,13 @@ import type { Field, FieldGroup } from '@/vibes/soul/form/dynamic-form/schema';
 import { Streamable } from '@/vibes/soul/lib/streamable';
 import { ButtonLink } from '@/vibes/soul/primitives/button-link';
 import { Breadcrumb } from '@/vibes/soul/sections/breadcrumbs';
+import { getSessionCustomerAccessToken } from '~/auth';
 import {
   breadcrumbsTransformer,
   truncateBreadcrumbs,
 } from '~/data-transformers/breadcrumbs-transformer';
+import { getMakeswiftPageMetadata } from '~/lib/makeswift';
+import { getRecaptchaSiteKey } from '~/lib/recaptcha';
 
 import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
 
@@ -27,27 +30,21 @@ interface Props {
 
 interface ContactPage extends WebPage {
   entityId: number;
-  path: string;
   contactFields: string[];
-  reCaptchaSettings: {
-    isEnabledOnStorefront: boolean;
-    siteKey: string;
-  } | null;
 }
 
 const fieldMapping = {
-  fullname: 'fullNameLabel',
-  companyname: 'companyNameLabel',
-  phone: 'phoneLabel',
-  orderno: 'orderNoLabel',
-  rma: 'rmaLabel',
+  fullname: 'fullName',
+  companyname: 'companyName',
+  phone: 'phone',
+  orderno: 'orderNo',
+  rma: 'rma',
 } as const;
 
 type ContactField = keyof typeof fieldMapping;
 
-const getWebPage = cache(async (id: string): Promise<ContactPage> => {
-  const data = await getWebpageData({ id: decodeURIComponent(id) });
-  const reCaptchaSettings = data.site.settings?.reCaptcha ?? null;
+const getWebPage = cache(async (id: string, customerAccessToken?: string): Promise<ContactPage> => {
+  const data = await getWebpageData({ id: decodeURIComponent(id) }, customerAccessToken);
   const webpage = data.node?.__typename === 'ContactPage' ? data.node : null;
 
   if (!webpage) {
@@ -64,16 +61,20 @@ const getWebPage = cache(async (id: string): Promise<ContactPage> => {
     content: webpage.htmlBody,
     contactFields: webpage.contactFields,
     seo: webpage.seo,
-    reCaptchaSettings,
   };
 });
 
-async function getWebPageBreadcrumbs(id: string): Promise<Breadcrumb[]> {
-  const webpage = await getWebPage(id);
-  const [, ...rest] = webpage.breadcrumbs.reverse();
+async function getWebPageBreadcrumbs(
+  id: string,
+  customerAccessToken?: string,
+): Promise<Breadcrumb[]> {
+  const t = await getTranslations('WebPages.ContactUs');
+
+  const webpage = await getWebPage(id, customerAccessToken);
+  const [, ...rest] = [...webpage.breadcrumbs].reverse();
   const breadcrumbs = [
     {
-      label: 'Home',
+      label: t('home'),
       href: '/',
     },
     ...rest.reverse(),
@@ -86,8 +87,12 @@ async function getWebPageBreadcrumbs(id: string): Promise<Breadcrumb[]> {
   return truncateBreadcrumbs(breadcrumbs, 5);
 }
 
-async function getWebPageWithSuccessContent(id: string, message: string) {
-  const webpage = await getWebPage(id);
+async function getWebPageWithSuccessContent(
+  id: string,
+  message: string,
+  customerAccessToken?: string,
+) {
+  const webpage = await getWebPage(id, customerAccessToken);
 
   return {
     ...webpage,
@@ -95,9 +100,9 @@ async function getWebPageWithSuccessContent(id: string, message: string) {
   };
 }
 
-async function getContactFields(id: string) {
+async function getContactFields(id: string, customerAccessToken?: string) {
   const t = await getTranslations('WebPages.ContactUs.Form');
-  const { entityId, path, contactFields } = await getWebPage(id);
+  const { entityId, path, contactFields } = await getWebPage(id, customerAccessToken);
   const toGroupsOfTwo = (fields: Field[]) =>
     fields.reduce<Array<FieldGroup<Field>>>((acc, _, i) => {
       if (i % 2 === 0) {
@@ -111,6 +116,7 @@ async function getContactFields(id: string) {
     id: 'pageId',
     name: 'pageId',
     type: 'hidden',
+    label: 'Page ID',
     defaultValue: String(entityId),
   };
 
@@ -119,13 +125,14 @@ async function getContactFields(id: string) {
     id: 'pagePath',
     name: 'pagePath',
     type: 'hidden',
+    label: 'Page Path',
     defaultValue: path,
   };
 
   const emailField: Field = {
     id: 'email',
     name: 'email',
-    label: `${t('emailLabel')} *`,
+    label: `${t('email')} *`,
     type: 'email',
     required: true,
   };
@@ -133,7 +140,7 @@ async function getContactFields(id: string) {
   const commentsField: Field = {
     id: 'comments',
     name: 'comments',
-    label: `${t('commentsLabel')} *`,
+    label: `${t('comments')} *`,
     type: 'textarea',
     required: true,
   };
@@ -157,39 +164,48 @@ async function getContactFields(id: string) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
-  const webpage = await getWebPage(id);
+  const { id, locale } = await params;
+  const customerAccessToken = await getSessionCustomerAccessToken();
+  const webpage = await getWebPage(id, customerAccessToken);
+  const makeswiftMetadata = await getMakeswiftPageMetadata({ path: webpage.path, locale });
   const { pageTitle, metaDescription, metaKeywords } = webpage.seo;
   const title = pageTitle || webpage.title;
   const path = `/webpages/${webpage.title}/contact`;
 
   return {
-    title,
-    description: metaDescription,
-    keywords: metaKeywords ? metaKeywords.split(',') : null,
+    // GI: Makeswift SEO overrides (upstream), with our canonical and Open Graph tags.
+    title: makeswiftMetadata?.title || title,
+    ...((makeswiftMetadata?.description || metaDescription) && {
+      description: makeswiftMetadata?.description || metaDescription,
+    }),
+    ...(metaKeywords && { keywords: metaKeywords.split(',') }),
     alternates: {
       canonical: buildPageUrl(path),
     },
-    openGraph: buildOpenGraph({ title, description: metaDescription, path }),
+    openGraph: buildOpenGraph({
+      title: makeswiftMetadata?.title || title,
+      description: makeswiftMetadata?.description || metaDescription,
+      path,
+    }),
   };
 }
 
 export default async function ContactPage({ params, searchParams }: Props) {
   const { id, locale } = await params;
   const { success } = await searchParams;
+  const customerAccessToken = await getSessionCustomerAccessToken();
 
   setRequestLocale(locale);
 
   const t = await getTranslations('WebPages.ContactUs.Form');
 
-  // TODO: Use reCaptcha
-  // const recaptchaSettings = await bypassReCaptcha(data.site.settings?.reCaptcha);
-
   if (success === 'true') {
     return (
       <WebPageContent
-        breadcrumbs={Streamable.from(() => getWebPageBreadcrumbs(id))}
-        webPage={Streamable.from(() => getWebPageWithSuccessContent(id, t('success')))}
+        breadcrumbs={Streamable.from(() => getWebPageBreadcrumbs(id, customerAccessToken))}
+        webPage={Streamable.from(() =>
+          getWebPageWithSuccessContent(id, t('success'), customerAccessToken),
+        )}
       >
         <ButtonLink
           className="mt-8 @2xl:mt-12 @4xl:mt-16"
@@ -204,16 +220,19 @@ export default async function ContactPage({ params, searchParams }: Props) {
     );
   }
 
+  const recaptchaSiteKey = await getRecaptchaSiteKey();
+
   return (
     <WebPageContent
-      breadcrumbs={Streamable.from(() => getWebPageBreadcrumbs(id))}
-      webPage={Streamable.from(() => getWebPage(id))}
+      breadcrumbs={Streamable.from(() => getWebPageBreadcrumbs(id, customerAccessToken))}
+      webPage={Streamable.from(() => getWebPage(id, customerAccessToken))}
     >
       <div className="mt-8 @2xl:mt-12 @4xl:mt-16">
         <DynamicForm
           action={submitContactForm}
-          fields={await getContactFields(id)}
-          submitLabel={t('submitFormText')}
+          fields={await getContactFields(id, customerAccessToken)}
+          recaptchaSiteKey={recaptchaSiteKey}
+          submitLabel={t('cta')}
         />
       </div>
     </WebPageContent>

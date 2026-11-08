@@ -1,3 +1,4 @@
+import { removeEdgesAndNodes } from '@bigcommerce/catalyst-client';
 import { getFormatter, getTranslations } from 'next-intl/server';
 
 import { Order } from '@/vibes/soul/sections/order-details-section';
@@ -36,9 +37,48 @@ function getStatusColor(
 
 export const orderDetailsTransformer = (
   order: ExistingResultType<typeof getCustomerOrderDetails>,
-  t: ExistingResultType<typeof getTranslations>,
+  t: ExistingResultType<typeof getTranslations<'Account.Orders.Details'>>,
   format: ExistingResultType<typeof getFormatter>,
+  tGiftCertificate: ExistingResultType<typeof getTranslations<'Cart.GiftCertificate'>>,
 ): Order => {
+  const paymentMethods = removeEdgesAndNodes(order.payments).map((payment) => {
+    if (payment.detail?.__typename === 'CreditCardPaymentInstrument') {
+      return {
+        title: t('PaymentMethods.creditCard'),
+        subtitle: `${payment.detail.brand} ${t('paymentEndingInLabel')} ${payment.detail.last4}`,
+        amount: format.number(payment.amount.value, {
+          style: 'currency',
+          currency: payment.amount.currencyCode,
+        }),
+      };
+    }
+
+    let paymentMethod: string;
+
+    // Attempt to use translated names for known payment methods
+    if (payment.detail?.__typename === 'GiftCertificatePaymentInstrument') {
+      paymentMethod = t('PaymentMethods.giftCertificate');
+    } else if (payment.paymentMethodName === 'Store Credit') {
+      paymentMethod = t('PaymentMethods.storeCredit');
+    } else if (payment.paymentMethodName !== '') {
+      paymentMethod = payment.paymentMethodName;
+    } else {
+      paymentMethod = t('PaymentMethods.other');
+    }
+
+    return {
+      title: paymentMethod,
+      subtitle:
+        payment.detail?.__typename === 'GiftCertificatePaymentInstrument'
+          ? payment.detail.code
+          : undefined,
+      amount: format.number(payment.amount.value, {
+        style: 'currency',
+        currency: payment.amount.currencyCode,
+      }),
+    };
+  });
+
   return {
     date: format.dateTime(new Date(order.orderedAt.utc)),
     id: String(order.entityId),
@@ -49,11 +89,22 @@ export const orderDetailsTransformer = (
         return {
           id: String(consignment.entityId),
           lineItems: consignment.lineItems.map((lineItem) => {
+            const price = lineItem.catalogProductWithOptionSelections?.prices?.price
+              ? format.number(lineItem.catalogProductWithOptionSelections.prices.price.value, {
+                  style: 'currency',
+                  currency: lineItem.catalogProductWithOptionSelections.prices.price.currencyCode,
+                })
+              : format.number(lineItem.subTotalListPrice.value / lineItem.quantity, {
+                  style: 'currency',
+                  currency: lineItem.subTotalListPrice.currencyCode,
+                });
+
             return {
               id: String(lineItem.entityId),
               title: lineItem.name,
               subtitle: lineItem.brand ?? '',
-              price: format.number(lineItem.subTotalListPrice.value, {
+              price,
+              totalPrice: format.number(lineItem.subTotalListPrice.value, {
                 style: 'currency',
                 currency: lineItem.subTotalListPrice.currencyCode,
               }),
@@ -65,12 +116,16 @@ export const orderDetailsTransformer = (
                   }
                 : undefined,
               quantity: lineItem.quantity,
+              metadata: lineItem.productOptions.map((option) => ({
+                label: option.name,
+                value: option.value,
+              })),
             };
           }),
           title:
             arr.length > 1
-              ? t('destinationWithCountTitle', { number: index + 1, total: arr.length })
-              : t('destinationTitle'),
+              ? t('destinationWithCount', { number: index + 1, total: arr.length })
+              : t('destination'),
           address: {
             city: consignment.shippingAddress.city ?? '',
             country: consignment.shippingAddress.country,
@@ -89,6 +144,25 @@ export const orderDetailsTransformer = (
           }),
         };
       }) ?? [],
+    emailDestinations:
+      order.consignments.email?.map(({ email, lineItems }) => ({
+        title: t('digitalDelivery', { email }),
+        email,
+        lineItems: lineItems.map((item) => {
+          const formattedAmount = format.number(item.salePrice.value, {
+            style: 'currency',
+            currency: item.salePrice.currencyCode,
+          });
+
+          return {
+            id: String(item.entityId),
+            title: tGiftCertificate('giftCertificate'),
+            price: formattedAmount,
+            totalPrice: formattedAmount,
+            quantity: 1,
+          };
+        }),
+      })) ?? [],
     summary: {
       total: format.number(order.totalIncTax.value, {
         style: 'currency',
@@ -96,7 +170,7 @@ export const orderDetailsTransformer = (
       }),
       lineItems: [
         {
-          label: t('summarySubtotalLabel'),
+          label: t('subtotal'),
           value: format.number(order.subTotal.value, {
             style: 'currency',
             currency: order.subTotal.currencyCode,
@@ -112,20 +186,24 @@ export const orderDetailsTransformer = (
           };
         }),
         {
-          label: t('summaryShippingLabel'),
+          label: t('shipping'),
           value: format.number(order.shippingCostTotal.value, {
             style: 'currency',
             currency: order.shippingCostTotal.currencyCode,
           }),
         },
         {
-          label: t('summaryTaxLabel'),
+          label: t('tax'),
           value: format.number(order.taxTotal.value, {
             style: 'currency',
             currency: order.taxTotal.currencyCode,
           }),
         },
       ],
+    },
+    paymentsSummary: {
+      title: t('paymentMethodsLabel', { count: paymentMethods.length }),
+      payments: paymentMethods,
     },
   };
 };

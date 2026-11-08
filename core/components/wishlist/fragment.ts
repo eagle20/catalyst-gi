@@ -1,6 +1,38 @@
 import { PaginationFragment } from '~/client/fragments/pagination';
+import { PricingFragment } from '~/client/fragments/pricing';
 import { graphql } from '~/client/graphql';
-import { ProductCardFragment } from '~/components/product-card/fragment';
+
+export const WishlistItemProductFragment = graphql(
+  `
+    fragment WishlistItemProductFragment on Product {
+      entityId
+      name
+      defaultImage {
+        altText
+        url: urlTemplate(lossy: true)
+      }
+      path
+      brand {
+        name
+        path
+      }
+      reviewSummary {
+        numberOfReviews
+        averageRating
+      }
+      sku
+      showCartAction
+      inventory {
+        isInStock
+      }
+      availabilityV2 {
+        status
+      }
+      ...PricingFragment
+    }
+  `,
+  [PricingFragment],
+);
 
 export const WishlistItemFragment = graphql(
   `
@@ -9,18 +41,11 @@ export const WishlistItemFragment = graphql(
       productEntityId
       variantEntityId
       product {
-        ...ProductCardFragment
-        showCartAction
-        inventory {
-          isInStock
-        }
-        availabilityV2 {
-          status
-        }
+        ...WishlistItemProductFragment
       }
     }
   `,
-  [ProductCardFragment],
+  [WishlistItemProductFragment],
 );
 
 export const WishlistFragment = graphql(
@@ -42,7 +67,7 @@ export const WishlistFragment = graphql(
       }
     }
   `,
-  [WishlistItemFragment, ProductCardFragment],
+  [WishlistItemFragment],
 );
 
 export const WishlistsFragment = graphql(
@@ -58,7 +83,7 @@ export const WishlistsFragment = graphql(
       }
     }
   `,
-  [WishlistFragment, ProductCardFragment, PaginationFragment],
+  [WishlistFragment, PaginationFragment],
 );
 
 export const WishlistPaginatedItemsFragment = graphql(
@@ -83,7 +108,7 @@ export const WishlistPaginatedItemsFragment = graphql(
       }
     }
   `,
-  [WishlistItemFragment, ProductCardFragment, PaginationFragment],
+  [WishlistItemFragment, PaginationFragment],
 );
 
 export const PublicWishlistFragment = graphql(
@@ -107,5 +132,5 @@ export const PublicWishlistFragment = graphql(
       }
     }
   `,
-  [WishlistItemFragment, ProductCardFragment, PaginationFragment],
+  [WishlistItemFragment, PaginationFragment],
 );

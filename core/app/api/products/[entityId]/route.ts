@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { hasLocale } from 'next-intl';
 
 import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
 import { graphql, ResultOf } from '~/client/graphql';
+import { revalidate } from '~/client/revalidate-target';
+import { getLocaleRouting } from '~/i18n/locale-config';
 import { getPreferredCurrencyCode } from '~/lib/currency';
 import { MakeswiftProductFragment } from '~/lib/makeswift/utils/use-bc-product-to-vibes-product/fragment';
 
@@ -22,17 +25,35 @@ const GetProduct = graphql(
 export type GetProductResponse = ResultOf<typeof GetProduct>['site']['product'];
 
 export const GET = async (
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ entityId: string }> },
-): Promise<NextResponse<GetProductResponse>> => {
+) => {
   const customerAccessToken = await getSessionCustomerAccessToken();
   const currencyCode = await getPreferredCurrencyCode();
+  const searchParams = request.nextUrl.searchParams;
+  const { locales, defaultLocale } = await getLocaleRouting();
+
+  const locale = searchParams.get('locale') ?? defaultLocale;
+
+  if (!hasLocale(locales, locale)) {
+    return NextResponse.json(
+      { status: 'error', error: 'Invalid locale parameter' },
+      { status: 400 },
+    );
+  }
+
   const { entityId } = await params;
 
   const { data } = await client.fetch({
     document: GetProduct,
     customerAccessToken,
     variables: { entityId: parseInt(entityId, 10), currencyCode },
+    fetchOptions: {
+      ...(customerAccessToken ? { cache: 'no-store' } : { next: { revalidate } }),
+      headers: {
+        'Accept-Language': locale,
+      },
+    },
   });
 
   return NextResponse.json(data.site.product);

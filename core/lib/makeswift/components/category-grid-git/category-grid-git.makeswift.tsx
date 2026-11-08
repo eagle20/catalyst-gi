@@ -35,6 +35,12 @@ function MakeswiftCategoryGridGIT({
 }: Props) {
   const categoryIds = categoryItems.map(({ entityId }) => entityId ?? '');
 
+  // Hooks run before any early return, so adding the first category or removing the last one in
+  // the editor doesn't change the hook order.
+  const { categories, isLoading } = useCategoriesByIds({
+    categoryIds,
+  });
+
   if (categoryIds.length === 0) {
     return (
       <div className={className}>
@@ -46,10 +52,6 @@ function MakeswiftCategoryGridGIT({
   }
   const skeletonCount = Number(itemsPerRowDesktop) || 6; // fallback to 6 if invalid
   const skeletons = Array.from({ length: skeletonCount });
-
-  const { categories, isLoading } = useCategoriesByIds({
-    categoryIds,
-  });
 
   if (isLoading) {
     return (
@@ -100,7 +102,7 @@ function MakeswiftCategoryGridGIT({
         className,
       )}
     >
-      {categories.map(async (category) => {
+      {categories.map((category) => {
         return (
           <CategoryGridCard
             key={category.id}

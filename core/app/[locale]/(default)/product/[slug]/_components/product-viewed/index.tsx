@@ -1,27 +1,47 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
+import { PricingFragment } from '~/client/fragments/pricing';
 import { FragmentOf } from '~/client/graphql';
-import { bodl } from '~/lib/bodl';
+import { TaxDisplay } from '~/data-transformers/prices-transformer';
+import { useAnalytics } from '~/lib/analytics/react';
+import { pickPricesForTaxDisplay } from '~/lib/tax-pricing';
 
 import { ProductViewedFragment } from './fragment';
-import { productItemTransform } from './transform';
 
 interface Props {
-  product: FragmentOf<typeof ProductViewedFragment>;
+  product: FragmentOf<typeof ProductViewedFragment> & FragmentOf<typeof PricingFragment>;
+  taxDisplay?: TaxDisplay | null;
 }
 
-export const ProductViewed = ({ product }: Props) => {
-  useEffect(() => {
-    const transformedProduct = productItemTransform(product);
+export const ProductViewed = ({ product, taxDisplay }: Props) => {
+  const isMounted = useRef(false);
+  const analytics = useAnalytics();
 
-    bodl.navigation.productViewed({
-      product_value: transformedProduct.purchase_price,
-      currency: transformedProduct.currency,
-      line_items: [transformedProduct],
+  useEffect(() => {
+    if (isMounted.current) {
+      return;
+    }
+
+    isMounted.current = true;
+
+    const prices = pickPricesForTaxDisplay(product, taxDisplay);
+
+    analytics?.navigation.productViewed({
+      value: prices?.price.value ?? 0,
+      currency: prices?.price.currencyCode ?? 'USD',
+      items: [
+        {
+          id: product.entityId.toString(),
+          name: product.name,
+          brand: product.brand?.name,
+          sku: product.sku,
+          price: prices?.salePrice?.value,
+        },
+      ],
     });
-  }, [product]);
+  }, [analytics, product, taxDisplay]);
 
   return null;
 };

@@ -5,6 +5,7 @@ import { ReactNode } from 'react';
 import { Maintenance as MaintenanceSection } from '@/vibes/soul/sections/maintenance';
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
+import { revalidate } from '~/client/revalidate-target';
 import { StoreLogoFragment } from '~/components/store-logo/fragment';
 import { logoTransformer } from '~/data-transformers/logo-transformer';
 import { buildOpenGraph, buildPageUrl } from '~/lib/seo';
@@ -46,7 +47,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const Container = ({ children }: { children: ReactNode }) => (
-  <main className="mx-auto flex h-screen flex-row items-center px-4 md:px-10">{children}</main>
+  <main className="mx-auto flex h-screen w-full flex-col items-center justify-center px-4 md:px-10">
+    {children}
+  </main>
 );
 
 export default async function Maintenance({ params }: Props) {
@@ -58,6 +61,7 @@ export default async function Maintenance({ params }: Props) {
 
   const { data } = await client.fetch({
     document: MaintenancePageQuery,
+    fetchOptions: { next: { revalidate } },
   });
 
   const storeSettings = data.site.settings;
@@ -65,7 +69,7 @@ export default async function Maintenance({ params }: Props) {
   if (!storeSettings) {
     return (
       <Container>
-        <MaintenanceSection className="flex-1" />
+        <MaintenanceSection className="w-full" />
       </Container>
     );
   }
@@ -76,7 +80,7 @@ export default async function Maintenance({ params }: Props) {
   return (
     <Container>
       <MaintenanceSection
-        className="flex-1"
+        className="w-full"
         contactEmail={contact?.email}
         contactPhone={contact?.phone}
         contactText={t('contactUs')}

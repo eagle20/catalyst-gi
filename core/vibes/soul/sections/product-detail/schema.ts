@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 interface FormField {
   name: string;
-  label?: string;
+  label: string;
   errors?: string[];
   required?: boolean;
   persist?: boolean;
@@ -23,6 +23,8 @@ type SelectField = {
 type CheckboxField = {
   type: 'checkbox';
   defaultValue?: string;
+  checkedValue: string;
+  uncheckedValue: string;
 } & FormField;
 
 type NumberInputField = {
@@ -44,12 +46,16 @@ type TextAreaField = {
   type: 'textarea';
   defaultValue?: string;
   pattern?: string;
+  minLength?: number;
+  maxLength?: number;
 } & FormField;
 
 type DateField = {
   type: 'date';
   defaultValue?: string;
   pattern?: string;
+  minDate?: string;
+  maxDate?: string;
 } & FormField;
 
 type SwatchRadioFieldOption =
@@ -80,7 +86,7 @@ type CardRadioField = {
   options: Array<{
     value: string;
     label: string;
-    image: { src: string; alt: string };
+    image?: { src: string; alt: string };
     disabled?: boolean;
   }>;
 } & FormField;
@@ -116,16 +122,27 @@ export interface SchemaRawShape {
     | z.ZodOptional<z.ZodNumber>;
   id: z.ZodString;
   quantity: z.ZodNumber;
-  freeToolProductId?: z.ZodOptional<z.ZodNumber>;
-  freeToolVariantId?: z.ZodOptional<z.ZodNumber>;
-  freeToolQuantity?: z.ZodOptional<z.ZodNumber>;
-  promoCode?: z.ZodOptional<z.ZodString>;
+  freeToolProductId: z.ZodOptional<z.ZodNumber>;
+  freeToolVariantId: z.ZodOptional<z.ZodNumber>;
+  freeToolQuantity: z.ZodOptional<z.ZodNumber>;
+  promoCode: z.ZodOptional<z.ZodString>;
 }
 
-export function schema(fields: Field[]): z.ZodObject<SchemaRawShape> {
+export function schema(
+  fields: Field[],
+  minQuantity?: number,
+  maxQuantity?: number,
+): z.ZodObject<SchemaRawShape> {
+  let quantitySchema = z.number().min(minQuantity ?? 1);
+
+  if (maxQuantity != null) {
+    quantitySchema = quantitySchema.max(maxQuantity);
+  }
+
   const shape: SchemaRawShape = {
     id: z.string(),
-    quantity: z.number().min(1),
+    quantity: quantitySchema,
+    // GI: free tool (gift) promotion fields
     freeToolProductId: z.number().optional(),
     freeToolVariantId: z.number().optional(),
     freeToolQuantity: z.number().optional(),
@@ -141,6 +158,14 @@ export function schema(fields: Field[]): z.ZodObject<SchemaRawShape> {
 
         if (field.min != null) fieldSchema = fieldSchema.min(field.min);
         if (field.max != null) fieldSchema = fieldSchema.max(field.max);
+
+        shape[field.name] = fieldSchema;
+        break;
+
+      case 'textarea':
+        fieldSchema = z.string();
+        if (field.minLength != null) fieldSchema = fieldSchema.min(field.minLength);
+        if (field.maxLength != null) fieldSchema = fieldSchema.max(field.maxLength);
 
         shape[field.name] = fieldSchema;
         break;

@@ -3,11 +3,11 @@
 import { Combobox, Group, Select, Style, Checkbox } from '@makeswift/runtime/controls';
 
 import { runtime } from '~/lib/makeswift/runtime';
+import { priceToStrings } from '~/lib/makeswift/utils/price-strings';
 import { ProductCardSkeleton } from '~/vibes/soul/primitives/product-card';
 
 import { searchProducts } from '../../utils/search-products';
 import { useProductsByIds } from '../../utils/fetch-products';
-import { Price } from '@/vibes/soul/primitives/price-label';
 import clsx from 'clsx';
 import {
   CategoryGridCard,
@@ -74,8 +74,21 @@ function MakeswiftFeaturedProductsGridGIT({
     productEntityThree,
     productEntityFour,
   ].map(({ entityId }) => entityId ?? '');
+  const categoryId = categoryEntity?.entityId;
 
-  if (productIds.length === 0 || categoryEntity == null || !categoryEntity.entityId) {
+  // Hooks run before any early return, so picking or clearing the category in the editor doesn't
+  // change the hook order.
+  const { products, isLoading } = useProductsByIds({
+    productIds,
+  });
+
+  const { categories, isLoading: isLoadingCategory } = useCategoriesByIds({
+    categoryIds: categoryId ? [categoryId] : [],
+  });
+
+  const category = categories?.[0];
+
+  if (productIds.length === 0 || !categoryId) {
     return (
       <div className={className}>
         <div className="my-5 py-10 text-center text-lg text-gray-500">
@@ -84,16 +97,6 @@ function MakeswiftFeaturedProductsGridGIT({
       </div>
     );
   }
-
-  const { products, isLoading } = useProductsByIds({
-    productIds,
-  });
-
-  const { categories, isLoading: isLoadingCategory } = useCategoriesByIds({
-    categoryIds: [categoryEntity.entityId],
-  });
-
-  const category = categories?.[0];
 
   if (isLoading || isLoadingCategory) {
     return <PlaceholderSkeletons className={className} aspectRatio={aspectRatio} />;
@@ -119,7 +122,7 @@ function MakeswiftFeaturedProductsGridGIT({
       <div className="lg:col-span-4 xl:col-span-4">
         <div className="featured-products-grid">
           {products.map((product) => {
-            const { price, salePrice } = handlePrice(product.price);
+            const { price, salePrice } = priceToStrings(product.price);
 
             const badgeOptions = {
               show: false,
@@ -156,34 +159,6 @@ function MakeswiftFeaturedProductsGridGIT({
     </div>
   );
 }
-
-const handlePrice = (productPrice: Price | undefined) => {
-  let price;
-  let salePrice: string | undefined = undefined;
-  if (!productPrice) {
-    price = '0';
-  } else if (typeof productPrice === 'string') {
-    price = productPrice;
-  } else if (
-    typeof productPrice === 'object' &&
-    productPrice !== null &&
-    'minValue' in productPrice
-  ) {
-    price = `${productPrice.minValue} - ${productPrice.maxValue}`;
-  } else if (
-    typeof productPrice === 'object' &&
-    productPrice !== null &&
-    'previousValue' in productPrice
-  ) {
-    price = productPrice.previousValue;
-    salePrice = productPrice.currentValue;
-  }
-
-  return {
-    price,
-    salePrice: salePrice ? salePrice.toString() : undefined,
-  };
-};
 
 runtime.registerComponent(MakeswiftFeaturedProductsGridGIT, {
   type: 'catalog-category-featured-git',

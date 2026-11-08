@@ -1,5 +1,442 @@
 # Changelog
 
+## 1.13.1
+
+### Patch Changes
+
+- [#3299](https://github.com/bigcommerce/catalyst/pull/3299) [`b9e4ce7`](https://github.com/bigcommerce/catalyst/commit/b9e4ce785dab7a71de35b7216b4a802c17209c48) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Cache `/api/products/[entityId]` for guest shoppers, and skip the BigCommerce customer group request in `/api/customer/group` when no shopper is logged in.
+
+- [#3301](https://github.com/bigcommerce/catalyst/pull/3301) [`63d20e7`](https://github.com/bigcommerce/catalyst/commit/63d20e76df844a568f1b0a4708a3730b150099a5) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Cache Makeswift "page not found" lookups (and missing-locale component lookups) for up to five minutes, cleared on publish, so requests for unknown paths no longer cost an uncached Makeswift API call each. Draft mode is unaffected.
+
+- [#3293](https://github.com/bigcommerce/catalyst/pull/3293) [`da4e5d6`](https://github.com/bigcommerce/catalyst/commit/da4e5d6da285e85128dafdb0f9fd95241650d0d6) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Only serve `/api/customer/groups` in a Makeswift builder session; return `403` otherwise.
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.13.1` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.13.1` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/6faa4b576a74097cec827a7fd5c0ec925f85d738/core/CHANGELOG.md#1131).
+
+## 1.13.0
+
+### Minor Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.13.0` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.13.0` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/aabde65d0e93d40cc8faf3f5b19ae36a53dc1d21/core/CHANGELOG.md#1130).
+
+### Patch Changes
+
+- [#3270](https://github.com/bigcommerce/catalyst/pull/3270) [`31e3630`](https://github.com/bigcommerce/catalyst/commit/31e363082238fbb59b210a9eef09fadff56a80c0) Thanks [@rodrigomf24](https://github.com/rodrigomf24)! - Upgrade @makeswift/runtime from 0.28.5 to 0.29.2. The Makeswift revalidate window (MAKESWIFT_REVALIDATE_TARGET) is now applied by the runtime's fetch in lib/makeswift/fetch.ts, since Makeswift#fetchOptions no longer exists.
+
+- [#3288](https://github.com/bigcommerce/catalyst/pull/3288) [`8a107a9`](https://github.com/bigcommerce/catalyst/commit/8a107a98d743a2ab3cb2649e12cd133f4b355d5b) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Fall back to the default locale's Makeswift components (such as the site header, footer and theme) when the Makeswift site hasn't added the storefront's locale. Since `@makeswift/runtime` 0.29, these requests fail for such locales, which broke every page in them.
+
+## 1.12.2
+
+### Patch Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.12.2` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.12.2` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/6925320731cc6b299f727cdf70e7b8650d23aecb/core/CHANGELOG.md#1122).
+
+## 1.12.1
+
+### Patch Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.12.1` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.12.1` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/2a00cfdbb4280da744e4e1c5d686c525ce497b6c/core/CHANGELOG.md#1121).
+
+## 1.12.0
+
+### Minor Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.12.0` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.12.0` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/d15df6799d8928ce3be663094a573097832ef8f7/core/CHANGELOG.md#1120).
+
+## 1.11.1
+
+### Patch Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.11.1` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.11.1` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/b9e46a09956a1b6ffdf6e91028ccd5c09a6b09be/core/CHANGELOG.md#1111).
+
+## 1.11.0
+
+### Minor Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.11.0` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.11.0` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/8f486d35c8c29f04745bbcefb1d32646496e077d/core/CHANGELOG.md#1110).
+
+### Patch Changes
+
+- [#3185](https://github.com/bigcommerce/catalyst/pull/3185) [`96af6d9`](https://github.com/bigcommerce/catalyst/commit/96af6d94db4fc99f2d316254555e1589c472115a) Thanks [@jordanarldt](https://github.com/jordanarldt)! - Declare a revalidate window for Makeswift API requests, and add `MAKESWIFT_REVALIDATE_TARGET` to configure it.
+
+  The Makeswift SDK tags its responses with `@@makeswift` but never declares a TTL. Under the `fetchCache = 'default-cache'` segment config, Next.js reads "no cache config" as "cache forever", so published content was cached indefinitely and only the `site.published` webhook could refresh it. On any host Makeswift cannot reach — a local dev server, or a deployment it isn't configured to notify — content froze permanently, and deleting `.next` was the only way to see an edit.
+
+  Requests for the published site now declare a revalidate window: 3600 seconds by default, or 0 in development, where the webhook never arrives and the TTL is the only invalidation. Draft-mode requests are unchanged; they already opt out of caching, and adding a revalidate value there would trip Next.js's conflicting-config rule and cache the builder's live edits indefinitely.
+
+## 1.10.0
+
+### Minor Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.10.0` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.10.0` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/75724656c9edc1ee662aadd49de2909fdfc10dfa/core/CHANGELOG.md#1100).
+
+### Patch Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.10.1` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.10.1` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/36f8fc85c484ab2446b404fa6dc170e986341e8d/core/CHANGELOG.md#1101).
+
+## 1.9.0
+
+### Minor Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.9.0` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.9.0` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/42dfe9e6af9cb8d7264808b1fe9d27a3f653678a/core/CHANGELOG.md#190).
+
+## 1.8.0
+
+### Minor Changes
+
+- [#2913](https://github.com/bigcommerce/catalyst/pull/2913) [`097eea7`](https://github.com/bigcommerce/catalyst/commit/097eea7b9205ce35ba0724a8c1a5c04281f18dd7) Thanks [@agurtovoy](https://github.com/agurtovoy)! - Enable interaction-mode site navigation in Makeswift builder
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.8.0` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.8.0` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/81b88df3e42ff06c86bd91628d7be570579af89d/core/CHANGELOG.md#180).
+
+### Patch Changes
+
+- [#2950](https://github.com/bigcommerce/catalyst/pull/2950) [`4d511dc`](https://github.com/bigcommerce/catalyst/commit/4d511dc40e577b6c1a4b6bbbc72a02f66b0ef8d4) Thanks [@agurtovoy](https://github.com/agurtovoy)! - Fix 404 error on switching between localized Makeswift pages with locale-specific paths when TRAILING_SLASH=true
+
+## 1.7.0
+
+### Minor Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.7.0` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.7.0` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/3c96c47d3bf4c9cc8fee4d8c56d8be99e99c8205/core/CHANGELOG.md#170).
+
+## 1.6.4
+
+### Patch Changes
+
+- 4a5c2d8: Bump Next.js and React to address security vulnerabilities
+  - `next`: ~16.1.6 → ~16.2.6 — fixes middleware bypass, SSRF, XSS, and cache poisoning CVEs
+  - `react` / `react-dom`: 19.1.5 → 19.1.7 — fixes GHSA-rv78-f8rc-xrxh (DoS via OOM/CPU exhaustion on server function endpoints)
+
+## 1.6.3
+
+### Patch Changes
+
+- [#2952](https://github.com/bigcommerce/catalyst/pull/2952) [`66d2a7d`](https://github.com/bigcommerce/catalyst/commit/66d2a7dfab653762da4986b55a7c92fa4ab9b6c6) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Upgrade `@makeswift/runtime` from `0.26.3` to `0.26.4`.
+
+- [#3007](https://github.com/bigcommerce/catalyst/pull/3007) [`13b3c2e`](https://github.com/bigcommerce/catalyst/commit/13b3c2e5c85bf47a07e999315a8f12988ab96d3f) Thanks [@chanceaclark](https://github.com/chanceaclark)! - Bump Next.js and React to address security vulnerabilities
+  - `next`: ~16.1.6 → ~16.2.6 — fixes middleware bypass, SSRF, XSS, and cache poisoning CVEs
+  - `react` / `react-dom`: 19.1.5 → 19.1.7 — fixes GHSA-rv78-f8rc-xrxh (DoS via OOM/CPU exhaustion on server function endpoints)
+
+## 1.6.2
+
+### Patch Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.6.2` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.6.2` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/canary/core/CHANGELOG.md#162).
+
+## 1.6.1
+
+### Patch Changes
+
+- [#2934](https://github.com/bigcommerce/catalyst/pull/2934) [`6a5b019`](https://github.com/bigcommerce/catalyst/commit/6a5b019083aa3e000e5989f6f13256b57c22c479) Thanks [@chanceaclark](https://github.com/chanceaclark)! - Fix extra thick border on dropdown menu by changing `ring` (3px) to `ring-1` (1px) to match the Select component styling.
+
+## 1.6.0
+
+### Minor Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.6.0` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.6.0` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/a00b8647c59e81d69f73f10161ea5cf6f3d74c87/core/CHANGELOG.md#160).
+
+## 1.5.0
+
+### Minor Changes
+
+- Pulls in changes from the `@bigcommerce/catalyst-core@1.5.0` release. For more information about what was included in the `@bigcommerce/catalyst-core@1.5.0` release, see the [changelog entry](https://github.com/bigcommerce/catalyst/blob/0d951ab190c6bf1573ca7de925ecb0017d954cb7/core/CHANGELOG.md#150).
+
+### Patch Changes
+
+- [#2919](https://github.com/bigcommerce/catalyst/pull/2919) [`32be644`](https://github.com/bigcommerce/catalyst/commit/32be6443457965467fb793e524347a9e43a9338e) Thanks [@matthewvolk](https://github.com/matthewvolk)! - Upgrade `@makeswift/runtime` to `0.26.3`, which uses the `<Activity>` API instead of `<Suspense>`. This fixes layout shift both when loading a Makeswift page directly and when client-side navigating from a non-Makeswift page to a Makeswift page after a hard refresh.
+
+- [#2862](https://github.com/bigcommerce/catalyst/pull/2862) [`52207b6`](https://github.com/bigcommerce/catalyst/commit/52207b69c50f58027400f716bf18c53cac82189b) Thanks [@Codeseph](https://github.com/Codeseph)! - fix: handle OPTIONS requests via MakeswiftApiHandler
+
+- [#2860](https://github.com/bigcommerce/catalyst/pull/2860) [`5097034`](https://github.com/bigcommerce/catalyst/commit/5097034e93a9135b646f53445c83c8716fbeb76f) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Add explicit Makeswift SEO metadata support to public-facing pages. When configured in Makeswift, the SEO title and description will take priority over the default values from BigCommerce or static translations.
+
+  The following pages now support Makeswift SEO metadata:
+  - Home page (`/`)
+  - Catch-all page (`/[...rest]`)
+  - Product page (`/product/[slug]`)
+  - Brand page (`/brand/[slug]`)
+  - Category page (`/category/[slug]`)
+  - Blog list page (`/blog`)
+  - Blog post page (`/blog/[blogId]`)
+  - Search page (`/search`)
+  - Cart page (`/cart`)
+  - Compare page (`/compare`)
+  - Gift certificates page (`/gift-certificates`)
+  - Gift certificates balance page (`/gift-certificates/balance`)
+  - Contact webpage (`/webpages/[id]/contact`)
+  - Normal webpage (`/webpages/[id]/normal`)
+
+  ## Migration steps
+
+  ### Step 1: Add `getMakeswiftPageMetadata` function
+
+  Add the `getMakeswiftPageMetadata` function to `core/lib/makeswift/client.ts`:
+
+  ```diff
+  + export async function getMakeswiftPageMetadata({ path, locale }: { path: string; locale: string }) {
+  +   const { data: pages } = await client.getPages({
+  +     pathPrefix: path,
+  +     locale: normalizeLocale(locale),
+  +     siteVersion: await getSiteVersion(),
+  +   });
+  +
+  +   if (pages.length === 0 || !pages[0]) {
+  +     return null;
+  +   }
+  +
+  +   const { title, description } = pages[0];
+  +
+  +   return {
+  +     ...(title && { title }),
+  +     ...(description && { description }),
+  +   };
+  + }
+  ```
+
+  Export the function from `core/lib/makeswift/index.ts`:
+
+  ```diff
+    export { Page } from './page';
+  - export { client } from './client';
+  + export { client, getMakeswiftPageMetadata } from './client';
+  ```
+
+  ### Step 2: Update page metadata
+
+  Each page's `generateMetadata` function has been updated to fetch Makeswift metadata and use it as the primary source, falling back to existing values. Here's an example using the cart page:
+
+  Update `core/app/[locale]/(default)/cart/page.tsx`:
+
+  ```diff
+    import { getPreferredCurrencyCode } from '~/lib/currency';
+  + import { getMakeswiftPageMetadata } from '~/lib/makeswift';
+    import { Slot } from '~/lib/makeswift/slot';
+  ```
+
+  ```diff
+    export async function generateMetadata({ params }: Props): Promise<Metadata> {
+      const { locale } = await params;
+
+      const t = await getTranslations({ locale, namespace: 'Cart' });
+  +   const makeswiftMetadata = await getMakeswiftPageMetadata({ path: '/cart', locale });
+
+      return {
+  -     title: t('title'),
+  +     title: makeswiftMetadata?.title || t('title'),
+  +     description: makeswiftMetadata?.description || undefined,
+      };
+    }
+  ```
+
+  Apply the same pattern to the other pages listed above, using the appropriate path for each page (e.g., `/blog`, `/search`, `/compare`, etc.).
+
+## 1.4.2
+
+### Patch Changes
+
+- [#2845](https://github.com/bigcommerce/catalyst/pull/2845) [`7f82903`](https://github.com/bigcommerce/catalyst/commit/7f82903074ec9831c48246aa748748aede51fe1a) Thanks [@chanceaclark](https://github.com/chanceaclark)! - Pulls in changes from the `@bigcommerce/catalyst-core@1.4.2` patch.
+
+## 1.4.1
+
+### Patch Changes
+
+- [#2839](https://github.com/bigcommerce/catalyst/pull/2839) [`db27c0f`](https://github.com/bigcommerce/catalyst/commit/db27c0f6761786acce3fa1ce9b509a526a47a931) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Pulls in changes from the `@bigcommerce/catalyst-core@1.4.1` patch.
+
+## 1.4.0
+
+### Minor Changes
+
+- [#2808](https://github.com/bigcommerce/catalyst/pull/2808) [`d6e2f1b`](https://github.com/bigcommerce/catalyst/commit/d6e2f1b5f9c726ed328fde76b8bedd0b95cec72e) Thanks [@matthewvolk](https://github.com/matthewvolk)! - This release includes all changes included in the `canary` 1.4.0 release (see the 1.4.0 changelog for more details: https://github.com/bigcommerce/catalyst/blob/44c682ef988030d7500275f3e4e4503a3a1af63c/core/CHANGELOG.md#140)
+
+### Patch Changes
+
+- [#2791](https://github.com/bigcommerce/catalyst/pull/2791) [`bd30ed3`](https://github.com/bigcommerce/catalyst/commit/bd30ed3ebc73d91136190c7ba457458fed6f3eb7) Thanks [@migueloller](https://github.com/migueloller)! - Fix sort order of `additionalProducts` prop in `ProductsCarousel` Makeswift component.
+
+## 1.3.8
+
+### Patch Changes
+
+- [#2773](https://github.com/bigcommerce/catalyst/pull/2773) [`b475a36`](https://github.com/bigcommerce/catalyst/commit/b475a3670a3a9b265e4fddddd506bfea943772cf) Thanks [@chanceaclark](https://github.com/chanceaclark)! - Catalyst has been upgraded to Next.js 15.5.9. This is a patch version upgrade that requires migration steps for existing stores to fix a security vulnerability.
+
+  ## 🔒 Security Update
+
+  **This upgrade addresses a security vulnerability ([CVE-2025-55184 + CVE-2025-55183](https://nextjs.org/blog/security-update-2025-12-11))** that affects React Server Components. These vulnerabilities allow a Denial of Service attack and Source Code Exposure attach. This upgrade includes:
+  - Next.js 15.5.9 with the security patch
+  - React 19.1.4 and React DOM 19.1.4 with the security patch
+
+  **All users are strongly encouraged to upgrade immediately.**
+
+  ## Key Changes
+  - ⚡ **Next.js 15.5.9**: Upgraded from Next.js 15.5.7 to 15.5.9
+  - ⚛️ **React 19**: Upgraded to React 19.1.4 and React DOM 19.1.4
+
+  ## Migration Guide
+
+  ### Update Dependencies
+
+  If you're maintaining a custom Catalyst store, update your `package.json`:
+
+  ```json
+  {
+    "dependencies": {
+      "next": "15.5.9",
+      "react": "19.1.4",
+      "react-dom": "19.1.4"
+    },
+    "devDependencies": {
+      "@next/bundle-analyzer": "15.5.9",
+      "eslint-config-next": "15.5.9"
+    }
+  }
+  ```
+
+  Then run:
+
+  ```bash
+  pnpm install
+  ```
+
+## 1.3.7
+
+### Patch Changes
+
+- [#2764](https://github.com/bigcommerce/catalyst/pull/2764) [`83c5b75`](https://github.com/bigcommerce/catalyst/commit/83c5b758a4a19e76fbb89bcea48f95a3da3f76b4) Thanks [@chanceaclark](https://github.com/chanceaclark)! - # Next.js 15.5.8 Upgrade
+
+  Catalyst has been upgraded to Next.js 15.5.8. This is a patch version upgrade that requires migration steps for existing stores to fix a security vulnerability.
+
+  ## 🔒 Critical Security Update
+
+  **This upgrade addresses a critical security vulnerability ([CVE-2025-55184 + CVE-2025-55183](https://nextjs.org/blog/security-update-2025-12-11))** that affects React Server Components. These vulnerabilities allow a Denial of Service attack and Source Code Exposure attach. This upgrade includes:
+  - Next.js 15.5.8 with the security patch
+  - React 19.1.3 and React DOM 19.1.3 with the security patch
+
+  **All users are strongly encouraged to upgrade immediately.**
+
+  ## Key Changes
+  - ⚡ **Next.js 15.5.8**: Upgraded from Next.js 15.5.7 to 15.5.8
+  - ⚛️ **React 19**: Upgraded to React 19.1.3 and React DOM 19.1.3
+
+  ## Migration Guide
+
+  ### Update Dependencies
+
+  If you're maintaining a custom Catalyst store, update your `package.json`:
+
+  ```json
+  {
+    "dependencies": {
+      "next": "15.5.8",
+      "react": "19.1.3",
+      "react-dom": "19.1.3"
+    },
+    "devDependencies": {
+      "@next/bundle-analyzer": "15.5.8",
+      "eslint-config-next": "15.5.8"
+    }
+  }
+  ```
+
+  Then run:
+
+  ```bash
+  pnpm install
+  ```
+
+## 1.3.6
+
+### Patch Changes
+
+- [#2746](https://github.com/bigcommerce/catalyst/pull/2746) [`a0408ee`](https://github.com/bigcommerce/catalyst/commit/a0408ee75d712f30d85860d7ab41667e98fb0d5a) Thanks [@chanceaclark](https://github.com/chanceaclark)! - Pulls in changes from the `@bigcommerce/catalyst-core@1.3.5` patch.
+
+## 1.3.5
+
+### Patch Changes
+
+- [#2736](https://github.com/bigcommerce/catalyst/pull/2736) [`05f40a2`](https://github.com/bigcommerce/catalyst/commit/05f40a2f21d7e815811767e9cd346731d94ab39e) Thanks [@chanceaclark](https://github.com/chanceaclark)! - Enable Makeswift builder to work in different environments by adding `apiOrigin` and `appOrigin` props to `ReactRuntimeProvider`.
+
+  **Action required:** Add the following environment variables:
+  - `NEXT_PUBLIC_MAKESWIFT_API_ORIGIN`
+  - `NEXT_PUBLIC_MAKESWIFT_APP_ORIGIN`
+
+  **Deprecation notice:** `MAKESWIFT_API_ORIGIN` and `MAKESWIFT_APP_ORIGIN` are deprecated and will be removed in v1.4.0. Prefix `MAKESWIFT_API_ORIGIN` and `MAKESWIFT_APP_ORIGIN` with `NEXT_PUBLIC_` to migrate.
+
+## 1.3.4
+
+### Patch Changes
+
+- [#2723](https://github.com/bigcommerce/catalyst/pull/2723) [`dbafb31`](https://github.com/bigcommerce/catalyst/commit/dbafb317fc27c976ae48f23ee4645c9980253a3a) Thanks [@chanceaclark](https://github.com/chanceaclark)! - Noop release to account for typecheck issue.
+
+## 1.3.3
+
+### Patch Changes
+
+- [#2718](https://github.com/bigcommerce/catalyst/pull/2718) [`a66b9ae`](https://github.com/bigcommerce/catalyst/commit/a66b9ae11083bf56135a3c3a00d6974ae2c86593) Thanks [@chanceaclark](https://github.com/chanceaclark)! - Pulls in changes from the @bigcommerce/catalyst-core@1.3.3 patch.
+
+## 1.3.2
+
+### Patch Changes
+
+- [`6c94dec`](https://github.com/bigcommerce/catalyst/commit/6c94dece0f72f2bc74ef67b456f2522475e2f129) Thanks [@chanceaclark](https://github.com/chanceaclark)! - Pulls in changes from the `@bigcommerce/catalyst-core@1.3.2` patch.
+
+## 1.3.1
+
+### Patch Changes
+
+- [#2685](https://github.com/bigcommerce/catalyst/pull/2685) [`bf176c2`](https://github.com/bigcommerce/catalyst/commit/bf176c28bddc17455cab2d217156dc1822e1e86f) Thanks [@jordanarldt](https://github.com/jordanarldt)! - Includes all changes included in the [1.3.1 release](https://github.com/bigcommerce/catalyst/blob/61183ca1cd2957a2ebc114aa1b15a9d5184c8966/core/CHANGELOG.md#131) of `@bigcommerce/catalyst-core`
+
+## 1.3.0
+
+### Minor Changes
+
+- [#2678](https://github.com/bigcommerce/catalyst/pull/2678) [`f121097`](https://github.com/bigcommerce/catalyst/commit/f1210973265b481ec964a71848304f2ca1931162) Thanks [@chanceaclark](https://github.com/chanceaclark)! - Synced the changes made on `canary`. See the 1.3.0 changelog for more details: https://github.com/bigcommerce/catalyst/releases/tag/%40bigcommerce%2Fcatalyst-core%401.3.0
+
+- [#2593](https://github.com/bigcommerce/catalyst/pull/2593) [`9e2f992`](https://github.com/bigcommerce/catalyst/commit/9e2f992a3f6b6e3fcd45a823343859403cda9542) Thanks [@hunterbecton](https://github.com/hunterbecton)! - Create alias for variables for button and button-link components
+
+### Patch Changes
+
+- [#2628](https://github.com/bigcommerce/catalyst/pull/2628) [`d52d6f6`](https://github.com/bigcommerce/catalyst/commit/d52d6f67deef8b957040ee40ee16ca6563510f7c) Thanks [@arvinpoddar](https://github.com/arvinpoddar)! - Switch to using `ReactRuntimeCore` instead of `ReactRuntime`, avoiding the bundling of unused dependencies from some Makeswift builtin components. Also bumps to latest `@makeswift/runtime`.
+
+- [#2621](https://github.com/bigcommerce/catalyst/pull/2621) [`eb2d4e1`](https://github.com/bigcommerce/catalyst/commit/eb2d4e16e61c5822111fa50d8bc27db86cd5e9c4) Thanks [@agurtovoy](https://github.com/agurtovoy)! - Fix locale switcher on localized Makeswift pages with different paths
+
+## 1.2.0
+
+### Minor Changes
+
+- [#2546](https://github.com/bigcommerce/catalyst/pull/2546) [`63d2dd7`](https://github.com/bigcommerce/catalyst/commit/63d2dd70d8054344d8ad35bafc0e38661ea2d247) Thanks [@bookernath](https://github.com/bookernath)! - Bump Makeswift runtime to 0.25.0 for Next v15.5 compatibility
+
+- [#2568](https://github.com/bigcommerce/catalyst/pull/2568) [`4145846`](https://github.com/bigcommerce/catalyst/commit/4145846667bfe8c3976271e6e50b5c3ec462dc1c) Thanks [@hunterbecton](https://github.com/hunterbecton)! - Now have the ability to make footer links open in new tabs
+
+- [#2582](https://github.com/bigcommerce/catalyst/pull/2582) [`b3c7bbf`](https://github.com/bigcommerce/catalyst/commit/b3c7bbfcda943332fd6d8488289b7d7f417ff38c) Thanks [@matthewvolk](https://github.com/matthewvolk)! - Includes all changes included in the [1.2.0 release](https://github.com/bigcommerce/catalyst/blob/bb7940cedd169f053d55b787cc2b7183f737edba/core/CHANGELOG.md?plain=1#L3) of `@bigcommerce/catalyst-core`
+
+## 1.0.1
+
+### Patch Changes
+
+- [#2470](https://github.com/bigcommerce/catalyst/pull/2470) [`094b6af`](https://github.com/bigcommerce/catalyst/commit/094b6af34b47065e320ca388f539285f607f4d7a) Thanks [@agurtovoy](https://github.com/agurtovoy)! - feat: add slots for user-provided content on category pages
+
+## 1.0.0
+
+### Major Changes
+
+- [`7f1e73d`](https://github.com/bigcommerce/catalyst/commit/7f1e73d) Thanks [@matthewvolk](https://github.com/matthewvolk)! - Release 1.0.0 (see [`core/CHANGELOG.md`](https://github.com/bigcommerce/catalyst/blob/canary/core/CHANGELOG.md#100) for more details)
+
+### Patch Changes
+
+- [`11ecddf`](https://github.com/bigcommerce/catalyst/commit/11ecddf) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Re-enable Customer Group Slot component
+- [`281be00`](https://github.com/bigcommerce/catalyst/commit/281be00) Thanks [@alekseygurtovoy](https://github.com/alekseygurtovoy)! - fix: configure NextAuth cookies to work inside of the Makeswift Builder's canvas
+- [`dea8eab`](https://github.com/bigcommerce/catalyst/commit/dea8eab) Thanks [@alekseygurtovoy](https://github.com/alekseygurtovoy)! - fix: flicker on rerendering `<ProductList />`
+- [`2cdd078`](https://github.com/bigcommerce/catalyst/commit/2cdd078) Thanks [@arvinpoddar](https://github.com/arvinpoddar)! - fix: bump makeswift runtime version to `v0.24.0`, fixing issue with editing on SSGd pages
+- [`5c198be`](https://github.com/bigcommerce/catalyst/commit/5c198be) Thanks [@alekseygurtovoy](https://github.com/alekseygurtovoy)! - fix: disable cookie- and language-based locale detection in the builder
+- [`a298d28`](https://github.com/bigcommerce/catalyst/commit/a298d28) Thanks [@alekseygurtovoy](https://github.com/alekseygurtovoy)! - Upgrade `@makeswift/runtime` to the [0.23.3 release](https://github.com/makeswift/makeswift/releases).
+- [`34ac728`](https://github.com/bigcommerce/catalyst/commit/34ac728) Thanks [@arvinpoddar](https://github.com/arvinpoddar)! - refactor: upgrade Makeswift runtime and use provided utility to construct draft request
+- [`5ea6d6d`](https://github.com/bigcommerce/catalyst/commit/5ea6d6d) Thanks [@alekseygurtovoy](https://github.com/alekseygurtovoy)! - Usability/terminology fix, Accordions -> Accordion
+- [`8e8b31c`](https://github.com/bigcommerce/catalyst/commit/8e8b31c) Thanks [@pvaladez](https://github.com/pvaladez)! - Add core/lib/makeswift/components folder to tailwind config content property so that tailwind classes can be used in components there.
+- [`89e912e`](https://github.com/bigcommerce/catalyst/commit/89e912e) Thanks [@alekseygurtovoy](https://github.com/alekseygurtovoy)! - Upgrade to the latest version of Makeswift runtime (0.24.6)
+- [`e5ad65c`](https://github.com/bigcommerce/catalyst/commit/e5ad65c) Thanks [@fikrikarim](https://github.com/fikrikarim)! - Fix: missing **Add-to-cart** feedback on `integrations/makeswift` branch: Toast success notification now appears when **Add to cart** is clicked. Cart button badge in the header now updates to show `1` when the first item is added.
+- [`11ecddf`](https://github.com/bigcommerce/catalyst/commit/11ecddf) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Unify Makeswift component registrations
+- [`e6a98a4`](https://github.com/bigcommerce/catalyst/commit/e6a98a4) Thanks [@arvinpoddar](https://github.com/arvinpoddar)! - fix: upgrade Makeswift runtime. Includes prop editing performance improvements, a bug fix for link editing, and a fix to avoid CSS class collision by using a different Emotion key.
+- [`e968366`](https://github.com/bigcommerce/catalyst/commit/e968366) Thanks [@alekseygurtovoy](https://github.com/alekseygurtovoy)! - fix: `useCompareDrawer` does not throw on missing context
+- [`037663b`](https://github.com/bigcommerce/catalyst/commit/037663b) Thanks [@alekseygurtovoy](https://github.com/alekseygurtovoy)! - fix: configure `NEXT_LOCALE` cookie to work inside of the Makeswift Builder's canvas
+- [`881a532`](https://github.com/bigcommerce/catalyst/commit/881a532) Thanks [@alekseygurtovoy](https://github.com/alekseygurtovoy)! - fix(theming): changing price label colors has no effect
+- [`12d60da`](https://github.com/bigcommerce/catalyst/commit/12d60da) Thanks [@alekseygurtovoy](https://github.com/alekseygurtovoy)! - fix: deletion of `NEXT_LOCALE` cookie triggers page rerender
+- [`ed3202d`](https://github.com/bigcommerce/catalyst/commit/ed3202d) Thanks [@alekseygurtovoy](https://github.com/alekseygurtovoy)! - fix: support switching of the page's locale in the Makeswift Builder
+
 ## 0.24.1
 
 ### Patch Changes
@@ -162,7 +599,6 @@
 ### Minor Changes
 
 - [#1491](https://github.com/bigcommerce/catalyst/pull/1491) [`313a591`](https://github.com/bigcommerce/catalyst/commit/313a5913181a144b53cb12208132f4a9924e2256) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Bump `next-intl` which includes [some minor changes and updated APIs](<(https://next-intl-docs.vercel.app/blog/next-intl-3-22)>):
-
   - Use new `createNavigation` api.
   - Pass `locale` to redirects.
   - `setRequestLocale` is no longer unstable.
@@ -258,7 +694,6 @@
 - [#1362](https://github.com/bigcommerce/catalyst/pull/1362) [`0814afe`](https://github.com/bigcommerce/catalyst/commit/0814afefca00b2497dddb0622df45f4d50865882) Thanks [@deini](https://github.com/deini)! - If app is not running on Vercel's infra, `<Analytics />` and `<SpeedInsights />` are not rendered.
 
   Opt-out of vercel analytics and speed insights by setting the following env vars to `true`
-
   - `DISABLE_VERCEL_ANALYTICS`
   - `DISABLE_VERCEL_SPEED_INSIGHTS`
 
@@ -347,7 +782,6 @@
 - [#1278](https://github.com/bigcommerce/catalyst/pull/1278) [`f8553c6`](https://github.com/bigcommerce/catalyst/commit/f8553c6c9fb35ab7a143fabd60719c8156269448) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Fix wrapping author text in BlogPostCard.
 
 - [#1322](https://github.com/bigcommerce/catalyst/pull/1322) [`77ecb4b`](https://github.com/bigcommerce/catalyst/commit/77ecb4bb4f527e079788b0f9dff2468e92d0bc1a) Thanks [@jorgemoya](https://github.com/jorgemoya)! - Split auth forms to four different pages:
-
   - /login
   - /register
   - /reset
@@ -397,7 +831,6 @@
 - [#1194](https://github.com/bigcommerce/catalyst/pull/1194) [`b455b05`](https://github.com/bigcommerce/catalyst/commit/b455b05a6121b005bd5147a25c964b9554b1b350) Thanks [@BC-krasnoshapka](https://github.com/BC-krasnoshapka)! - Add basic support for Google Analytics via [Big Open Data Layer](https://developer.bigcommerce.com/docs/integrations/hosted-analytics). BODL and GA4 integration is encapsulated in `bodl` library which hides current complexity and limitations that will be improved in future. It can be extended with more events and integrations with other analytics providers later. Data transformation from Catalyst data models to BODL and firing events is done in client components, as only frontend events are supported by BODL for now.
 
   List of currently supported events:
-
   - View product category
   - View product page
   - Add product to cart

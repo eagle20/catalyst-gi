@@ -8,33 +8,69 @@ import { client } from './client';
 import { graphql } from './client/graphql';
 import { cspHeader } from './lib/content-security-policy';
 
-const withMakeswift = createWithMakeswift({ appOrigin: process.env.MAKESWIFT_APP_ORIGIN });
-const withNextIntl = createNextIntlPlugin();
+const withMakeswift = createWithMakeswift({
+  appOrigin: process.env.NEXT_PUBLIC_MAKESWIFT_APP_ORIGIN ?? process.env.MAKESWIFT_APP_ORIGIN,
+});
+const withNextIntl = createNextIntlPlugin({
+  experimental: {
+    createMessagesDeclaration: './messages/en.json',
+  },
+});
 
-const LocaleQuery = graphql(`
-  query LocaleQuery {
+const SettingsQuery = graphql(`
+  query SettingsQuery {
     site {
       settings {
-        locales {
-          code
-          isDefault
+        url {
+          vanityUrl
+          cdnUrl
+          checkoutUrl
         }
       }
     }
   }
 `);
 
+async function writeSettingsToBuildConfig() {
+  const { data } = await client.fetch({ document: SettingsQuery });
+
+  const cdnEnvHostnames = process.env.NEXT_PUBLIC_BIGCOMMERCE_CDN_HOSTNAME;
+
+  const cdnUrls = (
+    cdnEnvHostnames
+      ? cdnEnvHostnames.split(',').map((s) => s.trim())
+      : [data.site.settings?.url.cdnUrl]
+  ).filter((url): url is string => !!url);
+
+  if (!cdnUrls.length) {
+    throw new Error(
+      'No CDN URLs found. Please ensure that NEXT_PUBLIC_BIGCOMMERCE_CDN_HOSTNAME is set correctly.',
+    );
+  }
+
+  return await writeBuildConfig({
+    urls: {
+      ...data.site.settings?.url,
+      cdnUrls,
+    },
+  });
+}
+
 export default async (): Promise<NextConfig> => {
+  const settings = await writeSettingsToBuildConfig();
+
   let nextConfig: NextConfig = {
     reactStrictMode: true,
     experimental: {
       optimizePackageImports: ['@icons-pack/react-simple-icons'],
     },
-    typescript: {
-      ignoreBuildErrors: true,
+    images: {
+      // Allow product-video poster thumbnails (YouTube) through next/image.
+      remotePatterns: [{ protocol: 'https', hostname: 'i.ytimg.com', pathname: '/vi/**' }],
     },
-    eslint: {
-      ignoreDuringBuilds: true,
+    typescript: {
+      // GI: the codebase has known type errors (see TYPESCRIPT_ERRORS.md); don't block deploys on them.
+      ignoreBuildErrors: true,
     },
     // default URL generation in BigCommerce uses trailing slash
     trailingSlash: process.env.TRAILING_SLASH !== 'false',
@@ -67,6 +103,11 @@ export default async (): Promise<NextConfig> => {
     },
     // eslint-disable-next-line @typescript-eslint/require-await
     async headers() {
+      const cdnLinks = settings.urls.cdnUrls.map((url) => ({
+        key: 'Link',
+        value: `<https://${url}>; rel=preconnect`,
+      }));
+
       return [
         {
           source: '/(.*)',
@@ -75,10 +116,7 @@ export default async (): Promise<NextConfig> => {
               key: 'Content-Security-Policy',
               value: cspHeader.replace(/\n/g, ''),
             },
-            {
-              key: 'Link',
-              value: `<https://${process.env.NEXT_PUBLIC_BIGCOMMERCE_CDN_HOSTNAME ?? 'cdn11.bigcommerce.com'}>; rel=preconnect`,
-            },
+            ...cdnLinks,
           ],
         },
       ];
@@ -97,13 +135,5 @@ export default async (): Promise<NextConfig> => {
     nextConfig = withBundleAnalyzer(nextConfig);
   }
 
-  await writeLocaleToBuildConfig();
-
   return nextConfig;
 };
-
-async function writeLocaleToBuildConfig() {
-  const { data } = await client.fetch({ document: LocaleQuery });
-
-  await writeBuildConfig({ locales: data.site.settings?.locales });
-}

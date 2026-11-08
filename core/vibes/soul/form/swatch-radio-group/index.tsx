@@ -32,14 +32,14 @@ type SwatchOption =
  *    --swatch-radio-group-focus: hsl(var(--primary));
  *    --swatch-radio-group-light-icon: hsl(var(--foreground));
  *    --swatch-radio-group-light-unchecked-border: transparent;
- *    --swatch-radio-group-light-unchecked-border-hover: hsl(var(--border-contrast-200));
+ *    --swatch-radio-group-light-unchecked-border-hover: hsl(var(--contrast-200));
  *    --swatch-radio-group-light-disabled-border: transparent;
  *    --swatch-radio-group-light-border-error: hsl(var(--error));
  *    --swatch-radio-group-light-checked-border: hsl(var(--foreground));
  *    --swatch-radio-group-light-option-border: hsl(var(--foreground) / 10%);
  *    --swatch-radio-group-dark-icon: hsl(var(--background));
  *    --swatch-radio-group-dark-unchecked-border: transparent;
- *    --swatch-radio-group-dark-unchecked-border-hover: hsl(var(--border-contrast-400));
+ *    --swatch-radio-group-dark-unchecked-border-hover: hsl(var(--contrast-400));
  *    --swatch-radio-group-dark-disabled-border: transparent;
  *    --swatch-radio-group-dark-border-error: hsl(var(--error));
  *    --swatch-radio-group-dark-checked-border: hsl(var(--background));
@@ -58,7 +58,16 @@ export const SwatchRadioGroup = React.forwardRef<
   }
 >(
   (
-    { label, options, errors, className, colorScheme = 'light', onOptionMouseEnter, ...rest },
+    {
+      label,
+      options,
+      errors,
+      className,
+      colorScheme = 'light',
+      onOptionMouseEnter,
+      required,
+      ...rest
+    },
     ref,
   ) => {
     const id = React.useId();
@@ -66,7 +75,7 @@ export const SwatchRadioGroup = React.forwardRef<
     return (
       <div className={clsx('space-y-2', className)}>
         {label !== undefined && label !== '' && (
-          <Label colorScheme={colorScheme} id={id}>
+          <Label colorScheme={colorScheme} id={id} required={required}>
             {label}
           </Label>
         )}
@@ -75,6 +84,7 @@ export const SwatchRadioGroup = React.forwardRef<
           aria-labelledby={id}
           className="flex flex-wrap gap-1"
           ref={ref}
+          required={required}
         >
           {options.map((option) => (
             <RadioGroupPrimitive.Item
@@ -83,8 +93,8 @@ export const SwatchRadioGroup = React.forwardRef<
                 'group relative box-content h-8 w-8 rounded-full border p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--swatch-radio-group-focus,hsl(var(--primary)))] data-[disabled]:pointer-events-none [&:disabled>.disabled-icon]:grid',
                 {
                   light:
-                    'hover:border-[var(--swatch-radio-group-light-unchecked-border-hover,hsl(var(--border-contrast-200)))] data-[state=checked]:border-[var(--swatch-radio-group-light-checked-border,hsl(var(--foreground)))]',
-                  dark: 'hover:border-[var(--swatch-radio-group-dark-unchecked-border-hover,hsl(var(--border-contrast-400)))] data-[state=checked]:border-[var(--swatch-radio-group-dark-checked-border,hsl(var(--background)))]',
+                    'hover:border-[var(--swatch-radio-group-light-unchecked-border-hover,hsl(var(--contrast-200)))] data-[state=checked]:border-[var(--swatch-radio-group-light-checked-border,hsl(var(--foreground)))]',
+                  dark: 'hover:border-[var(--swatch-radio-group-dark-unchecked-border-hover,hsl(var(--contrast-400)))] data-[state=checked]:border-[var(--swatch-radio-group-dark-checked-border,hsl(var(--background)))]',
                 }[colorScheme],
                 {
                   light:
@@ -144,7 +154,9 @@ export const SwatchRadioGroup = React.forwardRef<
             </RadioGroupPrimitive.Item>
           ))}
         </RadioGroupPrimitive.Root>
-        {errors?.map((error) => <FieldError key={error}>{error}</FieldError>)}
+        {errors?.map((error) => (
+          <FieldError key={error}>{error}</FieldError>
+        ))}
       </div>
     );
   },

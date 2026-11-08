@@ -99,10 +99,8 @@ export const addToCart = async (
           optionEntityId: Number(field.name),
           optionValueEntityId:
             optionValueEntityId === 'true'
-              ? // @ts-expect-error Types from custom fields are not yet available, pending fix
-                Number(field.checkedValue)
-              : // @ts-expect-error Types from custom fields are not yet available, pending fix
-                Number(field.uncheckedValue),
+              ? Number(field.checkedValue)
+              : Number(field.uncheckedValue),
         };
 
         if (accum.checkboxes) {
@@ -229,7 +227,7 @@ export const addToCart = async (
 
         await applyCouponCode({
           checkoutEntityId: cartId,
-          couponCode: promoCode,
+          couponCode: String(promoCode),
         });
 
         console.log('✅ Promo code applied - BigCommerce auto-added free gifts');

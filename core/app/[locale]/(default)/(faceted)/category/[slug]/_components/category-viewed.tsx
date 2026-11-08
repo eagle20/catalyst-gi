@@ -1,11 +1,13 @@
 'use client';
 
 import { removeEdgesAndNodes } from '@bigcommerce/catalyst-client';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { FragmentOf } from '~/client/graphql';
 import { ProductCardFragment } from '~/components/product-card/fragment';
-import { bodl } from '~/lib/bodl';
+import { TaxDisplay } from '~/data-transformers/prices-transformer';
+import { useAnalytics } from '~/lib/analytics/react';
+import { pickPricesForTaxDisplay } from '~/lib/tax-pricing';
 
 import { getCategoryPageData } from '../page-data';
 
@@ -13,35 +15,43 @@ type Category = Awaited<ReturnType<typeof getCategoryPageData>>['category'];
 type productSearchItem = FragmentOf<typeof ProductCardFragment>;
 
 interface Props {
-  categoryId: number;
-  category: Category;
+  category: NonNullable<Category>;
   products: productSearchItem[];
+  taxDisplay?: TaxDisplay | null;
 }
 
-const productItemTransform = (p: productSearchItem, c: Category) => {
-  const breadcrumbs = c ? removeEdgesAndNodes(c.breadcrumbs) : [];
+export const CategoryViewed = ({ category, products, taxDisplay }: Props) => {
+  const isMounted = useRef(false);
+  const analytics = useAnalytics();
 
-  return {
-    product_id: p.entityId.toString(),
-    product_name: p.name,
-    brand_name: p.brand?.name,
-    sale_price: p.prices?.salePrice?.value,
-    purchase_price: p.prices?.salePrice?.value || p.prices?.price.value || 0,
-    base_price: p.prices?.price.value,
-    retail_price: p.prices?.retailPrice?.value,
-    currency: p.prices?.price.currencyCode || 'USD',
-    category_names: breadcrumbs.map(({ name }) => name),
-  };
-};
-
-export const CategoryViewed = ({ categoryId, category, products }: Props) => {
   useEffect(() => {
-    bodl.navigation.categoryViewed({
-      category_id: categoryId,
-      category_name: category?.name ?? '',
-      line_items: products.map((p) => productItemTransform(p, category)),
+    if (isMounted.current) {
+      return;
+    }
+
+    isMounted.current = true;
+
+    const firstProductPrices = products[0]
+      ? pickPricesForTaxDisplay(products[0], taxDisplay)
+      : undefined;
+
+    analytics?.navigation.categoryViewed({
+      id: category.entityId,
+      name: category.name,
+      currency: firstProductPrices?.price.currencyCode || 'USD',
+      items: products.map((p) => {
+        const prices = pickPricesForTaxDisplay(p, taxDisplay);
+
+        return {
+          id: p.entityId.toString(),
+          name: p.name,
+          brand: p.brand?.name,
+          price: prices?.price.value,
+          categories: removeEdgesAndNodes(category.breadcrumbs).map(({ name }) => name),
+        };
+      }),
     });
-  }, [category, categoryId, products]);
+  }, [analytics, category, products, taxDisplay]);
 
   return null;
 };

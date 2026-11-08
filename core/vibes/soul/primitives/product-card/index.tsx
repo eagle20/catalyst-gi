@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { ReactNode } from 'react';
 
 import { Badge } from '@/vibes/soul/primitives/badge';
 import { Price, PriceLabel } from '@/vibes/soul/primitives/price-label';
@@ -11,13 +12,18 @@ import { Compare } from './compare';
 export interface Product {
   id: string;
   title: string;
-  description: string;
+  description?: ReactNode;
   href: string;
   image?: { src: string; alt: string };
-  categories: string[];
+  categories?: string[];
   price?: Price;
   subtitle?: string;
   badge?: string;
+  // Upstream card data (not shown by our card design)
+  rating?: number;
+  inventoryMessage?: string;
+  numberOfReviews?: number;
+  promotions?: Array<{ id: string; text: string }>;
 }
 
 export interface ProductCardProps {
@@ -32,6 +38,8 @@ export interface ProductCardProps {
   product: Product;
   showButton?: boolean;
   onClick?: () => void;
+  // Upstream prop; our card design doesn't show ratings.
+  showRating?: boolean;
 }
 
 /**

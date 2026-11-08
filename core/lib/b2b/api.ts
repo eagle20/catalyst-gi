@@ -31,15 +31,54 @@ export interface B2BCart {
   items: B2BCartItem[];
 }
 
+/**
+ * Thrown when the portal doesn't recognise the logged-in customer (401 from the portal): they're in
+ * a B2B customer group in BigCommerce but have no portal user linked to a company, or the
+ * storefront and portal shared secrets don't match.
+ */
+export const NO_PORTAL_ACCESS_MESSAGE =
+  "Your B2B portal access isn't set up yet. Please contact your sales rep.";
+
+export class B2BAccessError extends Error {
+  constructor() {
+    super(NO_PORTAL_ACCESS_MESSAGE);
+    this.name = 'B2BAccessError';
+  }
+}
+
+/** Code the /api/b2b proxy sends with its own 401 when the storefront session has ended. */
+export const SIGNED_OUT_CODE = 'SIGNED_OUT';
+
+/**
+ * Throws for a failed proxy response. A 401 from the proxy itself (session ended) becomes an error
+ * asking the customer to sign in again; a 401 from the portal becomes B2BAccessError.
+ */
+async function ensureOk(res: Response, action: string): Promise<void> {
+  if (res.ok) return;
+
+  const body: unknown = await res.json().catch(() => ({}));
+  const { error, code } = (body ?? {}) as { error?: string; code?: string };
+
+  if (res.status === 401) {
+    if (code === SIGNED_OUT_CODE) {
+      throw new Error('Your session has ended. Please sign in again.');
+    }
+
+    throw new B2BAccessError();
+  }
+
+  throw new Error(error ?? `${action} failed: ${res.status}`);
+}
+
 export async function getB2BPricing(sku: string): Promise<B2BPricingResult> {
   const res = await fetch(`/api/b2b/pricing?sku=${encodeURIComponent(sku)}`);
-  if (!res.ok) throw new Error(`B2B pricing fetch failed: ${res.status}`);
+  await ensureOk(res, 'B2B pricing fetch');
   return res.json() as Promise<B2BPricingResult>;
 }
 
 export async function getB2BCart(): Promise<B2BCart> {
   const res = await fetch('/api/b2b/cart');
-  if (!res.ok) throw new Error(`B2B cart fetch failed: ${res.status}`);
+  await ensureOk(res, 'B2B cart fetch');
   const body = await res.json();
   return body.data as B2BCart;
 }
@@ -50,14 +89,14 @@ export async function updateB2BCartItem(cartItemId: string, quantity: number): P
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ cartItemId, quantity }),
   });
-  if (!res.ok) throw new Error(`B2B cart update failed: ${res.status}`);
+  await ensureOk(res, 'B2B cart update');
 }
 
 export async function removeFromB2BCart(cartItemId: string): Promise<void> {
   const res = await fetch(`/api/b2b/cart/items?cartItemId=${encodeURIComponent(cartItemId)}`, {
     method: 'DELETE',
   });
-  if (!res.ok) throw new Error(`B2B cart remove failed: ${res.status}`);
+  await ensureOk(res, 'B2B cart remove');
 }
 
 export async function addToB2BCart(
@@ -74,10 +113,7 @@ export async function addToB2BCart(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sku, quantity, bcProductId, productName, unitPrice, notes, productUrl }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error ?? `Add to B2B cart failed: ${res.status}`);
-  }
+  await ensureOk(res, 'Add to B2B cart');
   const body = await res.json();
   return body.data as B2BCartItem;
 }

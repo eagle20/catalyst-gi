@@ -41,16 +41,20 @@ interface Props {
   headerActions?: React.ReactNode | ((wishlist?: Wishlist) => React.ReactNode);
   action: AddWishlistItemToCartAction;
   removeAction?: RemoveWishlistItemAction;
+  removeButtonTitle?: string;
 }
 
 export const WishlistDetails = ({
   className = '',
   wishlist: streamableWishlist,
+  emptyStateText,
   paginationInfo,
   headerActions,
   prevHref,
+  placeholderCount,
   action,
   removeAction,
+  removeButtonTitle,
 }: Props) => {
   return (
     <Stream
@@ -58,6 +62,7 @@ export const WishlistDetails = ({
         <WishlistDetailSkeleton
           className={className}
           headerActions={typeof headerActions === 'function' ? headerActions() : headerActions}
+          placeholderCount={placeholderCount}
           prevHref={prevHref}
         />
       }
@@ -87,8 +92,11 @@ export const WishlistDetails = ({
 
             <WishlistItems
               action={action}
+              emptyStateText={emptyStateText}
               items={items}
+              placeholderCount={placeholderCount}
               removeAction={removeAction}
+              removeButtonTitle={removeButtonTitle}
               wishlistId={wishlist.id}
             />
 
@@ -107,6 +115,7 @@ function WishlistItems({
   placeholderCount,
   action,
   removeAction,
+  removeButtonTitle,
 }: {
   wishlistId: string;
   items: Streamable<WishlistItem[]>;
@@ -114,6 +123,7 @@ function WishlistItems({
   placeholderCount?: number;
   action: AddWishlistItemToCartAction;
   removeAction?: RemoveWishlistItemAction;
+  removeButtonTitle?: string;
 }) {
   return (
     <Stream
@@ -139,6 +149,7 @@ function WishlistItems({
                   item={item}
                   key={index}
                   removeAction={removeAction}
+                  removeButtonTitle={removeButtonTitle}
                   wishlistId={wishlistId}
                 />
               ))}

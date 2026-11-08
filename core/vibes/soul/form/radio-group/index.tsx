@@ -23,15 +23,34 @@ export const RadioGroup = React.forwardRef<
   }
 >(
   (
-    { label, options, errors, className, onOptionMouseEnter, colorScheme = 'light', ...rest },
+    {
+      label,
+      options,
+      errors,
+      className,
+      onOptionMouseEnter,
+      colorScheme = 'light',
+      required,
+      ...rest
+    },
     ref,
   ) => {
     const id = React.useId();
 
     return (
       <div className={clsx('space-y-2', className)}>
-        {label !== undefined && label !== '' && <Label id={id}>{label}</Label>}
-        <RadioGroupPrimitive.Root {...rest} aria-labelledby={id} className="space-y-2" ref={ref}>
+        {label !== undefined && label !== '' && (
+          <Label colorScheme={colorScheme} id={id} required={required}>
+            {label}
+          </Label>
+        )}
+        <RadioGroupPrimitive.Root
+          {...rest}
+          aria-labelledby={id}
+          className="space-y-2"
+          ref={ref}
+          required={required}
+        >
           {options.map((option, index) => (
             <RadioGroupItem
               colorScheme={colorScheme}
@@ -42,7 +61,9 @@ export const RadioGroup = React.forwardRef<
             />
           ))}
         </RadioGroupPrimitive.Root>
-        {errors?.map((error) => <FieldError key={error}>{error}</FieldError>)}
+        {errors?.map((error) => (
+          <FieldError key={error}>{error}</FieldError>
+        ))}
       </div>
     );
   },
@@ -130,7 +151,7 @@ function RadioGroupItem({
       </RadioGroupPrimitive.Item>
       <label
         className={clsx(
-          'flex flex-grow justify-between pl-3 text-sm leading-none',
+          'flex grow justify-between pl-3 text-sm leading-none',
           {
             light: 'text-[var(--radio-group-light-label,hsl(var(--foreground)))]',
             dark: 'text-[var(--radio-group-dark-label,hsl(var(--background)))]',

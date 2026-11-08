@@ -27,7 +27,9 @@ export const BcProductSchema = z.object({
   defaultImage: z.object({ altText: z.string(), url: string() }).nullable(),
   brand: z.object({ name: z.string(), path: z.string() }).nullable(),
   path: z.string(),
-  prices: PricesSchema,
+  pricesIncludingTax: PricesSchema.nullable(),
+  pricesExcludingTax: PricesSchema.nullable(),
+  // GI: extra fields for our product cards.
   description: z.string().optional(),
   categories: z.object({
     edges: z.array(
@@ -49,24 +51,16 @@ export const BcProductSchema = z.object({
 
 export type BcProductSchema = z.infer<typeof BcProductSchema>;
 
+export type { Product };
+
 export function useBcProductToVibesProduct(): (product: BcProductSchema) => Product {
   const format = useFormatter();
 
   return useCallback(
     (product) => {
-      const {
-        entityId,
-        name,
-        defaultImage,
-        brand,
-        path,
-        prices,
-        reviewSummary,
-        description,
-        categories,
-      } = product;
-
-      const price = pricesTransformer(prices, format);
+      const { entityId, name, defaultImage, brand, path, reviewSummary, description, categories } =
+        product;
+      const price = pricesTransformer(product, format);
 
       return {
         id: entityId.toString(),

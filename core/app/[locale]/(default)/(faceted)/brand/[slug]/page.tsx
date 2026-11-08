@@ -1,409 +1,275 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getFormatter, getTranslations, setRequestLocale } from 'next-intl/server';
-import { createSearchParamsCache } from 'nuqs/server';
+import { createLoader, SearchParams } from 'nuqs/server';
 import { cache } from 'react';
 
 import { Streamable } from '@/vibes/soul/lib/streamable';
 import { createCompareLoader } from '@/vibes/soul/primitives/compare-drawer/loader';
-import { CursorPaginationInfo } from '@/vibes/soul/primitives/cursor-pagination';
-import { Product } from '@/vibes/soul/primitives/product-card';
 import { ProductsListSection } from '@/vibes/soul/sections/products-list-section';
 import { getFilterParsers } from '@/vibes/soul/sections/products-list-section/filter-parsers';
-import { Filter } from '@/vibes/soul/sections/products-list-section/filters-panel';
-import { Option as SortOption } from '@/vibes/soul/sections/products-list-section/sorting';
+import { getSessionCustomerAccessToken } from '~/auth';
 import { facetsTransformer } from '~/data-transformers/facets-transformer';
 import { pageInfoTransformer } from '~/data-transformers/page-info-transformer';
-import { pricesTransformer } from '~/data-transformers/prices-transformer';
-import { client } from '~/client';
+import { productCardTransformer } from '~/data-transformers/product-card-transformer';
+import { getPreferredCurrencyCode } from '~/lib/currency';
+import { getMakeswiftPageMetadata } from '~/lib/makeswift';
+import { OptionalMakeswiftSection } from '~/lib/makeswift/optional-page';
+import { getProductPromotionBadges } from '~/lib/promotion-badges';
+import { buildOpenGraph } from '~/lib/seo';
 
 import { MAX_COMPARE_LIMIT } from '../../../compare/page-data';
 import { getCompareProducts as getCompareProductsData } from '../../fetch-compare-products';
 import { fetchFacetedSearch } from '../../fetch-faceted-search';
 
-import { OptionalMakeswiftSection } from '~/lib/makeswift/optional-page';
-import { buildOpenGraph } from '~/lib/seo';
-
 import { getBrandPageData } from './page-data';
 
-const cachedBrandDataVariables = cache((brandId: string) => {
+const getCachedBrand = cache((brandId: string) => {
   return {
-    entityId: Number(brandId),
+    brand: [brandId],
   };
 });
 
-const cacheBrandFacetedSearch = cache((brandId: string) => {
-  return { brand: [brandId] };
-});
+const compareLoader = createCompareLoader();
 
-async function getBrand(props: Props) {
-  const { slug } = await props.params;
-
-  const variables = cachedBrandDataVariables(slug);
-  const data = await getBrandPageData(variables);
-
-  const brand = data.brand;
-
-  if (brand == null) notFound();
-
-  return brand;
-}
-
-async function getTitle(props: Props): Promise<string> {
-  const brand = await getBrand(props);
-
-  return brand.name;
-}
-
-const createBrandSearchParamsCache = cache(async (props: Props) => {
-  const { slug } = await props.params;
-  const brand = cacheBrandFacetedSearch(slug);
-  const brandSearch = await fetchFacetedSearch(brand);
-  const brandFacets = brandSearch.facets.items.filter(
-    (facet) => facet.__typename !== 'BrandSearchFilter',
-  );
-  const transformedBrandFacets = await facetsTransformer({
-    refinedFacets: brandFacets,
-    allFacets: brandFacets,
-    searchParams: {},
-  });
-  const brandFilters = transformedBrandFacets.filter((facet) => facet != null);
-  const filterParsers = getFilterParsers(brandFilters);
-
-  // If there are no filters, return `null`, since calling `createSearchParamsCache` with an empty
-  // object will throw the following cryptic error:
-  //
-  // ```
-  // Error: [nuqs] Empty search params cache. Search params can't be accessed in Layouts.
-  //   See https://err.47ng.com/NUQS-500
-  // ```
-  if (Object.keys(filterParsers).length === 0) {
-    return null;
-  }
-
-  return createSearchParamsCache(filterParsers);
-});
-
-const getRefinedSearch = cache(async (props: Props) => {
-  const { slug } = await props.params;
-  const searchParams = await props.searchParams;
-  const searchParamsCache = await createBrandSearchParamsCache(props);
-  const parsedSearchParams = searchParamsCache?.parse(searchParams) ?? {};
-
-  return await fetchFacetedSearch({
-    sort: 'best_selling',
-    ...searchParams,
-    ...parsedSearchParams,
-    brand: [slug],
-  });
-});
-
-async function getTotalCount(props: Props): Promise<number> {
-  const search = await getRefinedSearch(props);
-
-  return search.products.collectionInfo?.totalItems ?? 0;
-}
-
-async function getFilters(props: Props): Promise<Filter[]> {
-  const { slug } = await props.params;
-  const searchParams = await props.searchParams;
-  const searchParamsCache = await createBrandSearchParamsCache(props);
-  const parsedSearchParams = searchParamsCache?.parse(searchParams) ?? {};
-  const brand = cacheBrandFacetedSearch(slug);
-  const brandSearch = await fetchFacetedSearch(brand);
-  const brandFacets = brandSearch.facets.items.filter(
-    (facet) => facet.__typename !== 'BrandSearchFilter',
-  );
-  const refinedSearch = await getRefinedSearch(props);
-  const refinedFacets = refinedSearch.facets.items.filter(
-    (facet) => facet.__typename !== 'BrandSearchFilter',
-  );
-
-  const transformedFacets = await facetsTransformer({
-    refinedFacets,
-    allFacets: brandFacets,
-    searchParams: { ...searchParams, ...parsedSearchParams },
-  });
-
-  return transformedFacets.filter((facet) => facet != null);
-}
-
-async function getSortOptions(): Promise<SortOption[]> {
-  const t = await getTranslations('FacetedGroup.SortBy');
-
-  return [
-    { value: 'featured', label: t('featuredItems') },
-    { value: 'newest', label: t('newestItems') },
-    { value: 'best_selling', label: t('bestSellingItems') },
-    { value: 'a_to_z', label: t('aToZ') },
-    { value: 'z_to_a', label: t('zToA') },
-    // { value: 'best_reviewed', label: t('byReview') },
-    { value: 'lowest_price', label: t('priceAscending') },
-    { value: 'highest_price', label: t('priceDescending') },
-    { value: 'relevance', label: t('relevance') },
-  ];
-}
-
-async function getProductPromotionBadges(): Promise<Map<number, string>> {
-  try {
-    // Check if fetchPromotions method exists
-    if (typeof client.fetchPromotions !== 'function') {
-      return new Map();
-    }
-
-    const response = await client.fetchPromotions();
-
-    if (!response?.data) {
-      return new Map();
-    }
-
-    const productBadges = new Map<number, string>();
-
-    // Extract all product IDs that have gift promotions
-    response.data.forEach((promo: any) => {
-      if (promo.status === 'ENABLED' && promo.rules) {
-        promo.rules.forEach((rule: any) => {
-          // Check if this rule has a gift item
-          if (rule.action?.gift_item) {
-            // Get the products this rule applies to
-            const products = rule.condition?.cart?.items?.products;
-            if (products && Array.isArray(products)) {
-              products.forEach((productId: number) => productBadges.set(productId, promo.display_name));
-            }
-          }
-        });
-      }
+const createBrandSearchParamsLoader = cache(
+  async (brandId: string, customerAccessToken?: string) => {
+    const cachedBrand = getCachedBrand(brandId);
+    const brandSearch = await fetchFacetedSearch(cachedBrand, undefined, customerAccessToken);
+    const brandFacets = brandSearch.facets.items.filter(
+      (facet) => facet.__typename !== 'BrandSearchFilter',
+    );
+    const transformedBrandFacets = await facetsTransformer({
+      refinedFacets: brandFacets,
+      allFacets: brandFacets,
+      searchParams: {},
     });
+    const brandFilters = transformedBrandFacets.filter((facet) => facet != null);
+    const filterParsers = getFilterParsers(brandFilters);
 
-    return productBadges;
-  } catch (error) {
-    console.error('Error fetching product promotions for badges:', error);
-    return new Map();
-  }
-}
+    // If there are no filters, return `null`, since calling `createLoader` with an empty
+    // object will throw the following cryptic error:
+    //
+    // ```
+    // Error: [nuqs] Empty search params cache. Search params can't be accessed in Layouts.
+    //   See https://err.47ng.com/NUQS-500
+    // ```
+    if (Object.keys(filterParsers).length === 0) {
+      return null;
+    }
 
-async function getListProducts(props: Props): Promise<Product[]> {
-  const refinedSearch = await getRefinedSearch(props);
-  const format = await getFormatter();
-  const productBadges = await getProductPromotionBadges();
-
-  // @ts-ignore
-  return refinedSearch.products.items.map((product) => ({
-    id: product.entityId.toString(),
-    title: product.name,
-    href: product.path,
-    image: product.defaultImage
-      ? { src: product.defaultImage.url, alt: product.defaultImage.altText }
-      : undefined,
-    price: pricesTransformer(product.prices, format),
-    subtitle: product.brand?.name ?? undefined,
-    badge: productBadges.get(product.entityId) ?? '',
-  }));
-}
-
-async function getPaginationInfo(props: Props): Promise<CursorPaginationInfo> {
-  const brandSearch = await getRefinedSearch(props);
-
-  return pageInfoTransformer(brandSearch.products.pageInfo);
-}
-
-async function getShowCompare(props: Props) {
-  const { slug } = await props.params;
-
-  const variables = cachedBrandDataVariables(slug);
-  const data = await getBrandPageData(variables);
-
-  return data.settings?.storefront.catalog?.productComparisonsEnabled ?? false;
-}
-
-const cachedCompareProductIds = cache(async (props: Props) => {
-  const searchParams = await props.searchParams;
-
-  const compareLoader = createCompareLoader();
-
-  const { compare } = compareLoader(searchParams);
-
-  return { entityIds: compare ? compare.map((id: string) => Number(id)) : [] };
-});
-
-async function getCompareProducts(props: Props) {
-  const compareIds = await cachedCompareProductIds(props);
-
-  const products = await getCompareProductsData(compareIds);
-
-  return products.map((product) => ({
-    id: product.entityId.toString(),
-    title: product.name,
-    image: product.defaultImage
-      ? { src: product.defaultImage.url, alt: product.defaultImage.altText }
-      : undefined,
-    href: product.path,
-  }));
-}
-
-async function getFilterLabel(): Promise<string> {
-  const t = await getTranslations('FacetedGroup.FacetedSearch');
-
-  return t('filters');
-}
-
-async function getSortLabel(): Promise<string> {
-  const t = await getTranslations('FacetedGroup.SortBy');
-
-  return t('ariaLabel');
-}
-
-async function getCompareLabel(): Promise<string> {
-  const t = await getTranslations('Components.ProductCard.Compare');
-
-  return t('compare');
-}
-
-async function getRemoveLabel(): Promise<string> {
-  const t = await getTranslations('Components.ProductCard.Compare');
-
-  return t('remove');
-}
-
-async function getMaxCompareLimitMessage(): Promise<string> {
-  const t = await getTranslations('Components.ProductCard.Compare');
-
-  return t('maxCompareLimit');
-}
-
-async function getEmptyStateTitle(): Promise<string> {
-  const t = await getTranslations('Brand');
-
-  return t('emptyStateTitle');
-}
-
-async function getEmptyStateSubtitle(): Promise<string> {
-  const t = await getTranslations('Brand');
-
-  return t('emptyStateSubtitle');
-}
-
-async function getFiltersPanelTitle(): Promise<string> {
-  const t = await getTranslations('FacetedGroup.FacetedSearch');
-
-  return t('filters');
-}
-
-async function getRangeFilterApplyLabel(): Promise<string> {
-  const t = await getTranslations('FacetedGroup.FacetedSearch.Range');
-
-  return t('apply');
-}
-
-async function getResetFiltersLabel(): Promise<string> {
-  const t = await getTranslations('FacetedGroup.FacetedSearch');
-
-  return t('resetFilters');
-}
+    return createLoader(filterParsers);
+  },
+);
 
 interface Props {
   params: Promise<{
     slug: string;
     locale: string;
   }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<SearchParams>;
 }
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
-  const brand = await getBrand(props);
+  const { slug, locale } = await props.params;
+
+  setRequestLocale(locale);
+
+  const customerAccessToken = await getSessionCustomerAccessToken();
+
+  const brandId = Number(slug);
+
+  const { brand } = await getBrandPageData(brandId, customerAccessToken);
+
+  if (!brand) {
+    return notFound();
+  }
+
+  const makeswiftMetadata = await getMakeswiftPageMetadata({ path: brand.path, locale });
 
   const { pageTitle, metaDescription, metaKeywords } = brand.seo;
 
+  // GI: our canonical and Open Graph tags; Makeswift overrides (upstream) win when set.
+  const title = makeswiftMetadata?.title || pageTitle || brand.name;
+  const description = makeswiftMetadata?.description || metaDescription;
   const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL
     ? `${process.env.NEXT_PUBLIC_SITE_URL}${brand.path}`
     : `https://gitool.com${brand.path}`;
-  const title = pageTitle || brand.name;
 
   return {
     title,
-    description: metaDescription,
-    keywords: metaKeywords ? metaKeywords.split(',') : null,
+    ...(description && { description }),
+    ...(metaKeywords && { keywords: metaKeywords.split(',') }),
     alternates: {
       canonical: canonicalUrl,
     },
-    openGraph: buildOpenGraph({ title, description: metaDescription, path: brand.path }),
+    openGraph: buildOpenGraph({ title, description, path: brand.path }),
   };
 }
 
 export default async function Brand(props: Props) {
-  const { locale } = await props.params;
+  const { locale, slug } = await props.params;
+  const customerAccessToken = await getSessionCustomerAccessToken();
+
   setRequestLocale(locale);
 
-  // Fetch all data server-side in parallel
-  const [
-    brand,
-    compareLabel,
-    compareProducts,
-    emptyStateSubtitle,
-    emptyStateTitle,
-    filterLabel,
-    filters,
-    filtersPanelTitle,
-    maxCompareLimitMessage,
-    paginationInfo,
-    products,
-    rangeFilterApplyLabel,
-    removeLabel,
-    resetFiltersLabel,
-    showCompare,
-    sortLabel,
-    sortOptions,
-    title,
-    totalCount,
-  ] = await Promise.all([
-    getBrand(props),
-    getCompareLabel(),
-    getCompareProducts(props),
-    getEmptyStateSubtitle(),
-    getEmptyStateTitle(),
-    getFilterLabel(),
-    getFilters(props),
-    getFiltersPanelTitle(),
-    getMaxCompareLimitMessage(),
-    getPaginationInfo(props),
-    getListProducts(props),
-    getRangeFilterApplyLabel(),
-    getRemoveLabel(),
-    getResetFiltersLabel(),
-    getShowCompare(props),
-    getSortLabel(),
-    getSortOptions(),
-    getTitle(props),
-    getTotalCount(props),
-  ]);
+  const t = await getTranslations('Faceted');
+
+  const brandId = Number(slug);
+
+  const { brand, settings } = await getBrandPageData(brandId, customerAccessToken);
+
+  if (!brand) {
+    return notFound();
+  }
+
+  const showRating = Boolean(settings?.reviews.enabled && settings.display.showProductRating);
+
+  const productComparisonsEnabled =
+    settings?.storefront.catalog?.productComparisonsEnabled ?? false;
+
+  const taxDisplay = settings?.tax?.plp;
+
+  const streamableFacetedSearch = Streamable.from(async () => {
+    const searchParams = await props.searchParams;
+    const currencyCode = await getPreferredCurrencyCode();
+
+    const loadSearchParams = await createBrandSearchParamsLoader(slug, customerAccessToken);
+    const parsedSearchParams = loadSearchParams?.(searchParams) ?? {};
+    // GI: best selling first by default
+    const sort = typeof searchParams.sort === 'string' ? searchParams.sort : 'best_selling';
+
+    const search = await fetchFacetedSearch(
+      {
+        ...searchParams,
+        ...parsedSearchParams,
+        brand: [slug],
+        sort,
+      },
+      currencyCode,
+      customerAccessToken,
+    );
+
+    return search;
+  });
+
+  const streamableProducts = Streamable.from(async () => {
+    const format = await getFormatter();
+
+    const search = await streamableFacetedSearch;
+    const products = search.products.items;
+
+    const { defaultOutOfStockMessage, showOutOfStockMessage, showBackorderMessage } =
+      settings?.inventory ?? {};
+    const productPromotionBadges = await getProductPromotionBadges();
+
+    return productCardTransformer(
+      products,
+      format,
+      showOutOfStockMessage ? defaultOutOfStockMessage : undefined,
+      showBackorderMessage,
+      taxDisplay,
+      productPromotionBadges,
+    );
+  });
+
+  const streamableTotalCount = Streamable.from(async () => {
+    const format = await getFormatter();
+    const search = await streamableFacetedSearch;
+
+    return format.number(search.products.collectionInfo?.totalItems ?? 0);
+  });
+
+  const streamablePagination = Streamable.from(async () => {
+    const search = await streamableFacetedSearch;
+
+    return pageInfoTransformer(search.products.pageInfo);
+  });
+
+  const streamableFilters = Streamable.from(async () => {
+    const searchParams = await props.searchParams;
+    const loadSearchParams = await createBrandSearchParamsLoader(slug, customerAccessToken);
+    const parsedSearchParams = loadSearchParams?.(searchParams) ?? {};
+    const cachedBrand = getCachedBrand(slug);
+    const categorySearch = await fetchFacetedSearch(cachedBrand, undefined, customerAccessToken);
+    const refinedSearch = await streamableFacetedSearch;
+
+    const allFacets = categorySearch.facets.items.filter(
+      (facet) => facet.__typename !== 'BrandSearchFilter',
+    );
+    const refinedFacets = refinedSearch.facets.items.filter(
+      (facet) => facet.__typename !== 'BrandSearchFilter',
+    );
+
+    const transformedFacets = await facetsTransformer({
+      refinedFacets,
+      allFacets,
+      searchParams: { ...searchParams, ...parsedSearchParams },
+    });
+
+    return transformedFacets.filter((facet) => facet != null);
+  });
+
+  const streamableCompareProducts = Streamable.from(async () => {
+    const searchParams = await props.searchParams;
+
+    if (!productComparisonsEnabled) {
+      return [];
+    }
+
+    const { compare } = compareLoader(searchParams);
+
+    const compareIds = { entityIds: compare ? compare.map((id: string) => Number(id)) : [] };
+
+    const products = await getCompareProductsData(compareIds, customerAccessToken);
+
+    return products.map((product) => ({
+      id: product.entityId.toString(),
+      title: product.name,
+      image: product.defaultImage
+        ? { src: product.defaultImage.url, alt: product.defaultImage.altText }
+        : undefined,
+      href: product.path,
+    }));
+  });
 
   return (
-    <>
-      <ProductsListSection
+    <ProductsListSection
+      // GI: optional Makeswift content for this brand's page
       belowTitleSlot={<OptionalMakeswiftSection locale={locale} path={brand.path} />}
-      compareLabel={compareLabel}
-      // @ts-ignore
-      compareProducts={compareProducts}
-      emptyStateSubtitle={emptyStateSubtitle}
-      emptyStateTitle={emptyStateTitle}
-      filterLabel={filterLabel}
-      filters={filters}
-      filtersPanelTitle={filtersPanelTitle}
-      maxCompareLimitMessage={maxCompareLimitMessage}
+      compareLabel={t('Compare.compare')}
+      compareProducts={streamableCompareProducts}
+      emptyStateSubtitle={t('Brand.Empty.subtitle')}
+      emptyStateTitle={t('Brand.Empty.title')}
+      filterLabel={t('FacetedSearch.filters')}
+      filters={streamableFilters}
+      filtersPanelTitle={t('FacetedSearch.filters')}
+      maxCompareLimitMessage={t('Compare.maxCompareLimit')}
       maxItems={MAX_COMPARE_LIMIT}
-      paginationInfo={paginationInfo}
-      products={products}
-      rangeFilterApplyLabel={rangeFilterApplyLabel}
-      removeLabel={removeLabel}
-      resetFiltersLabel={resetFiltersLabel}
-      showCompare={showCompare}
+      paginationInfo={streamablePagination}
+      products={streamableProducts}
+      rangeFilterApplyLabel={t('FacetedSearch.Range.apply')}
+      removeLabel={t('Compare.remove')}
+      resetFiltersLabel={t('FacetedSearch.resetFilters')}
+      showCompare={productComparisonsEnabled}
+      showRating={showRating}
       sortDefaultValue="best_selling"
-      sortLabel={sortLabel}
-      sortOptions={sortOptions}
+      sortLabel={t('Search.title')}
+      sortOptions={[
+        { value: 'featured', label: t('SortBy.featuredItems') },
+        { value: 'newest', label: t('SortBy.newestItems') },
+        { value: 'best_selling', label: t('SortBy.bestSellingItems') },
+        { value: 'a_to_z', label: t('SortBy.aToZ') },
+        { value: 'z_to_a', label: t('SortBy.zToA') },
+        // GI: no "by review" sort while reviews are hidden
+        { value: 'lowest_price', label: t('SortBy.priceAscending') },
+
+        { value: 'highest_price', label: t('SortBy.priceDescending') },
+        { value: 'relevance', label: t('SortBy.relevance') },
+      ]}
       sortParamName="sort"
-      title={title}
-      totalCount={totalCount}
+      title={brand.name}
+      totalCount={streamableTotalCount}
     />
-    </>
   );
 }

@@ -1,13 +1,19 @@
 import { clsx } from 'clsx';
+import { Fragment } from 'react';
 
 import { ButtonLink } from '@/vibes/soul/primitives/button-link';
-import { Product, ProductCard, ProductCardSkeleton } from '@/vibes/soul/primitives/product-card';
+import {
+  type Product,
+  ProductCard,
+  ProductCardSkeleton,
+} from '@/vibes/soul/primitives/product-card';
 import { Rating } from '@/vibes/soul/primitives/rating';
+import { Reveal } from '@/vibes/soul/primitives/reveal';
 import * as Skeleton from '@/vibes/soul/primitives/skeleton';
 
 import { AddToCartForm, CompareAddToCartAction } from './add-to-cart-form';
 
-export interface CompareCardWithId extends Product {
+export interface CompareProduct extends Product {
   description?: string | React.ReactNode;
   customFields?: Array<{ name: string; value: string }>;
   hasVariants?: boolean;
@@ -17,7 +23,7 @@ export interface CompareCardWithId extends Product {
 
 export interface CompareCardProps {
   className?: string;
-  product: CompareCardWithId;
+  product: CompareProduct;
   addToCartLabel?: string;
   descriptionLabel?: string;
   noDescriptionLabel?: string;
@@ -27,6 +33,8 @@ export interface CompareCardProps {
   noOtherDetailsLabel?: string;
   viewOptionsLabel?: string;
   preorderLabel?: string;
+  showMoreLabel?: string;
+  showLessLabel?: string;
   addToCartAction?: CompareAddToCartAction;
   imageSizes?: string;
 }
@@ -60,12 +68,14 @@ export function CompareCard({
   noOtherDetailsLabel = 'There are no other details.',
   viewOptionsLabel = 'View options',
   preorderLabel = 'Preorder',
+  showMoreLabel = 'Show more',
+  showLessLabel = 'Show less',
   imageSizes,
 }: CompareCardProps) {
   return (
     <div
       className={clsx(
-        'w-full max-w-md divide-y divide-[var(--compare-card-divider,hsl(var(--contrast-100)))] font-[family-name:var(--compare-card-font-family-primary,var(--font-family-body))] font-normal @container',
+        'w-full max-w-72 divide-y divide-[var(--compare-card-divider,hsl(var(--contrast-100)))] font-[family-name:var(--compare-card-font-family-primary,var(--font-family-body))] font-normal @container',
         className,
       )}
     >
@@ -104,9 +114,9 @@ export function CompareCard({
           {descriptionLabel}
         </div>
         {product.description != null && product.description !== '' ? (
-          <div className="text-sm text-[var(--compare-card-description,hsl(var(--contrast-400)))]">
-            {product.description}
-          </div>
+          <Reveal hideLabel={showLessLabel} showLabel={showMoreLabel}>
+            <div className="prose prose-sm [&>div>*:first-child]:mt-0">{product.description}</div>
+          </Reveal>
         ) : (
           <p className="text-sm text-[var(--compare-card-description,hsl(var(--contrast-400)))]">
             {noDescriptionLabel}
@@ -118,13 +128,16 @@ export function CompareCard({
           <div className="font-[family-name:var(--compare-card-font-family-secondary,var(--font-family-mono))] text-xs font-normal uppercase text-[var(--compare-card-label,hsl(var(--foreground)))]">
             {otherDetailsLabel}
           </div>
-          {product.customFields.map((field, index) => (
-            <div key={index}>
-              <p className="text-xs font-normal text-[var(--compare-card-field,hsl(var(--foreground)))]">
-                <strong>{field.name}</strong>: {field.value}
-              </p>
-            </div>
-          ))}
+          <Reveal hideLabel={showLessLabel} showLabel={showMoreLabel}>
+            <dl className="grid grid-cols-2 gap-1 text-xs font-normal text-[var(--compare-card-field,hsl(var(--foreground)))]">
+              {product.customFields.map((field, index) => (
+                <Fragment key={index}>
+                  <dt className="font-semibold">{field.name}: </dt>
+                  <dd>{field.value}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          </Reveal>
         </div>
       ) : (
         <div className="space-y-4 py-4">

@@ -9,7 +9,7 @@ import { Image } from '~/components/image';
 interface Option {
   value: string;
   label: string;
-  image: { src: string; alt: string };
+  image?: { src: string; alt: string };
   disabled?: boolean;
 }
 
@@ -50,7 +50,16 @@ export const CardRadioGroup = React.forwardRef<
   }
 >(
   (
-    { label, options, errors, className, onOptionMouseEnter, colorScheme = 'light', ...rest },
+    {
+      label,
+      options,
+      errors,
+      className,
+      onOptionMouseEnter,
+      colorScheme = 'light',
+      required,
+      ...rest
+    },
     ref,
   ) => {
     const id = React.useId();
@@ -58,11 +67,17 @@ export const CardRadioGroup = React.forwardRef<
     return (
       <div className={clsx('space-y-2', className)}>
         {label !== undefined && label !== '' && (
-          <Label colorScheme={colorScheme} id={id}>
+          <Label colorScheme={colorScheme} id={id} required={required}>
             {label}
           </Label>
         )}
-        <RadioGroupPrimitive.Root {...rest} aria-labelledby={id} className="space-y-2" ref={ref}>
+        <RadioGroupPrimitive.Root
+          {...rest}
+          aria-labelledby={id}
+          className="space-y-2"
+          ref={ref}
+          required={required}
+        >
           {options.map((option) => (
             <RadioGroupPrimitive.Item
               aria-label={option.label}
@@ -92,20 +107,24 @@ export const CardRadioGroup = React.forwardRef<
               }}
               value={option.value}
             >
-              <div className="relative aspect-square h-full">
-                <Image
-                  alt={option.image.alt}
-                  className="bg-background object-fill"
-                  fill
-                  src={option.image.src}
-                />
-              </div>
+              {option.image && (
+                <div className="relative aspect-square h-full">
+                  <Image
+                    alt={option.image.alt}
+                    className="bg-background object-fill"
+                    fill
+                    src={option.image.src}
+                  />
+                </div>
+              )}
 
               <span className="flex-1 truncate text-ellipsis px-4 text-left">{option.label}</span>
             </RadioGroupPrimitive.Item>
           ))}
         </RadioGroupPrimitive.Root>
-        {errors?.map((error) => <FieldError key={error}>{error}</FieldError>)}
+        {errors?.map((error) => (
+          <FieldError key={error}>{error}</FieldError>
+        ))}
       </div>
     );
   },

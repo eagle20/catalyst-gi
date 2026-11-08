@@ -3,7 +3,6 @@ import { cache } from 'react';
 import { getSessionCustomerAccessToken } from '~/auth';
 import { client } from '~/client';
 import { graphql } from '~/client/graphql';
-import { revalidate } from '~/client/revalidate-target';
 import { TAGS } from '~/client/tags';
 import { WishlistsFragment } from '~/components/wishlist/fragment';
 import { getPreferredCurrencyCode } from '~/lib/currency';
@@ -21,6 +20,13 @@ const WishlistsPageQuery = graphql(
       customer {
         wishlists(first: $first, after: $after, last: $last, before: $before, filters: $filters) {
           ...WishlistsFragment
+        }
+      }
+      site {
+        settings {
+          tax {
+            plp
+          }
         }
       }
     }
@@ -42,7 +48,7 @@ export const getCustomerWishlists = cache(async ({ limit = 9, before, after }: P
     document: WishlistsPageQuery,
     variables: { ...paginationArgs, currencyCode },
     customerAccessToken,
-    fetchOptions: { next: { revalidate, tags: [TAGS.customer] } },
+    fetchOptions: { cache: 'no-store', next: { tags: [TAGS.customer] } },
   });
 
   const wishlists = response.data.customer?.wishlists;
@@ -51,5 +57,5 @@ export const getCustomerWishlists = cache(async ({ limit = 9, before, after }: P
     return null;
   }
 
-  return wishlists;
+  return { wishlists, taxDisplay: response.data.site.settings?.tax?.plp };
 });

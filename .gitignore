@@ -3,15 +3,25 @@ dist
 .turbo
 .vscode/**/*
 !.vscode/settings.example.json
+!.vscode/launch.example.json
 .idea
 .vercel
 .catalyst
 .env
 .env*.local
+.env*.test
 test-results/
 playwright-report/
 playwright/.cache/
+.tests
+# gql.tada artifacts from `pnpm run -r generate`. Ignored for contributors, who
+# work against unreleased schemas; scaffolded projects commit them instead — see
+# CONTRIBUTING.md and do not add these to core/.gitignore.
 bigcommerce.graphql
 bigcommerce-graphql.d.ts
 .DS_Store
 coverage/
+.history
+.unlighthouse
+.bigcommerce
+.mcp.json
