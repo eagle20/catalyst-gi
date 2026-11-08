@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { FormStatus } from '@/vibes/soul/form/form-status';
 import { NumberInput } from '@/vibes/soul/form/number-input';
 import { Button } from '@/vibes/soul/primitives/button';
-import { getB2BPricing, type B2BPricingResult } from '~/lib/b2b/api';
+import { B2BAccessError, type B2BPricingResult, getB2BPricing } from '~/lib/b2b/api';
 import { useB2BCart } from './cart-context';
 
 interface Props {
@@ -25,16 +25,37 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, produ
   const [quantity, setQuantity] = useState(1);
   const [pricingLoading, setPricingLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [accessError, setAccessError] = useState<string | null>(null);
 
   useEffect(() => {
     getB2BPricing(sku)
       .then(setPricing)
-      .catch(() => setPricing({ sku, price: null }))
+      .catch((err: unknown) => {
+        if (err instanceof B2BAccessError) {
+          setAccessError(err.message);
+        }
+
+        setPricing({ sku, price: null });
+      })
       .finally(() => setPricingLoading(false));
   }, [sku]);
 
   if (pricingLoading) {
     return <div className="h-48 animate-pulse rounded-xl bg-contrast-100" />;
+  }
+
+  // The portal doesn't recognise this customer, so B2B pricing and the B2B cart can't work.
+  if (accessError) {
+    return (
+      <div className="rounded-lg border border-[hsl(var(--contrast-200))] bg-[hsl(var(--background))] p-6">
+        <span className="rounded-full bg-[hsl(var(--foreground))] px-3 py-1 text-xs font-semibold text-[hsl(var(--background))]">
+          B2B Account Pricing
+        </span>
+        <div className="mt-5">
+          <FormStatus type="error">{accessError}</FormStatus>
+        </div>
+      </div>
+    );
   }
 
   const contractPrice = pricing?.price ?? null;
@@ -50,6 +71,12 @@ export function B2BProductWidget({ sku, productName, bcProductId, bcPrice, produ
         text: `${quantity} × ${productName} added to your B2B cart.`,
       });
     } catch (err) {
+      if (err instanceof B2BAccessError) {
+        setAccessError(err.message);
+
+        return;
+      }
+
       setMessage({
         type: 'error',
         text: err instanceof Error ? err.message : 'Failed to add to cart. Please try again.',

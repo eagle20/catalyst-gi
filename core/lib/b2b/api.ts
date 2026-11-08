@@ -31,8 +31,21 @@ export interface B2BCart {
   items: B2BCartItem[];
 }
 
+/**
+ * Thrown when the portal doesn't recognise the logged-in customer (401): they're in a B2B customer
+ * group in BigCommerce but have no portal user linked to a company, or the storefront and portal
+ * shared secrets don't match.
+ */
+export class B2BAccessError extends Error {
+  constructor() {
+    super("Your B2B portal access isn't set up yet. Please contact your sales rep.");
+    this.name = 'B2BAccessError';
+  }
+}
+
 export async function getB2BPricing(sku: string): Promise<B2BPricingResult> {
   const res = await fetch(`/api/b2b/pricing?sku=${encodeURIComponent(sku)}`);
+  if (res.status === 401) throw new B2BAccessError();
   if (!res.ok) throw new Error(`B2B pricing fetch failed: ${res.status}`);
   return res.json() as Promise<B2BPricingResult>;
 }
@@ -74,6 +87,7 @@ export async function addToB2BCart(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sku, quantity, bcProductId, productName, unitPrice, notes, productUrl }),
   });
+  if (res.status === 401) throw new B2BAccessError();
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error ?? `Add to B2B cart failed: ${res.status}`);

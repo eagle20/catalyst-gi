@@ -2,6 +2,29 @@
 
 _Assessed 2026-11-07. Upstream refs: `bigcommerce/catalyst` `integrations/makeswift` @ 1.13.1 (2026-10-28), `canary` @ 45627f21 (2026-11-06). Our ref: `origin/main` @ f13bbcb3._
 
+## Status (2026-11-08)
+
+| Step | Status |
+|---|---|
+| 1. Security patch on `main` | Done: PR #8 merged (Next 15.5.29, React 19.2.9) |
+| 2. Merge `integrations/makeswift` | Done on `upgrade/catalyst-1.13` (PR #9) |
+| 3. Build on Next 16 / Node 24 | Done: `next build` passes; `tsc` down from 57 to 8 errors, all in our promotions, gift-product and customer-group code |
+| 4. Preview testing | Done: checklist run on the Vercel preview, no errors found. B2B cart blocked by a portal setup issue (below) |
+| 5. Merge to `main`, Vercel Node 24.x | Not yet. Awaiting code review |
+| 6. Stay current | Merge `integrations/makeswift` every one to two months |
+
+Fixed during testing: our custom Makeswift lists used `.map(async ...)`, which broke the home page under Makeswift 0.29 (React error #482). The Lighthouse and Bundle Size workflows from upstream now run on manual dispatch only; both expect BigCommerce's own setup.
+
+Decisions made: keep PayPal and wallet buttons in the cart. Test the Makeswift editor on the live site after the merge.
+
+### Follow-ups
+
+- **B2B cart returns 401** on both the preview and the live site. The test customer (`nisharajan.mail@gmail.com`) is in a BigCommerce "b2b" customer group but has no portal user, so the portal rejects it. Onboard the customer in the portal admin. Separately, update the storefront's `B2B_PORTAL_SECRET` in Vercel (Production and Preview) to match the portal's production `PORTAL_API_SECRET`, which was re-created about 76 days ago while the storefront's is 187 days old. The B2B widget now shows "Your B2B portal access isn't set up yet" on a 401 instead of failing silently.
+- **GA4 checkout began:** the old BODL analytics was replaced by upstream's analytics provider, which has no checkout-began event.
+- **Customer headers on every BigCommerce request** (`core/client/before-request.ts`): these headers are part of Next's Data Cache key, which makes cached queries per-customer, and BigCommerce ignores them. Check whether anything reads them.
+- **Unused review code**: `product/[slug]/_actions/add-review.ts` is no longer used, because upstream's review form replaced it.
+- **Makeswift editor**: verify on the live site after the merge.
+
 ## Summary
 
 Getting up to date is realistic if we merge BigCommerce's **`integrations/makeswift`** branch, not plain `canary`. Our site is the Makeswift edition. Plain `canary` no longer carries Makeswift and is much further from our code.
